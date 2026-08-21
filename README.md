@@ -142,9 +142,9 @@ Click a column's count chip to set a Work-In-Progress limit (0 or blank clears i
 
 The header search box filters the active board client-side in real time (titles, content, labels, tags). Pressing **Enter** runs a full-text search across all notes in your account and lets you navigate to any match.
 
-### Themes
+### Themes & Design System
 
-Click the 🎨 theme button or press **T** (outside inputs) to cycle 8 curated palettes with light/dark parity.
+Click the 🎨 theme button or press **T** (outside inputs) to cycle 8 curated palettes with light/dark parity. Powered by Google Fonts (**Inter** + **JetBrains Mono**), tactile micro-interactions, accessible focus rings, and smooth hardware-accelerated transitions.
 
 | Theme | Type | | Theme | Type |
 | :--- | :--- | :--- | :--- | :--- |
@@ -181,7 +181,7 @@ lib/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: npx jest "anp-15-kanban/test")
+test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (18 suites, 190 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```

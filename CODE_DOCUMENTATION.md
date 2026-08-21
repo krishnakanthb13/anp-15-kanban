@@ -142,23 +142,25 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `renameNote` | `handleRenameNote` | Renames note on Tag / Notes boards |
 
 ---
-
-## Client-Side Scripting (`ui/clientScript.js`)
-
-Runs inside the embed iframe. Key technical constraints and features:
-- **String template safety**: Avoids unescaped backslashes, double quotes, and regex literals to prevent corruption during string embedding. Uses `String.fromCharCode()` for character escapes.
-- **Optimistic UI**: Reorders DOM nodes on drag drop immediately, reconciled when the server re-renders.
-- **Conditional Badge Rendering**: Only renders badges, time ranges, and info rows when the task possesses non-null values for those properties.
-- **Visual Sort vs Persistent Sort**:
-  - `cycleSort()` cycles in-memory array sorting and re-renders columns instantly.
-  - Controls visibility of `#kb-save-sort-btn`, enabling the user to trigger `saveSortToNote`.
-
----
-
-## Testing Strategy
-
-```bash
-npx jest "anp-15-kanban/test"     # Jest unit and integration suites (18 suites, 187 tests)
-node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
-node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
-```
+ 
+ ## UI & Design Architecture (`ui/`)
+ 
+ - **`themes.js`**:
+   - 8-theme registry (`Clean Daylight`, `Sepia Parchment`, `Matcha Latte`, `Nord Frost`, `Midnight Slate`, `Nord Arctic`, `Dracula Neo`, `Emerald Forest`).
+   - CSS custom property declarations (`--kb-*`) enforcing light/dark parity across backgrounds, borders, headers, cards, text, accents, danger states, and elevations.
+ - **`boardTemplate.js`**:
+   - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
+   - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 768px)` breakpoints.
+   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
+ - **`clientScript.js`**:
+   - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, optimistic UI updates, search filtering, card inspector, and 0ms client theme cycler.
+ 
+ ---
+ 
+ ## Testing Strategy
+ 
+ ```bash
+ npx jest "anp-15-kanban/test"     # Jest unit and integration suites (18 suites, 190 tests)
+ node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
+ node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
+ ```

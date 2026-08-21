@@ -65,3 +65,11 @@ Task relocation and sorting rewrite the note from a minimal line diff rather tha
 Eight curated themes ship in balanced light/dark pairs using pure CSS custom properties (`--kb-*`).
 
 **Why:** Theming should never require auditing dozens of layout components for contrast bugs. Standardized CSS tokens enable instant 0ms client-side theme cycling while synchronizing theme preferences cross-device.
+
+---
+
+## 9. Tactile, Accessible, and High-Performance UI Aesthetics
+
+The interface combines Google Fonts typography (**Inter** + **JetBrains Mono**), calibrated typography scales, and tactile micro-interactions (hover elevations, button active scales, WIP pulsing warnings, and drag-drop ghost tilts) with full WCAG focus-visible rings and `@media (prefers-reduced-motion: reduce)` support.
+
+**Why:** Productivity tools must feel delightful and responsive without sacrificing legibility or accessibility. Smooth hardware-accelerated transitions and distinct visual hierarchies turn raw task lists into an engaging, state-of-the-art workflow board.

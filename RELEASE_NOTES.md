@@ -1,3 +1,14 @@
+## v0.0.15 (2026-08-21) — UI/UX Pro Max & Typography Polish
+
+### 🚀 New Features & Enhancements
+- **Google Fonts Typography**: Loaded **Inter** (wght@400;500;600;700) and **JetBrains Mono** (wght@500;600) with calibrated line-heights, letter-spacing, and smooth font antialiasing.
+- **Tactile Micro-Interactions**: Smooth hover elevations (`translateY(-2px)` + soft drop shadows), button press scaling (`scale(0.98)`), animated card drag tilt, and pulsing WIP limit warning indicators.
+- **Glassmorphic Sticky Header**: Subtle backdrop blur (`backdrop-filter: blur(8px)`) with sticky top positioning and expanded focus glow on search.
+- **Accessibility & Motion Compliance**: Integrated WCAG `:focus-visible` focus rings for keyboard navigation and full `@media (prefers-reduced-motion: reduce)` support.
+- **Mobile & Narrow Layout Responsiveness**: Added `@media (max-width: 768px)` breakpoints for compact search and horizontal scrolling columns.
+
+---
+
 ## v0.0.13 (2026-08-21) — Notes Boards
 
 ### 🚀 New Features
