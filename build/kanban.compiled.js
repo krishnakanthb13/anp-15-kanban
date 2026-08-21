@@ -289,8 +289,32 @@ function buildClientScript() {
 
       var head = el("header", "kb-column-head");
       head.appendChild(el("h3", "kb-column-title", col.name));
-      head.appendChild(el("span", "kb-count", String(col.cards ? col.cards.length : 0)));
+
+      // Count chip doubles as the WIP-limit control; turns red past the limit.
+      var over = col.wipLimit && col.cards && col.cards.length > col.wipLimit;
+      var count = el("span", "kb-count" + (over ? " kb-over" : ""),
+        over ? col.cards.length + " / " + col.wipLimit : String(col.cards ? col.cards.length : 0));
+      count.title = "Set WIP limit";
+      count.addEventListener("click", function () {
+        callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id });
+      });
+      head.appendChild(count);
       colEl.appendChild(head);
+
+      var tools = el("div", "kb-col-tools");
+      addTool(tools, "\\u2190", "Move column left", function () {
+        callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "left" });
+      });
+      addTool(tools, "\\u2192", "Move column right", function () {
+        callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "right" });
+      });
+      addTool(tools, "\\u270E", "Rename column", function () {
+        callPlugin("renameColumn", { tabId: STATE.activeTabId, columnId: col.id });
+      });
+      addTool(tools, "\\u2715", "Delete column (tasks move to top)", function () {
+        callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
+      });
+      head.appendChild(tools);
 
       var addBtn = el("button", "kb-add-card", "+");
       addBtn.type = "button";
@@ -310,6 +334,14 @@ function buildClientScript() {
     });
   }
 
+  function addTool(host, glyph, title, onClick) {
+    var btn = el("button", "kb-col-btn", glyph);
+    btn.type = "button";
+    btn.title = title;
+    btn.addEventListener("click", onClick);
+    host.appendChild(btn);
+  }
+
   /* ---------------- drag & drop ---------------- */
 
   var dragCardId = null;
@@ -319,8 +351,25 @@ function buildClientScript() {
     cardEl.setAttribute("data-card-id", card.id);
     cardEl.setAttribute("draggable", "true");
 
-    var title = el("div", "kb-card-title", card.title);
-    cardEl.appendChild(title);
+    // Rich body: Amplenote's own editor markup (functional Rich Footnotes,
+    // links, formatting). Falls back to the plain-text preview.
+    if (card.html) {
+      var body = el("div", "kb-card-body");
+      body.innerHTML = card.html;
+      cardEl.appendChild(body);
+    } else {
+      cardEl.appendChild(el("div", "kb-card-title", card.title));
+    }
+
+    if (card.imageUrl) {
+      var img = document.createElement("img");
+      img.className = "kb-card-img";
+      img.loading = "lazy";
+      img.src = card.imageUrl;
+      img.alt = "";
+      cardEl.appendChild(img);
+    }
+
     if (card.completedAt || card.startAt || card.deadline) {
       var bits = [];
       if (card.completedAt) bits.push("\\u2713 done");
@@ -340,9 +389,10 @@ function buildClientScript() {
       cardEl.classList.remove("kb-dragging");
     });
 
-    // Click (without drag) opens the raw-markdown editor.
-    cardEl.addEventListener("click", function () {
+    // Click (without drag, and not on a link) opens the raw-markdown editor.
+    cardEl.addEventListener("click", function (e) {
       if (dragCardId) return;
+      if (e.target && e.target.closest && e.target.closest("a")) return;
       callPlugin("editCard", { cardId: card.id });
     });
 
@@ -385,7 +435,15 @@ function buildClientScript() {
 
   function cssEscape(value) {
     if (window.CSS && CSS.escape) return CSS.escape(value);
-    return String(value).replace(/["\\]/g, "\\$&");
+    // NOTE: this script ships inside a template literal, so it must never
+    // contain backslash escapes or embedded double quotes \u2014 both get
+    // corrupted in transit. String.fromCharCode keeps this escape-free.
+    var BS = String.fromCharCode(92);
+    var DQ = String.fromCharCode(34);
+    var s = String(value);
+    s = s.split(BS).join(BS + BS);
+    s = s.split(DQ).join(BS + DQ);
+    return s;
   }
 
   function formatStamp(unixSeconds) {
@@ -636,6 +694,33 @@ function buildBaseCss() {
         border: 1px solid var(--kb-border);
         border-radius: 10px;
         padding: 1px 8px;
+        cursor: pointer;
+    }
+    .kb-count.kb-over {
+        color: var(--kb-accent-text);
+        background: var(--kb-danger);
+        border-color: var(--kb-danger);
+        font-weight: 700;
+    }
+    .kb-col-tools {
+        display: flex;
+        gap: 2px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+    .kb-column:hover .kb-col-tools { opacity: 1; }
+    .kb-col-btn {
+        background: transparent;
+        border: none;
+        color: var(--kb-text-muted);
+        font-size: 12px;
+        line-height: 1;
+        padding: 3px 4px;
+        border-radius: 4px;
+    }
+    .kb-col-btn:hover {
+        background: var(--kb-bg-card);
+        color: var(--kb-accent);
     }
     .kb-cards {
         padding: 8px;
@@ -674,6 +759,19 @@ function buildBaseCss() {
     }
     .kb-column-last .kb-column-title { color: var(--kb-accent); }
     .kb-card-title { font-size: 13px; }
+    .kb-card-body { font-size: 13px; overflow-wrap: break-word; }
+    .kb-card-body img { max-width: 100%; border-radius: 6px; }
+    .kb-card-body ample-editor,
+    .kb-card-body .ample-editor { display: block; }
+    .kb-card-body a { color: var(--kb-accent); }
+    .kb-card-img {
+        display: block;
+        width: 100%;
+        max-height: 160px;
+        object-fit: cover;
+        border-radius: 6px;
+        margin-top: 8px;
+    }
     .kb-card-meta {
         margin-top: 4px;
         font-size: 11px;
@@ -740,10 +838,20 @@ function safeParse(raw) {
     return null;
   }
 }
+function normalizeColumnLimits(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [name, limit] of Object.entries(raw)) {
+    if (typeof name === "string" && name && Number.isInteger(limit) && limit > 0) {
+      out[name] = limit;
+    }
+  }
+  return out;
+}
 function normalizeConfig(raw) {
   const base = emptyTabsConfig();
   if (!raw || typeof raw !== "object") return base;
-  const tabs = Array.isArray(raw.tabs) ? raw.tabs.filter(isValidTab) : [];
+  const tabs = Array.isArray(raw.tabs) ? raw.tabs.filter(isValidTab).map((t) => ({ ...t, columnLimits: normalizeColumnLimits(t.columnLimits) })) : [];
   const activeTabId = typeof raw.activeTabId === "string" && tabs.some((t) => t.id === raw.activeTabId) ? raw.activeTabId : tabs[0] ? tabs[0].id : null;
   const dateFormat = typeof raw.settings?.dateFormat === "string" && raw.settings.dateFormat.trim() ? raw.settings.dateFormat : base.settings.dateFormat;
   return { tabs, activeTabId, settings: { dateFormat } };
@@ -941,6 +1049,75 @@ async function updateCardContent(app, taskUuid, content) {
   await app.updateTask(taskUuid, { content });
 }
 
+// anp-15-kanban/lib/api/columnOps.js
+var HEADING_LINE_RE = /^(#{1,6})\s+(.*)$/;
+async function readLines(app, noteUUID) {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  return markdown.split("\n");
+}
+function headingLevel(line) {
+  const m = String(line).match(HEADING_LINE_RE);
+  return m ? m[1].length : null;
+}
+async function createColumn(app, noteUUID, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return false;
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  const { columns } = buildColumnSpans(markdown);
+  const level = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
+  await app.insertNoteContent(
+    { uuid: noteUUID },
+    `
+${"#".repeat(level)} ${trimmed}
+`,
+    { atEnd: true }
+  );
+  return true;
+}
+async function renameColumn(app, noteUUID, columnId, newName) {
+  const trimmed = String(newName || "").trim();
+  if (!trimmed) return false;
+  const lines = await readLines(app, noteUUID);
+  const { columns } = buildColumnSpans(lines.join("\n"));
+  const span = resolveSpan(columns, columnId);
+  if (!span) return false;
+  const level = headingLevel(lines[span.startLine]) || 1;
+  lines[span.startLine] = `${"#".repeat(level)} ${trimmed}`;
+  await app.replaceNoteContent({ uuid: noteUUID }, lines.join("\n"));
+  return true;
+}
+async function deleteColumn(app, noteUUID, columnId) {
+  const lines = await readLines(app, noteUUID);
+  const { columns } = buildColumnSpans(lines.join("\n"));
+  const span = resolveSpan(columns, columnId);
+  if (!span) return false;
+  if (columns.length <= 1) return false;
+  const extracted = lines.slice(span.contentStart, span.contentEnd).filter((line, i, arr) => !(line.trim() === "" && (i === 0 || i === arr.length - 1)));
+  const next = [
+    ...lines.slice(0, span.startLine),
+    ...lines.slice(span.contentEnd)
+  ];
+  const insertAt = span.startLine === columns[0].startLine ? 0 : Math.max(columns[0].startLine, 0);
+  next.splice(insertAt, 0, ...extracted);
+  await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
+  return true;
+}
+async function reorderColumns(app, noteUUID, orderedIds) {
+  const lines = await readLines(app, noteUUID);
+  const markdown = lines.join("\n");
+  const { columns, preambleEnd } = buildColumnSpans(markdown);
+  if (!columns.length || !Array.isArray(orderedIds)) return false;
+  if (orderedIds.length !== columns.length) return false;
+  const spans = orderedIds.map((id) => resolveSpan(columns, id));
+  if (spans.some((s) => !s) || new Set(spans.map((s) => s.id)).size !== columns.length) return false;
+  const rebuilt = [...lines.slice(0, Math.max(preambleEnd - 1, 0))];
+  for (const span of spans) {
+    rebuilt.push(...lines.slice(span.startLine, span.contentEnd));
+  }
+  await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
+  return true;
+}
+
 // anp-15-kanban/lib/features/embedActions.js
 async function rerender(app) {
   if (typeof app.context?.renderEmbed === "function") {
@@ -1015,6 +1192,92 @@ async function handleEditCard(app, payload) {
   await updateCardContent(app, cardId, result[0]);
   await rerender(app);
 }
+async function resolveColumn(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || !payload.columnId) return null;
+  const markdown = await app.getNoteContent({ uuid: tab.noteUUID });
+  const { columns } = buildColumnSpans(markdown);
+  const span = resolveSpan(columns, payload.columnId);
+  if (!span) return null;
+  return { tab, columnName: span.name };
+}
+async function handleCreateColumn(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab) return;
+  const result = await app.prompt("New column", {
+    inputs: [{ label: "Column name:", type: "text" }]
+  });
+  if (!result || !result[0] || !String(result[0]).trim()) return;
+  const created = await createColumn(app, tab.noteUUID, result[0]);
+  if (created) await rerender(app);
+}
+async function handleRenameColumn(app, payload) {
+  const resolved = await resolveColumn(app, payload);
+  if (!resolved) return;
+  const { tab, columnName } = resolved;
+  const result = await app.prompt("Rename column", {
+    inputs: [{ label: "Column name:", type: "text", value: columnName }]
+  });
+  if (!result || !result[0] || !String(result[0]).trim() || String(result[0]) === columnName) return;
+  const renamed = await renameColumn(app, tab.noteUUID, payload.columnId, result[0]);
+  if (renamed) await rerender(app);
+}
+async function handleDeleteColumn(app, payload) {
+  const resolved = await resolveColumn(app, payload);
+  if (!resolved) return;
+  const { tab, columnName } = resolved;
+  const result = await app.prompt(`Delete "${columnName}"?`, {
+    inputs: [
+      {
+        label: "I understand: the heading is removed and its tasks move to the top of the note.",
+        type: "checkbox",
+        value: false
+      }
+    ]
+  });
+  if (!result || result[0] !== true) return;
+  const deleted = await deleteColumn(app, tab.noteUUID, payload.columnId);
+  if (deleted) await rerender(app);
+}
+async function handleMoveColumn(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || !payload.columnId) return;
+  const direction = payload.direction === "left" ? "left" : "right";
+  const markdown = await app.getNoteContent({ uuid: tab.noteUUID });
+  const { columns } = buildColumnSpans(markdown);
+  const index = columns.findIndex((c) => c.id === String(payload.columnId));
+  if (index === -1) return;
+  const target = direction === "left" ? index - 1 : index + 1;
+  if (target < 0 || target >= columns.length) return;
+  const order = columns.map((c) => c.id);
+  [order[index], order[target]] = [order[target], order[index]];
+  const moved = await reorderColumns(app, tab.noteUUID, order);
+  if (moved) await rerender(app);
+}
+async function handleSetWipLimit(app, payload) {
+  const resolved = await resolveColumn(app, payload);
+  if (!resolved) return;
+  const { tab, columnName } = resolved;
+  const current = tab.columnLimits && tab.columnLimits[columnName] || "";
+  const result = await app.prompt(`WIP limit for "${columnName}"`, {
+    inputs: [{
+      label: "Max cards (0 or blank = no limit):",
+      type: "string",
+      value: String(current)
+    }]
+  });
+  if (!result) return;
+  const parsed = parseInt(String(result[0]).trim(), 10);
+  const config = await loadTabsConfig(app);
+  const storedTab = tabById(config, tab.id);
+  if (!storedTab) return;
+  const limits = { ...storedTab.columnLimits || {} };
+  if (Number.isInteger(parsed) && parsed > 0) limits[columnName] = parsed;
+  else delete limits[columnName];
+  storedTab.columnLimits = limits;
+  await saveTabsConfig(app, config);
+  await rerender(app);
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
@@ -1023,7 +1286,12 @@ var ACTIONS = {
   refreshAll: handleRefreshAll,
   moveCard: handleMoveCard,
   createCard: handleCreateCard,
-  editCard: handleEditCard
+  editCard: handleEditCard,
+  createColumn: handleCreateColumn,
+  renameColumn: handleRenameColumn,
+  deleteColumn: handleDeleteColumn,
+  moveColumn: handleMoveColumn,
+  setWipLimit: handleSetWipLimit
 };
 async function handleEmbedAction(app, args) {
   const [action, payload] = args || [];
@@ -1036,7 +1304,7 @@ async function handleEmbedAction(app, args) {
 }
 
 // anp-15-kanban/lib/api/noteBoard.js
-async function buildNoteBoard(app, noteUUID) {
+async function buildNoteBoard(app, noteUUID, options = {}) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   if (typeof markdown !== "string") {
     return { kind: "note", noteUUID, columns: [], hasHeadings: false };
@@ -1045,18 +1313,25 @@ async function buildNoteBoard(app, noteUUID) {
   const { columns } = buildColumnSpans(markdown);
   const lines = markdown.split("\n");
   const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
-  const boardColumns = columns.map((span) => ({
+  const limits = options.columnLimits || {};
+  const makeColumn = (span, cards) => ({
     id: span.id,
     name: span.name,
-    cards: (columnCards.get(span.id) || []).map(toCardModel)
-  }));
+    wipLimit: Number.isInteger(limits[span.name]) && limits[span.name] > 0 ? limits[span.name] : null,
+    cards
+  });
+  const boardColumns = columns.map(
+    (span) => makeColumn(span, (columnCards.get(span.id) || []).map(toCardModel))
+  );
   if (unsorted.length > 0) {
     boardColumns.unshift({
       id: "unsorted",
       name: "Unsorted",
+      wipLimit: null,
       cards: unsorted.map(toCardModel)
     });
   }
+  await renderCardHtml(app, boardColumns.flatMap((c) => c.cards));
   return {
     kind: "note",
     noteUUID,
@@ -1069,6 +1344,7 @@ function toCardModel(task) {
     id: task.uuid,
     title: plainPreview(task.content || ""),
     content: task.content || "",
+    imageUrl: firstImageUrl(task.content || ""),
     completedAt: task.completedAt ?? null,
     dismissedAt: task.dismissedAt ?? null,
     startAt: task.startAt ?? null,
@@ -1076,6 +1352,21 @@ function toCardModel(task) {
     important: !!task.important,
     urgent: !!task.urgent
   };
+}
+async function renderCardHtml(app, cards) {
+  for (const card of cards) {
+    try {
+      card.html = await app.htmlFromContent(card.content);
+    } catch (error) {
+      console.error("htmlFromContent failed for card:", error);
+      card.html = null;
+    }
+  }
+  return cards;
+}
+function firstImageUrl(markdown) {
+  const m = String(markdown).match(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/);
+  return m ? m[1] : null;
 }
 function plainPreview(markdown) {
   return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
@@ -1116,7 +1407,9 @@ var plugin = {
     for (const tab of config.tabs) {
       if (tab.kind === "note" && tab.noteUUID) {
         try {
-          boards[tab.id] = await buildNoteBoard(app, tab.noteUUID);
+          boards[tab.id] = await buildNoteBoard(app, tab.noteUUID, {
+            columnLimits: tab.columnLimits || {}
+          });
         } catch (error) {
           console.error(`Failed to build board for tab ${tab.id}:`, error);
           boards[tab.id] = { kind: "note", noteUUID: tab.noteUUID, columns: [], hasHeadings: false };

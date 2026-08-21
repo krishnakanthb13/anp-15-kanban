@@ -29,7 +29,7 @@ describe("tabsConfig", () => {
       const good = { id: "t1", kind: "note", name: "A" };
       const config = normalizeConfig({ tabs: [good, null, { kind: "note" }, { id: "t2", kind: "weird" }, "junk"] });
       expect(config.tabs).toHaveLength(1);
-      expect(config.tabs[0]).toBe(good);
+      expect(config.tabs[0]).toEqual({ ...good, columnLimits: {} }); // normalized copy + WIP map default
     });
 
     it("repairs activeTabId when it points at a removed tab", () => {
@@ -52,6 +52,22 @@ describe("tabsConfig", () => {
       expect(normalizeConfig({ settings: {} }).settings.dateFormat).toBe(DEFAULT_DATE_FORMAT);
       expect(normalizeConfig({ settings: { dateFormat: "   " } }).settings.dateFormat).toBe(DEFAULT_DATE_FORMAT);
       expect(normalizeConfig({ settings: { dateFormat: "DD MMM" } }).settings.dateFormat).toBe("DD MMM");
+    });
+
+    it("sanitizes per-tab columnLimits (WIP maps)", () => {
+      const config = normalizeConfig({
+        tabs: [{
+          id: "t1",
+          kind: "note",
+          columnLimits: { Alpha: 3, Bad: -1, AlsoBad: 1.5, Empty: 0 },
+        }],
+      });
+      expect(config.tabs[0].columnLimits).toEqual({ Alpha: 3 });
+    });
+
+    it("defaults missing columnLimits to an empty object", () => {
+      const config = normalizeConfig({ tabs: [{ id: "t1", kind: "note" }] });
+      expect(config.tabs[0].columnLimits).toEqual({});
     });
   });
 

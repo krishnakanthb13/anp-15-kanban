@@ -3,7 +3,7 @@
 A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards.
 Icon: `view_kanban`
 
-> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–1 are implemented — the persistent embed shell, theming, and the note board MVP. Tag boards and tab-management UI land in later phases (see [Roadmap](#roadmap)).
+> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–2 are implemented — the persistent embed shell, theming, the note board MVP, rich card rendering, WIP limits, and column management. Tag boards and tab-management UI land in later phases (see [Roadmap](#roadmap)).
 
 ## Installation
 
@@ -50,8 +50,24 @@ A note board maps one note onto the board:
 - **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note.
 - **Drop into the last column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
-- **Click a card** to edit its raw markdown (changes write back to the task).
+- **Click a card** to edit its raw markdown (changes write back to the task). Links inside a card open natively.
 - Completed cards render struck-through with a ✓ chip; start/deadline dates show as chips when set.
+
+### Rich cards
+
+Card bodies render with Amplenote's own editor markup (`htmlFromContent`) — bold/italic, checkboxes, links, and Rich Footnotes look and behave exactly as they do in notes, including clickable web URLs. The first inline image in a task's content is embedded at the bottom of its card.
+
+### Column management
+
+Hover a column header for its tools:
+
+- **← / →** move the column left/right — headings are reordered in the note to match.
+- **✎ renames** the column by editing the heading text in place.
+- **✕ deletes** the column after an explicit confirmation checkbox; its tasks move to the top of the note (under no heading). The last remaining column cannot be deleted.
+
+### WIP limits
+
+Click a column's count chip to set a Work-In-Progress limit (0 or blank clears it). Once a column exceeds its limit, the chip turns red showing `count / limit`. Limits warn rather than block drops, and are stored per-tab keyed by column name.
 
 ### Refresh & sync
 
@@ -87,6 +103,9 @@ lib/
     markdownIndex.js       # Pure parsing layer: markdown → columns/cards mapping
     noteBoard.js           # Builds a note board snapshot via the API
     taskOps.js             # Task mutations: move/complete/create/edit
+    columnOps.js           # Structural heading ops: create/rename/delete/reorder
+  features/
+    embedActions.js        # Command dispatch table for all embed actions
   ui/
     themes.js              # 8-theme registry + CSS variable palettes
     boardTemplate.js       # Full HTML document assembly (theme CSS + layout)

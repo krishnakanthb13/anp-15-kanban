@@ -7,6 +7,11 @@ import {
   handleMoveCard,
   handleCreateCard,
   handleEditCard,
+  handleCreateColumn,
+  handleRenameColumn,
+  handleDeleteColumn,
+  handleMoveColumn,
+  handleSetWipLimit,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -18,6 +23,7 @@ function makeApp(markdown = NOTE_MD) {
     setSetting: jest.fn().mockResolvedValue(),
     getNoteContent: jest.fn().mockResolvedValue(markdown),
     replaceNoteContent: jest.fn().mockResolvedValue(true),
+    insertNoteContent: jest.fn().mockResolvedValue(),
     insertTask: jest.fn().mockResolvedValue("new-task"),
     updateTask: jest.fn().mockResolvedValue(true),
     getTask: jest.fn().mockResolvedValue({ uuid: "u1", content: "one" }),
@@ -199,6 +205,124 @@ describe("embedActions", () => {
       app.getTask.mockResolvedValue(null);
       await handleEditCard(app, { cardId: "ghost" });
       expect(app.updateTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("column management (Phase 2)", () => {
+    describe("handleCreateColumn", () => {
+      it("prompts for a name and appends the heading", async () => {
+        const app = withNoteTab(makeApp());
+        await handleCreateColumn(app, { tabId: "t1" });
+        expect(app.insertNoteContent).toHaveBeenCalledWith(
+          { uuid: "n1" }, "\n# typed content\n", { atEnd: true }
+        );
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("does nothing when cancelled or blank", async () => {
+        const app = withNoteTab(makeApp());
+        app.prompt.mockResolvedValue(null);
+        await handleCreateColumn(app, { tabId: "t1" });
+        app.prompt.mockResolvedValue(["   "]);
+        await handleCreateColumn(app, { tabId: "t1" });
+        expect(app.insertNoteContent).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("handleRenameColumn", () => {
+      it("prefills the current name and writes renames", async () => {
+        const app = withNoteTab(makeApp());
+        app.prompt.mockResolvedValue(["Alpha Renamed"]);
+        await handleRenameColumn(app, { tabId: "t1", columnId: "0" });
+
+        const promptArgs = app.prompt.mock.calls[0];
+        expect(promptArgs[1].inputs[0].value).toBe("Alpha");
+        expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("skips unchanged names", async () => {
+        const app = withNoteTab(makeApp());
+        app.prompt.mockResolvedValue(["Alpha"]);
+        await handleRenameColumn(app, { tabId: "t1", columnId: "0" });
+        expect(app.replaceNoteContent).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("handleDeleteColumn", () => {
+      it("requires an affirmative confirmation checkbox", async () => {
+        const app = withNoteTab(makeApp());
+        app.prompt.mockResolvedValue([false]);
+        await handleDeleteColumn(app, { tabId: "t1", columnId: "0" });
+        app.prompt.mockResolvedValue(null);
+        await handleDeleteColumn(app, { tabId: "t1", columnId: "0" });
+        expect(app.replaceNoteContent).not.toHaveBeenCalled();
+
+        app.prompt.mockResolvedValue([true]);
+        await handleDeleteColumn(app, { tabId: "t1", columnId: "0" });
+        expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+    });
+
+    describe("handleMoveColumn", () => {
+      it("swaps with the right neighbor and re-renders", async () => {
+        const app = withNoteTab(makeApp());
+        await handleMoveColumn(app, { tabId: "t1", columnId: "0", direction: "right" });
+        const written = app.replaceNoteContent.mock.calls[0][1];
+        expect(written.indexOf("# Beta")).toBeLessThan(written.indexOf("# Alpha"));
+      });
+
+      it("swaps with the left neighbor and no-ops at edges", async () => {
+        const app = withNoteTab(makeApp());
+        await handleMoveColumn(app, { tabId: "t1", columnId: "2", direction: "left" });
+        const written = app.replaceNoteContent.mock.calls[0][1];
+        expect(written.indexOf("# Beta")).toBeLessThan(written.indexOf("# Alpha"));
+
+        const edge = withNoteTab(makeApp());
+        await handleMoveColumn(edge, { tabId: "t1", columnId: "0", direction: "left" });
+        expect(edge.replaceNoteContent).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("handleSetWipLimit", () => {
+      function withLimits(app) {
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "Board", noteUUID: "n1", columnLimits: {} }],
+          activeTabId: "t1",
+          settings: {},
+        });
+        return app;
+      }
+
+      it("saves a positive limit keyed by column name", async () => {
+        const app = withLimits(makeApp());
+        app.prompt.mockResolvedValue(["4"]);
+        await handleSetWipLimit(app, { tabId: "t1", columnId: "0" });
+
+        const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+        expect(written.tabs[0].columnLimits).toEqual({ Alpha: 4 });
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("clears limits with 0 or blank and ignores cancels", async () => {
+        const app = withLimits(makeApp());
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "Board", noteUUID: "n1", columnLimits: { Alpha: 4 } }],
+          activeTabId: "t1",
+          settings: {},
+        });
+
+        app.prompt.mockResolvedValue(["0"]);
+        await handleSetWipLimit(app, { tabId: "t1", columnId: "0" });
+        let written = JSON.parse(app.setSetting.mock.calls[0][1]);
+        expect(written.tabs[0].columnLimits).toEqual({});
+
+        const before = app.setSetting.mock.calls.length;
+        app.prompt.mockResolvedValue(null);
+        await handleSetWipLimit(app, { tabId: "t1", columnId: "0" });
+        expect(app.setSetting.mock.calls.length).toBe(before);
+      });
     });
   });
 });

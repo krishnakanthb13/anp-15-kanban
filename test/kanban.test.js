@@ -15,6 +15,9 @@ describe("kanban plugin entry", () => {
       setSetting: jest.fn().mockResolvedValue(),
       openEmbed: jest.fn().mockResolvedValue(),
       navigate: jest.fn().mockResolvedValue(),
+      getNoteContent: jest.fn().mockResolvedValue(""),
+      getNoteTasks: jest.fn().mockResolvedValue([]),
+      htmlFromContent: jest.fn().mockImplementation(async (c) => `<p>${c}</p>`),
       context: { pluginUUID: "plugin-uuid-1", renderEmbed: jest.fn().mockResolvedValue() },
     };
   }

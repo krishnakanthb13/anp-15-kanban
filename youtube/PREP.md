@@ -2,7 +2,7 @@
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
-> **Sync note:** reflects plugin v0.0.8 (rebuild Phases 0–1). Tag boards, tab management UI, WIP limits, and rich card rendering are on the roadmap and should be added to this script when they ship.
+> **Sync note:** reflects plugin v0.0.9 (rebuild Phases 0–2). Tag boards and tab management UI are on the roadmap and should be added to this script when they ship.
 
 ---
 
@@ -21,7 +21,7 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 ### Description
 
-📋 COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.8 REBUILD)
+📋 COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.9 REBUILD)
 
 A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board — headings become columns, tasks become draggable cards — and every move you make writes straight back to your note.
 
@@ -66,6 +66,11 @@ DRAG & DROP
 CREATE & EDIT
 * + Button: Adds a new task directly at the top of the chosen column via a markdown prompt.
 * Click to Edit: Clicking a card opens its raw markdown for editing; changes write back to the task instantly.
+
+RICH CARDS & COLUMN TOOLS
+* Native Rendering: Card bodies use Amplenote's own editor markup — Rich Footnotes, links, and formatting look exactly like they do in notes. The first image in a task shows at the bottom of its card.
+* Column Tools: Hover a header to move (←/→), rename (✎), or delete (✕) a column — with confirmation — and the note's headings follow along.
+* WIP Limits: Click a column's count chip to set a limit; the chip turns red when the column is over.
 
 REFRESH & THEMES
 * Refresh Tab / Refresh All: Manually re-pull board data for the active tab or every tab, with a progress indicator.

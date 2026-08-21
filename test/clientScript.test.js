@@ -22,8 +22,22 @@ describe("clientScript", () => {
     });
   });
 
+  it("wires the phase-2 column controls and rich card rendering", () => {
+    ["moveColumn", "renameColumn", "deleteColumn", "setWipLimit",
+      "kb-card-body", "kb-card-img", "kb-over", "kb-col-btn"].forEach(id => {
+      expect(script).toContain(id);
+    });
+  });
+
   it("contains no template literal interpolation that could leak server data", () => {
     expect(script).not.toContain("${");
+  });
+
+  it("compiles as valid JavaScript (guards against template-literal escape corruption)", () => {
+    // new Function() parses the source without executing it. Regex literals
+    // corrupted by template-literal unescaping (e.g. /["\\]/g -> /["\]/g)
+    // surface here as SyntaxError instead of crashing live embeds.
+    expect(() => new Function(script)).not.toThrow();
   });
 
   it("renders tabs, board, and meta from state", () => {

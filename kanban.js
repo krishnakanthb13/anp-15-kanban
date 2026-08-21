@@ -50,7 +50,9 @@ const plugin = {
     for (const tab of config.tabs) {
       if (tab.kind === "note" && tab.noteUUID) {
         try {
-          boards[tab.id] = await buildNoteBoard(app, tab.noteUUID);
+          boards[tab.id] = await buildNoteBoard(app, tab.noteUUID, {
+            columnLimits: tab.columnLimits || {},
+          });
         } catch (error) {
           console.error(`Failed to build board for tab ${tab.id}:`, error);
           boards[tab.id] = { kind: "note", noteUUID: tab.noteUUID, columns: [], hasHeadings: false };

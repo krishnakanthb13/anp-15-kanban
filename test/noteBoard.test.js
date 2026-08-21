@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { buildNoteBoard, toCardModel, plainPreview } from '../lib/api/noteBoard.js';
+import { buildNoteBoard, toCardModel, plainPreview, firstImageUrl, renderCardHtml } from '../lib/api/noteBoard.js';
 
 const MD = [
   "Preamble",
@@ -22,6 +22,7 @@ function makeApp() {
   return {
     getNoteContent: jest.fn().mockResolvedValue(MD),
     getNoteTasks: jest.fn().mockResolvedValue(TASKS),
+    htmlFromContent: jest.fn().mockImplementation(async (content) => `<p>${content}</p>`),
   };
 }
 
@@ -61,6 +62,35 @@ describe("noteBoard", () => {
       app.getNoteTasks.mockRejectedValue(new Error("boom"));
       await expect(buildNoteBoard(app, "note-1")).rejects.toThrow("boom");
     });
+
+    it("enriches cards with rendered HTML via htmlFromContent", async () => {
+      const board = await buildNoteBoard(makeApp(), "note-1");
+      const all = board.columns.flatMap(c => c.cards);
+      expect(all.length).toBeGreaterThan(0);
+      all.forEach(card => {
+        expect(card.html).toContain("<p>");
+        expect(card.html).toContain(card.content);
+      });
+    });
+
+    it("keeps cards usable when htmlFromContent fails", async () => {
+      const app = makeApp();
+      app.htmlFromContent.mockRejectedValue(new Error("render boom"));
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const board = await buildNoteBoard(app, "note-1");
+      board.columns.flatMap(c => c.cards).forEach(card => expect(card.html).toBeNull());
+      consoleSpy.mockRestore();
+    });
+
+    it("maps per-column WIP limits by column name", async () => {
+      const board = await buildNoteBoard(makeApp(), "note-1", {
+        columnLimits: { Alpha: 3, Unsorted: 0, Ghost: 2 },
+      });
+      const alpha = board.columns.find(c => c.name === "Alpha");
+      const unsorted = board.columns.find(c => c.name === "Unsorted");
+      expect(alpha.wipLimit).toBe(3);
+      expect(unsorted.wipLimit).toBeNull(); // 0 and unknown names are ignored
+    });
   });
 
   describe("toCardModel", () => {
@@ -78,6 +108,7 @@ describe("noteBoard", () => {
         id: "t1",
         title: "Hello world",
         content: "Hello **world**",
+        imageUrl: null,
         completedAt: null,
         dismissedAt: null,
         startAt: 100,
@@ -85,6 +116,30 @@ describe("noteBoard", () => {
         important: true,
         urgent: false,
       });
+    });
+
+    it("extracts the first inline image url", () => {
+      expect(toCardModel({ uuid: "t2", content: "a ![one](https://i/1.png) ![two](https://i/2.png)" }).imageUrl)
+        .toBe("https://i/1.png");
+      expect(toCardModel({ uuid: "t3", content: "no image here" }).imageUrl).toBeNull();
+    });
+  });
+
+  describe("firstImageUrl", () => {
+    it("handles titles, query strings, and absence", () => {
+      expect(firstImageUrl("![alt text](https://x/y.jpg \"title\")")).toBe("https://x/y.jpg");
+      expect(firstImageUrl("![q](https://x/y.jpg?a=1&b=2)")).toBe("https://x/y.jpg?a=1&b=2");
+      expect(firstImageUrl("[link](https://x) not image")).toBeNull();
+    });
+  });
+
+  describe("renderCardHtml", () => {
+    it("mutates cards in place and returns them", async () => {
+      const app = makeApp();
+      const cards = [{ id: "c1", content: "body" }];
+      const out = await renderCardHtml(app, cards);
+      expect(out).toBe(cards);
+      expect(cards[0].html).toBe("<p>body</p>");
     });
   });
 

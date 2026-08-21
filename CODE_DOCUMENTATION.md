@@ -1,6 +1,6 @@
 # Code Documentation — Kanban Plugin
 
-Technical reference for contributors. Scope: v0.0.8 (rebuild Phases 0–1).
+Technical reference for contributors. Scope: v0.0.9 (rebuild Phases 0–2).
 
 ## Entry Point (`kanban.js`)
 
@@ -35,7 +35,11 @@ lib/
   ui/
     themes.js          # 8-theme registry, palette tokens, CSS builder, isValidThemeId guard
     boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + script injection)
-    clientScript.js    # The embed-side JS source (ES5-style string; runs inside the iframe)
+    clientScript.js    # The embed-side JS source (ES5-style string; runs inside the iframe).
+                       # CONSTRAINT: as a template literal it must contain no regex
+                       # literals, backslash escapes, or embedded double quotes —
+                       # they get unescaped in transit and corrupt the emitted script.
+                       # Use String.fromCharCode() for such characters.
   utils/
     html.js            # escapeHtml, toJsonForScript (script-safe JSON embedding)
     formatTimestamp.js # Unix timestamp formatting
@@ -73,6 +77,21 @@ Index-shift handling: when the removed task line sits before the destination hea
 - any other column → reopen (`completedAt: null`),
 - same-column drop → nothing is written.
 
+## Rich Cards & WIP Limits
+
+`buildNoteBoard` enriches every card via `app.htmlFromContent` (Amplenote's own editor markup — functional Rich Footnotes and links) with graceful fallback to the plain-text preview on failure, plus `imageUrl` extracted from the first inline `![...](...)`. Per-tab `columnLimits` (keyed by column name, sanitized in `normalizeConfig`) flow into columns as `wipLimit`; the client turns the count chip red past the limit — warnings only, drops are never blocked.
+
+## Column Management & Confirm-Before-Write
+
+`api/columnOps.js` performs structural heading operations as whole-note minimal rewrites on freshly-read markdown:
+
+- **create** appends a heading matching the shallowest existing level (H2 if none),
+- **rename** rewrites one heading line in place (markers preserved),
+- **delete** extracts the column's content above the first remaining heading (or the very top, when deleting the first column); refuses to delete the last remaining column,
+- **reorder** rebuilds the note from preamble + heading/content blocks in the requested order; malformed id permutations abort without writing.
+
+Destructive actions gate on prompts in `embedActions`: `deleteColumn` requires an affirmative checkbox before any write runs.
+
 ## Theming (`ui/themes.js`)
 
 All colors are `[data-theme="<id>"]` CSS custom properties (`--kb-*`). The client cycler switches the attribute (0ms), persists to `localStorage`, then round-trips `saveTheme` for cross-device sync. Server-side writes pass through `isValidThemeId` (strict registry check — unlike `resolveTheme`, no silent fallback).
@@ -85,4 +104,5 @@ node esbuild.js 15                # bundle → build/kanban.compiled.js
 ```
 
 - Pure logic (indexing, config ops, template assembly) is tested without mocking; API-touching modules use an `app` mock object.
+- **Compile check**: `clientScript.test.js` parses the emitted embed script with `new Function(source)` — a SyntaxError there means template-literal escaping corrupted the code. This guards a real production incident where `/["\\]/g` reached the browser as invalid `/["\]/g`.
 - `test/smoke.bundle.cjs` executes the compiled artifact end-to-end (render → action → re-render) as a pre-release sanity check.
