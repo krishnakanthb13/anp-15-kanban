@@ -42,6 +42,13 @@ describe("clientScript", () => {
     });
   });
 
+  it("wires the phase-5 extras (search, card menu, labels, transfer)", () => {
+    ["globalSearch", "cardMenu", "moveColumnToTab",
+      "kb-search", "kb-card-menu", "kb-label-chip"].forEach(id => {
+      expect(script).toContain(id);
+    });
+  });
+
   it("contains no template literal interpolation that could leak server data", () => {
     expect(script).not.toContain("${");
   });

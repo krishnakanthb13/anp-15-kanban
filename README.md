@@ -3,7 +3,7 @@
 A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards.
 Icon: `view_kanban`
 
-> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–4 are implemented — the persistent embed shell, theming, note boards, rich card rendering, WIP limits, column management, tag boards, and full tab management. Phase 5 extras remain (see [Roadmap](#roadmap)).
+> **Status:** Rebuild complete (plan: `ds.md`). All phases implemented — persistent embed shell, theming, note boards, rich cards, WIP limits, column management, tag boards, tab management, and the Phase 5 extras (labels, start dates, create-note-from-card, two-tier search, cross-tab column move).
 
 ## Installation
 
@@ -98,6 +98,22 @@ The board is pull-based (Amplenote plugins have no push notifications):
 
 Click the **📅** button in the header to set the format used for card date chips, using `YYYY` / `MM` / `DD` / `MMM` tokens (e.g. `DD MMM YYYY` → *21 Aug 2026*). The choice persists with your tab configuration.
 
+### Labels & card extras
+
+Hover a card on a note board and click **⋯** for card actions:
+
+- **Add label** attaches a note link (`[[Note Name]]`) to the task. Label chips render on the card, color-coded when the label name matches one of your tags. Multiple labels are supported.
+- **Set start date** writes the task's native start date via a date picker (blank clears).
+- **Create note from card** creates a new note titled from the card and links it back to the task — non-destructive; the task stays put.
+
+### Search
+
+The header search box filters the active board instantly as you type (titles, content, labels, tags). Press **Enter** to run a full-text search across *all* notes and open a match.
+
+### Cross-tab columns
+
+On note boards, hover a column header and use the **⇥** tool to move that entire column (heading + tasks) to another note-board tab. The transfer inserts into the target before removing from the source, so an interrupted move can only ever duplicate — never lose — data.
+
 ### Themes
 
 Click the 🎨 theme button or press **T** (outside inputs) to cycle 8 curated palettes with light/dark parity. The choice persists locally (instant) and to your account settings (cross-device).
@@ -151,4 +167,4 @@ Build with `node esbuild.js 15` from the repository root (or `npm run build -- 1
 
 ## Roadmap
 
-- **Phase 5** — Labels with tag-color coding, start-date picker, create-note-from-card, search, cross-tab column drag
+All phases of the rebuild plan (`ds.md`) are implemented. Future ideas: mobile fallbacks for sidebar embeds, per-board heading-level override, virtualized rendering for very large boards.

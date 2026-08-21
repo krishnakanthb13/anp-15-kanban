@@ -304,6 +304,8 @@ function buildClientScript() {
     host.appendChild(btn);
   }
 
+  var searchQuery = "";
+
   function renderBoard() {
     var board = document.getElementById("kb-board");
     if (!board) return;
@@ -317,9 +319,22 @@ function buildClientScript() {
       return;
     }
 
+    var anyVisible = false;
     columns.forEach(function (col, colIndex) {
       var isLast = colIndex === columns.length - 1;
       var isTagBoard = data.kind === "tag";
+
+      // Client-side search filter: hide non-matching cards and emptied columns.
+      var visibleCards = (col.cards || []).filter(function (card) {
+        if (!searchQuery) return true;
+        var hay = ((card.title || "") + " " + (card.content || "") + " " +
+          (card.tags || []).join(" ") + " " +
+          (card.labels || []).map(function (l) { return l.name; }).join(" ")).toLowerCase();
+        return hay.indexOf(searchQuery) !== -1;
+      });
+      if (searchQuery && !visibleCards.length) return; // skip emptied column
+      anyVisible = anyVisible || visibleCards.length > 0;
+
       var colEl = el("section", "kb-column" + (isLast && !isTagBoard ? " kb-column-last" : ""));
       colEl.setAttribute("data-column-id", col.id);
 
@@ -341,7 +356,7 @@ function buildClientScript() {
       // Count chip doubles as the WIP-limit control on note boards; turns red past the limit.
       var over = !isTagBoard && col.wipLimit && col.cards && col.cards.length > col.wipLimit;
       var count = el("span", "kb-count" + (over ? " kb-over" : ""),
-        over ? col.cards.length + " / " + col.wipLimit : String(col.cards ? col.cards.length : 0));
+        over ? visibleCards.length + " / " + col.wipLimit : String(visibleCards.length));
       if (!isTagBoard) {
         count.title = "Set WIP limit";
         count.addEventListener("click", function () {
@@ -362,6 +377,9 @@ function buildClientScript() {
         addTool(tools, "\\u270E", "Rename column", function () {
           callPlugin("renameColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
+        addTool(tools, "\\u21E5", "Move column to another board tab", function () {
+          callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, columnId: col.id });
+        });
         addTool(tools, "\\u2715", "Delete column (tasks move to top)", function () {
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
@@ -378,12 +396,16 @@ function buildClientScript() {
 
       var list = el("div", "kb-cards");
       wireDropZone(list, col, isTagBoard);
-      (col.cards || []).forEach(function (card) {
+      visibleCards.forEach(function (card) {
         list.appendChild(buildCardEl(card, isTagBoard));
       });
       colEl.appendChild(list);
       board.appendChild(colEl);
     });
+
+    if (searchQuery && !anyVisible) {
+      board.appendChild(el("div", "kb-empty", "No cards match \\u201C" + searchQuery + "\\u201D."));
+    }
   }
 
   function addTool(host, glyph, title, onClick) {
@@ -419,6 +441,32 @@ function buildClientScript() {
         chips.appendChild(el("span", "kb-tag-chip", t));
       });
       cardEl.appendChild(chips);
+    }
+
+    if (!isTagBoard && card.labels && card.labels.length) {
+      var labels = el("div", "kb-card-labels");
+      card.labels.forEach(function (l) {
+        var chip = el("span", "kb-label-chip", l.name);
+        if (l.color) {
+          var dot = el("span", "kb-label-dot");
+          dot.style.background = "#" + String(l.color).replace("#", "");
+          chip.insertBefore(dot, chip.firstChild);
+        }
+        labels.appendChild(chip);
+      });
+      cardEl.appendChild(labels);
+    }
+
+    // "More" menu button (note boards): label / start date / create note.
+    if (!isTagBoard) {
+      var more = el("button", "kb-card-menu", "\\u22EF");
+      more.type = "button";
+      more.title = "Label, start date, or create note";
+      more.addEventListener("click", function (e) {
+        e.stopPropagation();
+        callPlugin("cardMenu", { cardId: card.id });
+      });
+      cardEl.appendChild(more);
     }
 
     if (card.imageUrl) {
@@ -582,6 +630,19 @@ function buildClientScript() {
       });
       var fmtLabel = document.getElementById("kb-datefmt-label");
       if (fmtLabel && STATE.settings) fmtLabel.textContent = STATE.settings.dateFormat || "";
+    }
+
+    var search = document.getElementById("kb-search");
+    if (search) {
+      search.addEventListener("input", function () {
+        searchQuery = search.value.trim().toLowerCase();
+        renderBoard();
+      });
+      search.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && search.value.trim()) {
+          callPlugin("globalSearch", { query: search.value.trim() });
+        }
+      });
     }
 
     var pingBtn = document.getElementById("kb-ping");
@@ -888,6 +949,63 @@ function buildBaseCss() {
         white-space: nowrap;
         max-width: 120px;
     }
+    .kb-search {
+        background: var(--kb-bg-card);
+        color: var(--kb-text);
+        border: 1px solid var(--kb-border);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 13px;
+        width: 200px;
+    }
+    .kb-search:focus { outline: none; border-color: var(--kb-accent); }
+    .kb-card-menu {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: transparent;
+        border: none;
+        color: var(--kb-text-muted);
+        font-size: 14px;
+        line-height: 1;
+        padding: 2px 4px;
+        border-radius: 4px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+    .kb-card:hover .kb-card-menu { opacity: 1; }
+    .kb-card-menu:hover {
+        background: var(--kb-bg-column);
+        color: var(--kb-accent);
+    }
+    .kb-card { position: relative; }
+    .kb-card-labels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 8px;
+    }
+    .kb-label-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        color: var(--kb-text-muted);
+        background: var(--kb-bg-column);
+        border: 1px solid var(--kb-border);
+        border-radius: 8px;
+        padding: 1px 7px;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .kb-label-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+    }
     .kb-add-card {
         background: transparent;
         border: none;
@@ -957,6 +1075,7 @@ ${buildBaseCss()}
         <button id="kb-ping" class="kb-btn" type="button">Ping</button>
         <button id="kb-refresh-tab" class="kb-btn" type="button" title="Re-pull the active tab">\u27F3 Tab</button>
         <button id="kb-refresh-all" class="kb-btn" type="button" title="Re-pull every tab">\u21C9 All</button>
+        <input id="kb-search" class="kb-search" type="search" placeholder="Filter board (Enter = all notes)" spellcheck="false">
         <button id="kb-datefmt-btn" class="kb-btn" type="button" title="Date format for card chips">
             \u{1F4C5} <span id="kb-datefmt-label"></span>
         </button>
@@ -1223,6 +1342,16 @@ async function setTaskCompleted(app, taskUuid, done = true) {
 async function updateCardContent(app, taskUuid, content) {
   await app.updateTask(taskUuid, { content });
 }
+async function addLabelToTask(app, taskUuid, labelName) {
+  const name = String(labelName || "").trim();
+  if (!name) return;
+  const task = await app.getTask(taskUuid);
+  if (!task) return;
+  if (task.content && task.content.includes(`[[${name}]]`)) return;
+  const content = `${task.content || ""}
+[[${name}]]`;
+  await app.updateTask(taskUuid, { content });
+}
 
 // anp-15-kanban/lib/api/columnOps.js
 var HEADING_LINE_RE = /^(#{1,6})\s+(.*)$/;
@@ -1291,6 +1420,22 @@ async function reorderColumns(app, noteUUID, orderedIds) {
   }
   await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
   return true;
+}
+async function transferColumn(app, sourceUUID, columnId, targetUUID) {
+  if (sourceUUID === targetUUID) return "same-note";
+  const lines = await readLines(app, sourceUUID);
+  const { columns } = buildColumnSpans(lines.join("\n"));
+  if (!columns.length) return "no-columns";
+  const span = resolveSpan(columns, columnId);
+  if (!span) return "no-target";
+  const block = lines.slice(span.startLine, span.contentEnd);
+  const trimmed = block.join("\n").replace(/\n+$/, "");
+  await app.insertNoteContent({ uuid: targetUUID }, `
+${trimmed}
+`, { atEnd: true });
+  const next = [...lines.slice(0, span.startLine), ...lines.slice(span.contentEnd)];
+  await app.replaceNoteContent({ uuid: sourceUUID }, next.join("\n"));
+  return "moved";
 }
 
 // anp-15-kanban/lib/api/tagBoard.js
@@ -1365,10 +1510,16 @@ async function retagNote(app, noteUUID, { fromSub, toSub }) {
 async function createTaggedNote(app, title, tags = []) {
   const clean = String(title || "").trim();
   if (!clean) return null;
-  return app.createNote(clean, tags);
+  return tags.length ? app.createNote(clean, tags) : app.createNote(clean);
 }
 async function openNote(app, noteUUID) {
   await app.navigate(`https://www.amplenote.com/notes/${noteUUID}`);
+}
+
+// anp-15-kanban/lib/utils/prompt.js
+function firstValue(result) {
+  if (result === null || result === void 0) return null;
+  return Array.isArray(result) ? result[0] : result;
 }
 
 // anp-15-kanban/lib/features/embedActions.js
@@ -1464,8 +1615,9 @@ async function handleSetDateFormat(app) {
       value: config.settings.dateFormat
     }]
   });
-  if (!result || !String(result[0] || "").trim()) return;
-  config.settings.dateFormat = String(result[0]).trim();
+  const fmt = firstValue(result);
+  if (!fmt || !String(fmt).trim()) return;
+  config.settings.dateFormat = String(fmt).trim();
   await saveTabsConfig(app, config);
   await rerender(app);
 }
@@ -1516,17 +1668,19 @@ async function handleCreateCard(app, payload) {
     const result2 = await app.prompt("New note in column", {
       inputs: [{ label: "Note name:", type: "text" }]
     });
-    if (!result2 || !result2[0] || !String(result2[0]).trim()) return;
+    const name = firstValue(result2);
+    if (!name || !String(name).trim()) return;
     const toSub = String(payload.columnId).startsWith(SUB_PREFIX) ? payload.columnId.slice(SUB_PREFIX.length) : null;
-    await createTaggedNote(app, result2[0], toSub ? [toSub] : [tab.tag]);
+    await createTaggedNote(app, name, toSub ? [toSub] : [tab.tag]);
     await rerender(app);
     return;
   }
   const result = await app.prompt("New card", {
     inputs: [{ label: "Card content (markdown):", type: "text" }]
   });
-  if (!result || !result[0]) return;
-  await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId }, result[0]);
+  const content = firstValue(result);
+  if (!content) return;
+  await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId }, content);
   await rerender(app);
 }
 async function handleOpenCard(app, payload) {
@@ -1542,8 +1696,9 @@ async function handleEditCard(app, payload) {
   const result = await app.prompt("Edit card (raw markdown)", {
     inputs: [{ label: "Content:", type: "text", value: task.content || "" }]
   });
-  if (!result || result[0] === void 0 || result[0] === task.content) return;
-  await updateCardContent(app, cardId, result[0]);
+  const content = firstValue(result);
+  if (content === null || content === void 0 || content === task.content) return;
+  await updateCardContent(app, cardId, content);
   await rerender(app);
 }
 async function resolveNoteBoardTab(app, payload) {
@@ -1565,8 +1720,9 @@ async function handleCreateColumn(app, payload) {
   const result = await app.prompt("New column", {
     inputs: [{ label: "Column name:", type: "text" }]
   });
-  if (!result || !result[0] || !String(result[0]).trim()) return;
-  const created = await createColumn(app, tab.noteUUID, result[0]);
+  const name = firstValue(result);
+  if (!name || !String(name).trim()) return;
+  const created = await createColumn(app, tab.noteUUID, name);
   if (created) await rerender(app);
 }
 async function handleRenameColumn(app, payload) {
@@ -1576,8 +1732,9 @@ async function handleRenameColumn(app, payload) {
   const result = await app.prompt("Rename column", {
     inputs: [{ label: "Column name:", type: "text", value: columnName }]
   });
-  if (!result || !result[0] || !String(result[0]).trim() || String(result[0]) === columnName) return;
-  const renamed = await renameColumn(app, tab.noteUUID, payload.columnId, result[0]);
+  const name = firstValue(result);
+  if (!name || !String(name).trim() || String(name) === columnName) return;
+  const renamed = await renameColumn(app, tab.noteUUID, payload.columnId, name);
   if (renamed) await rerender(app);
 }
 async function handleDeleteColumn(app, payload) {
@@ -1593,7 +1750,7 @@ async function handleDeleteColumn(app, payload) {
       }
     ]
   });
-  if (!result || result[0] !== true) return;
+  if (firstValue(result) !== true) return;
   const deleted = await deleteColumn(app, tab.noteUUID, payload.columnId);
   if (deleted) await rerender(app);
 }
@@ -1624,8 +1781,9 @@ async function handleSetWipLimit(app, payload) {
       value: String(current)
     }]
   });
-  if (!result) return;
-  const parsed = parseInt(String(result[0]).trim(), 10);
+  const raw = firstValue(result);
+  if (raw === null || raw === void 0) return;
+  const parsed = parseInt(String(raw).trim(), 10);
   const config = await loadTabsConfig(app);
   const storedTab = tabById(config, tab.id);
   if (!storedTab) return;
@@ -1635,6 +1793,98 @@ async function handleSetWipLimit(app, payload) {
   storedTab.columnLimits = limits;
   await saveTabsConfig(app, config);
   await rerender(app);
+}
+async function handleCardMenu(app, payload) {
+  const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
+  if (!cardId) return;
+  const task = await app.getTask(cardId);
+  if (!task) return;
+  const choice = firstValue(await app.prompt("Card actions", {
+    inputs: [{
+      label: "What do you want to do?",
+      type: "radio",
+      options: [
+        { label: "Add label (note link)", value: "label" },
+        { label: "Set start date", value: "date" },
+        { label: "Create note from card", value: "note" }
+      ]
+    }]
+  }));
+  if (!choice) return;
+  if (choice === "label") {
+    const handle = firstValue(await app.prompt("Add label", {
+      inputs: [{ label: "Pick a note to use as label:", type: "note" }]
+    }));
+    if (!handle || !handle.name) return;
+    await addLabelToTask(app, cardId, handle.name);
+    await rerender(app);
+    return;
+  }
+  if (choice === "date") {
+    const value = firstValue(await app.prompt("Set start date", {
+      inputs: [{ label: "Start date (blank clears):", type: "date" }]
+    }));
+    if (value === null || value === void 0) return;
+    const trimmed = String(value).trim();
+    const startAt = trimmed ? Math.floor(new Date(trimmed).getTime() / 1e3) : null;
+    if (trimmed && Number.isNaN(startAt)) return;
+    await app.updateTask(cardId, { startAt });
+    await rerender(app);
+    return;
+  }
+  if (choice === "note") {
+    const title = String(task.content || "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
+    const uuid = await createTaggedNote(app, title);
+    if (!uuid) return;
+    await addLabelToTask(app, cardId, title);
+    await rerender(app);
+  }
+}
+async function handleGlobalSearch(app, payload) {
+  const query = payload && typeof payload.query === "string" ? payload.query.trim() : "";
+  if (!query) return;
+  const results = await app.searchNotes(query) || [];
+  if (!results.length) {
+    await app.alert(`No notes found for "${query}"`);
+    return;
+  }
+  const options = results.slice(0, 20).map((n) => ({ label: n.name || n.uuid, value: n.uuid }));
+  const picked = firstValue(await app.prompt(`Results for "${query}"`, {
+    inputs: [{ label: `${results.length} matching note(s) - pick one to open:`, type: "select", options }]
+  }));
+  if (!picked) return;
+  await openNote(app, picked);
+}
+async function handleMoveColumnToTab(app, payload) {
+  const resolved = await resolveColumn(app, payload);
+  if (!resolved) return;
+  const { tab, columnName } = resolved;
+  const config = await loadTabsConfig(app);
+  const candidates = config.tabs.filter((t) => t.kind === "note" && t.noteUUID && t.id !== tab.id);
+  if (!candidates.length) {
+    await app.alert("No other note-board tabs to move this column to.");
+    return;
+  }
+  const targetId = firstValue(await app.prompt(`Move "${columnName}" to another board`, {
+    inputs: [{
+      label: "Target tab:",
+      type: "select",
+      options: candidates.map((t) => ({ label: t.name, value: t.id }))
+    }]
+  }));
+  if (!targetId) return;
+  const target = tabById(config, targetId);
+  if (!target || target.kind !== "note" || !target.noteUUID) return;
+  const confirmed = firstValue(await app.prompt(`Move "${columnName}" to "${target.name}"?`, {
+    inputs: [{
+      label: "I understand: the heading and its tasks move to the other note.",
+      type: "checkbox",
+      value: false
+    }]
+  }));
+  if (confirmed !== true) return;
+  const status = await transferColumn(app, tab.noteUUID, payload.columnId, target.noteUUID);
+  if (status === "moved") await rerender(app);
 }
 var ACTIONS = {
   ping: handlePing,
@@ -1654,7 +1904,10 @@ var ACTIONS = {
   renameColumn: handleRenameColumn,
   deleteColumn: handleDeleteColumn,
   moveColumn: handleMoveColumn,
-  setWipLimit: handleSetWipLimit
+  setWipLimit: handleSetWipLimit,
+  cardMenu: handleCardMenu,
+  globalSearch: handleGlobalSearch,
+  moveColumnToTab: handleMoveColumnToTab
 };
 async function handleEmbedAction(app, args) {
   const [action, payload] = args || [];
@@ -1673,6 +1926,15 @@ async function buildNoteBoard(app, noteUUID, options = {}) {
     return { kind: "note", noteUUID, columns: [], hasHeadings: false };
   }
   const tasks = await app.getNoteTasks({ uuid: noteUUID }, { includeDone: true }) || [];
+  let colorMap = {};
+  try {
+    const tags = await app.getTags() || [];
+    tags.forEach((t) => {
+      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
+    });
+  } catch {
+    colorMap = {};
+  }
   const { columns } = buildColumnSpans(markdown);
   const lines = markdown.split("\n");
   const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
@@ -1694,7 +1956,11 @@ async function buildNoteBoard(app, noteUUID, options = {}) {
       cards: unsorted.map(toCardModel)
     });
   }
-  await renderCardHtml(app, boardColumns.flatMap((c) => c.cards));
+  const allCards = boardColumns.flatMap((c) => c.cards);
+  await renderCardHtml(app, allCards);
+  allCards.forEach((card) => {
+    card.labels = resolveLabels(card.content, colorMap);
+  });
   return {
     kind: "note",
     noteUUID,
@@ -1731,8 +1997,18 @@ function firstImageUrl(markdown) {
   const m = String(markdown).match(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/);
   return m ? m[1] : null;
 }
+function resolveLabels(markdown, colorMap = {}) {
+  const names = [];
+  const re = /\[\[([^\]]+)\]\]/g;
+  let m;
+  while ((m = re.exec(String(markdown))) !== null) {
+    const name = m[1].trim();
+    if (name && !names.includes(name)) names.push(name);
+  }
+  return names.map((name) => ({ name, color: colorMap[name.toLowerCase()] ?? null }));
+}
 function plainPreview(markdown) {
-  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
+  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
 }
 
 // anp-15-kanban/kanban.js

@@ -4,6 +4,7 @@ import {
   createTaskInColumn,
   setTaskCompleted,
   updateCardContent,
+  addLabelToTask,
 } from '../lib/api/taskOps.js';
 
 const MD_A_B = [
@@ -18,6 +19,7 @@ function makeApp(markdown = MD_A_B) {
     replaceNoteContent: jest.fn().mockResolvedValue(true),
     insertTask: jest.fn().mockResolvedValue("new-task"),
     updateTask: jest.fn().mockResolvedValue(true),
+    getTask: jest.fn().mockResolvedValue({ uuid: "u1", content: "existing" }),
   };
 }
 
@@ -110,6 +112,29 @@ describe("taskOps", () => {
       const app = makeApp();
       await updateCardContent(app, "u1", "**new**");
       expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "**new**" });
+    });
+  });
+
+  describe("addLabelToTask", () => {
+    it("appends a wiki-link label to the task content", async () => {
+      const app = makeApp();
+      await addLabelToTask(app, "u1", "My Label");
+      expect(app.getTask).toHaveBeenCalledWith("u1");
+      expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "existing\n[[My Label]]" });
+    });
+
+    it("skips duplicates, blank names, and missing tasks", async () => {
+      const app = makeApp();
+      app.getTask.mockResolvedValue({ uuid: "u1", content: "has [[My Label]] already" });
+      await addLabelToTask(app, "u1", "My Label");
+      expect(app.updateTask).not.toHaveBeenCalled();
+
+      await addLabelToTask(app, "u1", "   ");
+      expect(app.updateTask).not.toHaveBeenCalled();
+
+      app.getTask.mockResolvedValue(null);
+      await addLabelToTask(app, "ghost", "X");
+      expect(app.updateTask).not.toHaveBeenCalled();
     });
   });
 });

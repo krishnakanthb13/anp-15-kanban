@@ -4,6 +4,7 @@ import {
   renameColumn,
   deleteColumn,
   reorderColumns,
+  transferColumn,
 } from '../lib/api/columnOps.js';
 
 const MD = [
@@ -137,6 +138,35 @@ describe("columnOps", () => {
       expect(await reorderColumns(app, "n1", ["1"])).toBe(false);            // wrong length
       expect(await reorderColumns(app, "n1", ["1", "1"])).toBe(false);       // duplicate
       expect(await reorderColumns(app, "n1", ["1", "999"])).toBe(false);     // unknown id
+      expect(app.replaceNoteContent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("transferColumn", () => {
+    it("inserts into the target BEFORE removing from the source", async () => {
+      const app = makeApp();
+      const status = await transferColumn(app, "src", "1", "dst");
+
+      expect(status).toBe("moved");
+      // insertNoteContent (target) must be called before replaceNoteContent (source removal)
+      const insertIdx = app.insertNoteContent.mock.invocationCallOrder[0];
+      const replaceIdx = app.replaceNoteContent.mock.invocationCallOrder[0];
+      expect(insertIdx).toBeLessThan(replaceIdx);
+
+      const inserted = app.insertNoteContent.mock.calls[0][1];
+      expect(inserted).toContain("# Alpha");
+      expect(inserted).toContain("u1"); // tasks travel with the heading
+
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).not.toContain("# Alpha");
+      expect(written).toContain("# Beta");
+    });
+
+    it("guards against same-note transfers and unknown columns", async () => {
+      const app = makeApp();
+      expect(await transferColumn(app, "n1", "1", "n1")).toBe("same-note");
+      expect(await transferColumn(app, "n1", "999", "dst")).toBe("no-target");
+      expect(app.insertNoteContent).not.toHaveBeenCalled();
       expect(app.replaceNoteContent).not.toHaveBeenCalled();
     });
   });

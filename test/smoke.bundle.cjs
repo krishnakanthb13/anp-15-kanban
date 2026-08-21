@@ -69,9 +69,13 @@ const NOTE_MD = [
       && html.includes("kb-tab-add"),
     dateFormatWired: html.includes("setDateFormat") && html.includes("kb-datefmt-btn")
       && html.includes("YYYY-MM-DD"),
+    searchWired: html.includes("kb-search") && html.includes("globalSearch"),
+    cardMenuWired: html.includes("cardMenu") && html.includes("kb-card-menu"),
+    labelsWired: html.includes("kb-label-chip") && html.includes('"labels"'),
+    transferWired: html.includes("moveColumnToTab"),
   };
   console.log(checks);
   const allPass = Object.values(checks).every(Boolean);
-  console.log(allPass ? "PHASE 4 SMOKE PASS" : "PHASE 4 SMOKE FAIL");
+  console.log(allPass ? "PHASE 5 SMOKE PASS" : "PHASE 5 SMOKE FAIL");
   process.exit(allPass ? 0 : 1);
 })().catch(e => { console.error("SMOKE ERROR", e); process.exit(1); });

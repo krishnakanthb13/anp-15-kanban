@@ -2,7 +2,7 @@
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
-> **Sync note:** reflects plugin v0.0.11 (rebuild Phases 0-4). Phase 5 extras (labels, search, cross-tab drag) remain on the roadmap.
+> **Sync note:** reflects plugin v0.0.12 (rebuild complete, Phases 0-5).
 
 ---
 
@@ -21,7 +21,7 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 ### Description
 
-COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.11 REBUILD)
+COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.12 REBUILD)
 
 A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board - headings become columns, tasks become draggable cards - and every move you make writes straight back to your note. We also cover tag boards, where sub-tags become columns and notes become cards.
 
@@ -80,6 +80,11 @@ TAG BOARDS
 * Sub-Tags as Columns: A tag board lists each immediate sub-tag as its own column (plus "No sub-tag"), colored by the tag's color.
 * Notes as Cards: Cards come live from the tag query - notes tagged anywhere show up automatically.
 * Retag by Drag: Drag a note between columns to change its sub-tag; click a card to open the note; + creates a new note in that column.
+
+CARD EXTRAS & SEARCH
+* Card Menu: Hover a card and click the dots to add a label (color-coded note link), set a start date, or create a note from the card.
+* Two-Tier Search: The header box filters the board instantly as you type; press Enter for a full-text search across all notes.
+* Cross-Tab Columns: Move an entire column - heading and tasks - to another note board from its header tools.
 
 TABS, REFRESH & THEMES
 * Tab Management: "+ New tab" adds a note or tag board; hover tabs to reorder or close them (the underlying notes/tags are never deleted).
@@ -150,4 +155,4 @@ TABS, REFRESH & THEMES
 ---
 
 ### **Conclusion**
-> **Speaker**: "That's the rebuilt Kanban Plugin! Everything stays native - your notes remain plain notes, your tasks remain real tasks, your tags remain tags. Labels, search, and cross-tab organization are coming in the next milestone. Links are in the description. Thanks for watching!"
+> **Speaker**: "That's the rebuilt Kanban Plugin! Everything stays native - your notes remain plain notes, your tasks remain real tasks, your tags remain tags. Labels, start dates, search, and cross-tab column moves are all in - try them out. Links are in the description. Thanks for watching!"

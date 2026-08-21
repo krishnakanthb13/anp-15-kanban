@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { buildNoteBoard, toCardModel, plainPreview, firstImageUrl, renderCardHtml } from '../lib/api/noteBoard.js';
+import { buildNoteBoard, toCardModel, plainPreview, firstImageUrl, renderCardHtml, resolveLabels } from '../lib/api/noteBoard.js';
 
 const MD = [
   "Preamble",
@@ -23,6 +23,9 @@ function makeApp() {
     getNoteContent: jest.fn().mockResolvedValue(MD),
     getNoteTasks: jest.fn().mockResolvedValue(TASKS),
     htmlFromContent: jest.fn().mockImplementation(async (content) => `<p>${content}</p>`),
+    getTags: jest.fn().mockResolvedValue([
+      { text: "urgent-label", color: "ff0000" },
+    ]),
   };
 }
 
@@ -140,6 +143,36 @@ describe("noteBoard", () => {
       const out = await renderCardHtml(app, cards);
       expect(out).toBe(cards);
       expect(cards[0].html).toBe("<p>body</p>");
+    });
+  });
+
+  describe("resolveLabels", () => {
+    it("extracts unique wiki-link names in order", () => {
+      expect(resolveLabels("[[Beta]] text [[Alpha]] more [[Beta]]", {}))
+        .toEqual([{ name: "Beta", color: null }, { name: "Alpha", color: null }]);
+    });
+
+    it("resolves colors case-insensitively from the tag map", () => {
+      const map = { "urgent-label": "ff0000" };
+      expect(resolveLabels("see [[Urgent-Label]] now", map))
+        .toEqual([{ name: "Urgent-Label", color: "ff0000" }]);
+      expect(resolveLabels("[[unknown]]", map)[0].color).toBeNull();
+    });
+
+    it("returns an empty array without labels", () => {
+      expect(resolveLabels("no links here", {})).toEqual([]);
+    });
+  });
+
+  describe("buildNoteBoard labels integration", () => {
+    it("attaches parsed labels with colors to cards", async () => {
+      const app = makeApp();
+      app.getNoteTasks.mockResolvedValue([
+        { uuid: "u1", content: "task [[urgent-label]]" },
+      ]);
+      const board = await buildNoteBoard(app, "note-1");
+      const card = board.columns.flatMap(c => c.cards).find(c => c.id === "u1");
+      expect(card.labels).toEqual([{ name: "urgent-label", color: "ff0000" }]);
     });
   });
 

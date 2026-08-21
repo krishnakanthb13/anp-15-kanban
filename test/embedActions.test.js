@@ -17,6 +17,9 @@ import {
   handleCloseTab,
   handleMoveTabDir,
   handleSetDateFormat,
+  handleCardMenu,
+  handleGlobalSearch,
+  handleMoveColumnToTab,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -39,6 +42,8 @@ function makeApp(markdown = NOTE_MD) {
     removeNoteTag: jest.fn().mockResolvedValue(true),
     getTags: jest.fn().mockResolvedValue([]),
     filterNotes: jest.fn().mockResolvedValue([]),
+    searchNotes: jest.fn().mockResolvedValue([]),
+    alert: jest.fn().mockResolvedValue(),
     context: { renderEmbed: jest.fn().mockResolvedValue() },
   };
   return app;
@@ -380,6 +385,129 @@ describe("embedActions", () => {
       const before = app.setSetting.mock.calls.length;
       await handleSetDateFormat(app);
       expect(app.setSetting.mock.calls.length).toBe(before);
+    });
+  });
+
+  describe("extras (Phase 5)", () => {
+    describe("handleCardMenu", () => {
+      it("add-label branch appends a wiki-link from the picked note", async () => {
+        const app = makeApp();
+        app.prompt
+          .mockResolvedValueOnce("label")                       // menu choice (single value)
+          .mockResolvedValueOnce({ uuid: "ln1", name: "My Label" }); // note picker
+
+        await handleCardMenu(app, { cardId: "u1" });
+
+        expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one\n[[My Label]]" });
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("set-date branch writes a unix timestamp; blank clears", async () => {
+        const app = makeApp();
+        app.prompt
+          .mockResolvedValueOnce("date")
+          .mockResolvedValueOnce("2026-08-21");
+        await handleCardMenu(app, { cardId: "u1" });
+
+        const [, updates] = app.updateTask.mock.calls[0];
+        expect(updates.startAt).toBe(Math.floor(new Date("2026-08-21").getTime() / 1000));
+
+        app.prompt
+          .mockResolvedValueOnce("date")
+          .mockResolvedValueOnce("");
+        await handleCardMenu(app, { cardId: "u1" });
+        expect(app.updateTask).toHaveBeenLastCalledWith("u1", { startAt: null });
+      });
+
+      it("create-note branch creates a note and links it from the task", async () => {
+        const app = makeApp();
+        app.prompt.mockResolvedValueOnce("note");
+        await handleCardMenu(app, { cardId: "u1" });
+
+        expect(app.createNote).toHaveBeenCalledWith("one");
+        expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one\n[[one]]" });
+      });
+
+      it("does nothing on cancel or missing task", async () => {
+        const app = makeApp();
+        app.prompt.mockResolvedValue(null);
+        await handleCardMenu(app, { cardId: "u1" });
+        app.getTask.mockResolvedValue(null);
+        await handleCardMenu(app, { cardId: "ghost" });
+        expect(app.updateTask).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("handleGlobalSearch", () => {
+      it("searches all notes and opens the pick", async () => {
+        const app = makeApp();
+        app.searchNotes.mockResolvedValue([{ uuid: "r1", name: "Result One" }]);
+        app.prompt.mockResolvedValue("r1");
+
+        await handleGlobalSearch(app, { query: "hello" });
+
+        expect(app.searchNotes).toHaveBeenCalledWith("hello");
+        const promptArgs = app.prompt.mock.calls[0];
+        expect(promptArgs[1].inputs[0].options[0]).toEqual({ label: "Result One", value: "r1" });
+        expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes/r1");
+      });
+
+      it("alerts when nothing matches and ignores empty queries", async () => {
+        const app = makeApp();
+        await handleGlobalSearch(app, { query: "nothing-here" });
+        expect(app.alert).toHaveBeenCalled();
+
+        const before = app.searchNotes.mock.calls.length;
+        await handleGlobalSearch(app, {});
+        expect(app.searchNotes.mock.calls.length).toBe(before);
+      });
+    });
+
+    describe("handleMoveColumnToTab", () => {
+      function withTwoNoteTabs(app) {
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [
+            { id: "t1", kind: "note", name: "Board A", noteUUID: "n1" },
+            { id: "t2", kind: "note", name: "Board B", noteUUID: "n2" },
+          ],
+          activeTabId: "t1",
+          settings: {},
+        });
+        return app;
+      }
+
+      it("transfers the column after target selection + confirmation", async () => {
+        const app = withTwoNoteTabs(makeApp());
+        app.prompt
+          .mockResolvedValueOnce("t2")   // target select
+          .mockResolvedValueOnce(true);  // confirm checkbox
+
+        await handleMoveColumnToTab(app, { tabId: "t1", columnId: "0" });
+
+        expect(app.insertNoteContent).toHaveBeenCalledWith(
+          { uuid: "n2" }, expect.stringContaining("# Alpha"), { atEnd: true }
+        );
+        expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("aborts without confirmation or candidate tabs", async () => {
+        const app = withTwoNoteTabs(makeApp());
+        app.prompt
+          .mockResolvedValueOnce("t2")
+          .mockResolvedValueOnce(false);
+        await handleMoveColumnToTab(app, { tabId: "t1", columnId: "0" });
+        expect(app.replaceNoteContent).not.toHaveBeenCalled();
+
+        const lonely = makeApp(); // only one note tab -> no candidates
+        lonely.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "A", noteUUID: "n1" }],
+          activeTabId: "t1",
+          settings: {},
+        });
+        await handleMoveColumnToTab(lonely, { tabId: "t1", columnId: "0" });
+        expect(lonely.alert).toHaveBeenCalled();
+      });
     });
   });
 

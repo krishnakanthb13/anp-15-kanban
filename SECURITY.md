@@ -1,5 +1,5 @@
 # Security Audit — Kanban Plugin
-**Date**: 2026-08-21 (re-audit after v0.0.11 rebuild, Phases 0–4)
+**Date**: 2026-08-21 (re-audit after v0.0.12 rebuild, Phases 0–5)
 **Auditor**: Agent
 **Scope**: `kanban.js`, `lib/**`, embed client script, build artifact
 
@@ -29,4 +29,5 @@
 
 ## Notes for reviewers
 - The embed iframe is sandboxed by Amplenote; all privileged operations round-trip through `onEmbedCall`. The client cannot call `app.*` directly.
-- Structural note writes are minimal-diff line rewrites of freshly-read markdown; confirm-before-write patterns for destructive column operations are planned for Phase 2 (see `ds.md` §7–§8).
+- Structural note writes are minimal-diff line rewrites of freshly-read markdown; destructive operations (column delete, cross-tab column move) are gated behind explicit confirmation prompts in `embedActions`, and cross-tab transfers insert into the target before removing from the source.
+- Prompt results are normalized through `firstValue` (`utils/prompt.js`) because single- vs multi-input prompts resolve to different shapes — handlers must never index raw results.

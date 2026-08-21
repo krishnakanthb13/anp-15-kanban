@@ -1,3 +1,14 @@
+## v0.0.12 (2026-08-21) — Labels, Search & Card Extras
+
+### 🚀 New Features
+- **Card Labels**: Attach note links (`[[Note Name]]`) to any task from a card's ⋯ menu. Labels render as chips on the card and are color-coded when the label name matches one of your tags; multiple labels supported.
+- **Start Dates**: Set or clear a task's native start date from a date picker in the card menu.
+- **Create Note from Card**: Turn a card into a new note with one action — the note is created and linked back to the task, which stays in place (non-destructive).
+- **Two-Tier Search**: The header search box filters the active board instantly as you type (titles, content, labels, tags); pressing Enter runs a full-text search across all your notes with a pick-to-open result list.
+- **Cross-Tab Column Move**: Move an entire column — heading plus tasks — to another note board from its header tools. Confirmation-gated, and the transfer inserts into the target before removing from the source so data can only duplicate visibly, never vanish.
+
+---
+
 ## v0.0.11 (2026-08-21) — Multi-Tab Management
 
 ### 🚀 New Features

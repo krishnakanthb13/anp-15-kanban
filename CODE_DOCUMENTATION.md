@@ -1,6 +1,6 @@
 # Code Documentation — Kanban Plugin
 
-Technical reference for contributors. Scope: v0.0.11 (rebuild Phases 0–4).
+Technical reference for contributors. Scope: v0.0.12 (rebuild Phases 0–5, complete).
 
 ## Entry Point (`kanban.js`)
 
@@ -36,7 +36,8 @@ lib/
     embedActions.js    # Command dispatch table: ping, saveTheme, setActiveTab, refreshTab,
                        # refreshAll, moveCard, createCard, editCard, openCard,
                        # createColumn, renameColumn, deleteColumn, moveColumn, setWipLimit,
-                       # addTab, closeTab, moveTabDir, setDateFormat
+                       # addTab, closeTab, moveTabDir, setDateFormat, cardMenu,
+                       # globalSearch, moveColumnToTab
   ui/
     themes.js          # 8-theme registry, palette tokens, CSS builder, isValidThemeId guard
     boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + script injection)
@@ -47,6 +48,7 @@ lib/
                        # Use String.fromCharCode() for such characters.
   utils/
     html.js            # escapeHtml, toJsonForScript (script-safe JSON embedding)
+    prompt.js          # firstValue(): normalizes single- vs multi-input prompt results
     formatTimestamp.js # Unix timestamp formatting
 ```
 
@@ -104,6 +106,16 @@ Tabs are pure configuration — closing or reordering a tab never touches notes/
 - **closeTab** / **moveTabDir** reuse the pure `removeTab`/`moveTab` primitives; `normalizeConfig` repairs `activeTabId` on load if it ever points at a removed tab.
 - **setDateFormat** writes `config.settings.dateFormat`; the client formats card chips from tokens (`YYYY MM DD MMM`) via `formatStamp`.
 - The client renders tabs as hoverable chips with per-tab tools and a trailing "+ New tab" button; switching tabs is just `setActiveTab` + full re-render (boards are always freshly derived).
+
+## Phase 5 Extras
+
+- **Labels**: wiki-links (`[[Note Name]]`) in task content are parsed by `resolveLabels` and rendered as chips, color-coded via a case-insensitive match against account tag colors. `addLabelToTask` appends the link (duplicate-safe). The same primitive powers **create-note-from-card**, which creates the note then links it back — non-destructive by design.
+- **Start dates**: `cardMenu` → date input → unix seconds into native `startAt`; blank clears.
+- **Two-tier search**: the header box filters the active board client-side (titles/content/labels/tags); Enter triggers `globalSearch` → `app.searchNotes` → selectable result list → navigate.
+- **Cross-tab column move**: `transferColumn` copies the heading+content block into the target note (insert-first) before removing it from the source — an interrupted move duplicates visibly instead of losing data. Gated behind target selection + confirmation checkbox.
+
+### Prompt result contract
+Single-input prompts resolve to the value itself; multi-input prompts resolve to an Array. All handlers normalize through `firstValue` (`utils/prompt.js`) — never index raw results.
 
 ## Column Management & Confirm-Before-Write
 

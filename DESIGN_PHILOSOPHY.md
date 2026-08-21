@@ -16,7 +16,7 @@ The embed iframe cannot call `app.*`. Rather than fighting this, the architectur
 
 ## 3. Destructive Writes Earn Confirmation
 
-Simple field edits and card moves stay frictionless. Structural rewrites of user content — column delete requires an explicit confirmation checkbox today; create/rename/move validate their inputs and abort silently on any mismatch — and every operation re-reads the note immediately before writing so it acts on current reality, not a stale snapshot.
+Simple field edits and card moves stay frictionless. Structural rewrites of user content — column delete requires an explicit confirmation checkbox; cross-tab column moves confirm the target too — and every operation re-reads the note immediately before writing so it acts on current reality, not a stale snapshot.
 
 **Why:** There is no optimistic locking on `replaceNoteContent`. The cost of a confirmation dialog is trivial next to the cost of silently clobbering a user's concurrent edits.
 
