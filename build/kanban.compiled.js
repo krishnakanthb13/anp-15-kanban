@@ -413,9 +413,49 @@ function buildClientScript() {
 
   var searchQuery = "";
 
+  /* ---------------- formatting ---------------- */
+
+  function formatStamp(unixSec) {
+    if (!unixSec) return "";
+    var d = new Date(unixSec * 1000);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function formatFullStamp(unixSec) {
+    if (!unixSec) return "";
+    var d = new Date(unixSec * 1000);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function formatTimeRange(startSec, endSec) {
+    return formatStamp(startSec) + " - " + formatStamp(endSec);
+  }
+
+  function formatTaskRepeat(repeatStr) {
+    if (!repeatStr) return "repeat";
+    if (/FREQ=DAILY/i.test(repeatStr)) return "daily";
+    if (/FREQ=WEEKLY/i.test(repeatStr)) return "weekly";
+    if (/FREQ=MONTHLY/i.test(repeatStr)) return "monthly";
+    if (/FREQ=YEARLY/i.test(repeatStr)) return "yearly";
+    return "repeat";
+  }
+
   /* ---------------- sorting ---------------- */
 
-  var SORT_LABELS = { none: "Note Order", score: "Score", startDate: "Date", important: "Important", urgent: "Urgent" };
+  var SORT_MODES = ["none", "score", "startDate", "important", "urgent"];
+  var SORT_LABELS = {
+    none: "Sort Tasks",
+    score: "Sort: Score",
+    startDate: "Sort: Date",
+    important: "Sort: Important",
+    urgent: "Sort: Urgent"
+  };
 
   function applySort(cards) {
     var copy = cards.slice();
@@ -431,15 +471,27 @@ function buildClientScript() {
     return copy;
   }
 
-  function updateSortUi() {
-    var select = document.getElementById("kb-sort-select");
-    if (select && select.value !== sortMode) {
-      select.value = sortMode;
+  function cycleSort() {
+    var idx = SORT_MODES.indexOf(sortMode);
+    sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
+    updateSortUi();
+    renderBoard();
+    if (sortMode !== "none") {
+      showToast("Sorted by " + (SORT_LABELS[sortMode] || sortMode).replace("Sort: ", ""));
+    } else {
+      showToast("Reset to default task order");
     }
+  }
+
+  function updateSortUi() {
+    var sortBtn = document.getElementById("kb-sort-btn");
+    var sortLbl = document.getElementById("kb-sort-label");
+    var isSorted = sortMode !== "none";
+    if (sortLbl) sortLbl.textContent = SORT_LABELS[sortMode] || "Sort Tasks";
+    if (sortBtn) sortBtn.classList.toggle("kb-btn-active", isSorted);
 
     var tab = activeTab();
     var isNoteBoard = tab && tab.kind === "note";
-    var isSorted = sortMode !== "none";
 
     var saveSortBtn = document.getElementById("kb-save-sort-btn");
     if (saveSortBtn) saveSortBtn.style.display = (isSorted && isNoteBoard) ? "inline-flex" : "none";
@@ -466,11 +518,9 @@ function buildClientScript() {
 
   function resetSort() {
     sortMode = "none";
-    var select = document.getElementById("kb-sort-select");
-    if (select) select.value = "none";
     updateSortUi();
     renderBoard();
-    showToast("Reset to source note order");
+    showToast("Reset to default task order");
   }
 
   function resetColumns() {
@@ -575,17 +625,7 @@ function buildClientScript() {
       titleWrap.appendChild(el("h3", "kb-column-title", col.name));
       head.appendChild(titleWrap);
 
-      var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
-      var count = el("span", "kb-count" + (over ? " kb-over" : ""),
-        over ? visibleCards.length + " / " + col.wipLimit : String(visibleCards.length));
-      if (data.kind === "note") {
-        count.title = "Set WIP limit";
-        count.addEventListener("click", function (e) {
-          e.stopPropagation();
-          callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id });
-        });
-      }
-      head.appendChild(count);
+      var actionsWrap = el("div", "kb-col-actions");
 
       // Column tools with crisp SVGs
       if (data.kind === "note") {
@@ -610,7 +650,7 @@ function buildClientScript() {
           e.stopPropagation();
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        head.appendChild(tools);
+        actionsWrap.appendChild(tools);
       } else if (isTagBoard) {
         var ttools = el("div", "kb-col-tools");
         addColToolSvg(ttools, "externalLink", "Open note in Amplenote", function (e) {
@@ -621,8 +661,20 @@ function buildClientScript() {
           e.stopPropagation();
           callPlugin("renameNote", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        head.appendChild(ttools);
+        actionsWrap.appendChild(ttools);
       }
+
+      var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
+      var count = el("span", "kb-count" + (over ? " kb-over" : ""),
+        over ? visibleCards.length + " / " + col.wipLimit : String(visibleCards.length));
+      if (data.kind === "note") {
+        count.title = "Set WIP limit";
+        count.addEventListener("click", function (e) {
+          e.stopPropagation();
+          callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id });
+        });
+      }
+      actionsWrap.appendChild(count);
 
       var addBtn = el("button", "kb-add-card");
       addBtn.type = "button";
@@ -630,9 +682,11 @@ function buildClientScript() {
       addBtn.appendChild(svg("plus"));
       addBtn.addEventListener("click", function (e) {
         e.stopPropagation();
-        callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id });
+        callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, columnName: col.name });
       });
-      head.appendChild(addBtn);
+      actionsWrap.appendChild(addBtn);
+
+      head.appendChild(actionsWrap);
       colEl.appendChild(head);
 
       // Section-based cards for Tag board vs Flat cards for Note board
@@ -1083,19 +1137,8 @@ function buildClientScript() {
     var toggleDateBtn = document.getElementById("kb-toggle-date-action-btn");
     if (toggleDateBtn) toggleDateBtn.addEventListener("click", toggleQuickDate);
 
-    var sortSelect = document.getElementById("kb-sort-select");
-    if (sortSelect) {
-      sortSelect.addEventListener("change", function () {
-        sortMode = sortSelect.value;
-        updateSortUi();
-        renderBoard();
-        if (sortMode !== "none") {
-          showToast("Sorted by " + (SORT_LABELS[sortMode] || sortMode));
-        } else {
-          showToast("Reset to source note order");
-        }
-      });
-    }
+    var sortBtn = document.getElementById("kb-sort-btn");
+    if (sortBtn) sortBtn.addEventListener("click", cycleSort);
 
     var resetSortBtn = document.getElementById("kb-reset-sort-btn");
     if (resetSortBtn) resetSortBtn.addEventListener("click", resetSort);
@@ -1338,6 +1381,7 @@ function buildBaseCss() {
         border: 1px solid var(--kb-border);
         border-radius: 7px;
         padding: 5px 22px 5px 26px;
+        font-family: inherit;
         font-size: 12.5px;
         font-weight: 500;
         cursor: pointer;
@@ -1345,11 +1389,9 @@ function buildBaseCss() {
         -webkit-appearance: none;
         -moz-appearance: none;
         appearance: none;
-        transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-                    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-                    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-                    box-shadow 0.15s ease;
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         line-height: 1.4;
+        color-scheme: light dark;
     }
     .kb-select:hover {
         border-color: var(--kb-accent);
@@ -1361,19 +1403,37 @@ function buildBaseCss() {
         box-shadow: 0 0 0 2px color-mix(in srgb, var(--kb-accent) 22%, transparent);
     }
     .kb-select option {
-        background: var(--kb-bg-card);
-        color: var(--kb-text);
+        background-color: var(--kb-bg-card) !important;
+        color: var(--kb-text) !important;
+        font-family: inherit;
+        font-size: 12.5px;
+        padding: 6px 10px;
     }
     .kb-btn-group .kb-select-wrap .kb-select {
         border: none;
         background: transparent;
+        color: var(--kb-text-muted);
         border-radius: 6px;
+        padding: 5px 22px 5px 24px;
         box-shadow: none;
     }
-    .kb-btn-group .kb-select-wrap .kb-select:hover {
+    .kb-btn-group .kb-select-wrap:hover .kb-select,
+    .kb-btn-group .kb-select-wrap:focus-within .kb-select {
         background: var(--kb-bg-card);
         color: var(--kb-accent);
         box-shadow: 0 1px 3px var(--kb-shadow);
+    }
+    .kb-btn-group .kb-select-wrap .kb-select.kb-select-active {
+        background: var(--kb-bg-card);
+        color: var(--kb-accent);
+        font-weight: 600;
+        box-shadow: 0 1px 3px var(--kb-shadow);
+    }
+    .kb-btn-group .kb-select-wrap:hover .kb-select-icon,
+    .kb-btn-group .kb-select-wrap:hover .kb-select-arrow,
+    .kb-btn-group .kb-select-wrap:focus-within .kb-select-icon,
+    .kb-btn-group .kb-select-wrap:focus-within .kb-select-arrow {
+        color: var(--kb-accent);
     }
     .kb-search-wrap {
         position: relative;
@@ -1570,6 +1630,7 @@ function buildBaseCss() {
                     color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
                     transform 0.15s ease;
         position: relative;
+        overflow: hidden;
     }
     .kb-tab:hover {
         color: var(--kb-text);
@@ -1609,26 +1670,40 @@ function buildBaseCss() {
         border: 1px solid color-mix(in srgb, var(--kb-danger) 28%, transparent);
     }
     .kb-tab-tools {
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        transform: translateY(-50%);
         display: flex;
-        gap: 2px;
+        align-items: center;
+        gap: 1px;
+        padding: 1px 3px;
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        border-radius: 5px;
+        box-shadow: 0 1px 4px var(--kb-shadow);
         opacity: 0;
+        pointer-events: none;
         transition: opacity 0.15s ease;
-        margin-left: 2px;
+        z-index: 2;
     }
-    .kb-tab:hover .kb-tab-tools { opacity: 1; }
+    .kb-tab:hover .kb-tab-tools {
+        opacity: 1;
+        pointer-events: auto;
+    }
     .kb-tab-tool {
         background: transparent;
         border: none;
-        color: inherit;
+        color: var(--kb-text-muted);
         padding: 2px 3px;
-        border-radius: 4px;
+        border-radius: 3px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         transition: background 0.12s ease, color 0.12s ease;
     }
     .kb-tab-tool:hover {
-        background: var(--kb-bg-card);
+        background: color-mix(in srgb, var(--kb-accent) 15%, var(--kb-bg-card));
         color: var(--kb-accent);
     }
     .kb-tab-add {
@@ -1661,7 +1736,7 @@ function buildBaseCss() {
         font-weight: 600;
     }
     .kb-tab-name {
-        max-width: 150px;
+        max-width: 170px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -1713,11 +1788,21 @@ function buildBaseCss() {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 12px;
+        gap: 8px;
+        padding: 9px 12px;
         border-bottom: 1px solid var(--kb-border);
         cursor: grab;
         border-radius: 12px 12px 0 0;
         background: color-mix(in srgb, var(--kb-bg-card) 30%, var(--kb-bg-column));
+        position: relative;
+    }
+    .kb-col-titlewrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
     }
     .kb-col-drag-handle {
         display: inline-flex;
@@ -1726,7 +1811,6 @@ function buildBaseCss() {
         color: var(--kb-text-muted);
         cursor: grab;
         opacity: 0.5;
-        margin-right: 4px;
         flex-shrink: 0;
         transition: opacity 0.15s ease, color 0.15s ease;
     }
@@ -1742,6 +1826,15 @@ function buildBaseCss() {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .kb-col-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+        margin-left: auto;
     }
     .kb-count {
         font-size: 11px;
@@ -1752,6 +1845,7 @@ function buildBaseCss() {
         border-radius: 10px;
         padding: 1px 7px;
         cursor: pointer;
+        flex-shrink: 0;
         transition: all 0.15s ease;
     }
     .kb-count:hover {
@@ -1769,26 +1863,57 @@ function buildBaseCss() {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.8; }
     }
+    .kb-add-card {
+        background: transparent;
+        border: 1px dashed var(--kb-border);
+        color: var(--kb-text-muted);
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+    }
+    .kb-add-card:hover {
+        background: var(--kb-bg-card);
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
+        border-style: solid;
+        transform: scale(1.08);
+    }
     .kb-col-tools {
         display: flex;
-        gap: 3px;
+        align-items: center;
+        gap: 1px;
         opacity: 0;
+        pointer-events: none;
         transition: opacity 0.15s ease;
+        padding: 1px 2px;
+        border-radius: 5px;
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        box-shadow: 0 1px 3px var(--kb-shadow);
     }
-    .kb-column:hover .kb-col-tools { opacity: 1; }
+    .kb-column:hover .kb-col-tools {
+        opacity: 1;
+        pointer-events: auto;
+    }
     .kb-col-btn {
         background: transparent;
         border: none;
         color: var(--kb-text-muted);
-        padding: 3px 5px;
-        border-radius: 5px;
+        padding: 2px 3px;
+        border-radius: 3px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         transition: background 0.12s ease, color 0.12s ease;
     }
     .kb-col-btn:hover {
-        background: var(--kb-bg-card);
+        background: color-mix(in srgb, var(--kb-accent) 15%, var(--kb-bg-card));
         color: var(--kb-accent);
     }
 
@@ -1979,43 +2104,46 @@ function buildBaseCss() {
         right: 6px;
         display: flex;
         align-items: center;
-        gap: 3px;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 6px;
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        box-shadow: 0 1px 4px var(--kb-shadow);
         opacity: 0;
-        transform: translateY(-2px);
-        transition: opacity 0.15s ease, transform 0.15s ease;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+        z-index: 2;
     }
     .kb-card:hover .kb-card-actions {
         opacity: 1;
-        transform: translateY(0);
+        pointer-events: auto;
     }
     
     .kb-card-menu,
     .kb-card-info-btn,
     .kb-card-at-btn {
-        background: var(--kb-bg-column);
-        border: 1px solid var(--kb-border);
+        background: transparent;
+        border: none;
         color: var(--kb-text-muted);
-        padding: 3px 5px;
-        border-radius: 5px;
+        padding: 2px 4px;
+        border-radius: 4px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.12s ease;
+        transition: background 0.12s ease, color 0.12s ease;
     }
     .kb-card-at-btn {
-        font-size: 11px;
+        font-size: 11.5px;
         font-weight: 700;
         line-height: 1;
-        min-width: 20px;
         color: var(--kb-accent);
     }
     .kb-card-menu:hover,
     .kb-card-info-btn:hover,
     .kb-card-at-btn:hover {
-        background: var(--kb-bg-card);
+        background: color-mix(in srgb, var(--kb-accent) 15%, var(--kb-bg-card));
         color: var(--kb-accent);
-        border-color: var(--kb-accent);
-        transform: scale(1.05);
     }
 
     .kb-card-labels {
@@ -2261,33 +2389,6 @@ ${buildBaseCss()}
 
         <div class="kb-header-right">
             <div class="kb-btn-group" role="group" aria-label="Sort and view options">
-                <div class="kb-select-wrap" title="Sort cards by">
-                    <span class="kb-select-icon">
-                        <svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
-                    </span>
-                    <select id="kb-sort-select" class="kb-select" aria-label="Sort cards by">
-                        <option value="none">Sort: Note Order</option>
-                        <option value="score">Sort: Score</option>
-                        <option value="startDate">Sort: Date</option>
-                        <option value="important">Sort: Important</option>
-                        <option value="urgent">Sort: Urgent</option>
-                    </select>
-                    <span class="kb-select-arrow">
-                        <svg class="kb-icon kb-icon-fill" width="8" height="8" viewBox="0 0 24 24"><polygon points="6 9 12 15 18 9"></polygon></svg>
-                    </span>
-                </div>
-                <button id="kb-toggle-empty-btn" class="kb-btn" type="button" title="Show or hide empty columns">
-                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    <span id="kb-empty-label">Empty</span>
-                </button>
-                <button id="kb-toggle-info-btn" class="kb-btn" type="button" title="Expand or collapse details on all cards">
-                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    <span id="kb-info-label">Info</span>
-                </button>
-                <button id="kb-toggle-date-action-btn" class="kb-btn" type="button" title="Toggle quick @ date button on cards">
-                    <span style="font-weight:700;font-size:13px;line-height:1;color:var(--kb-accent);">@</span>
-                    <span id="kb-date-action-label">Date</span>
-                </button>
                 <button id="kb-save-sort-btn" class="kb-btn" type="button" style="display:none;" title="Save active card sort order into note markdown">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                     <span>Save Sort</span>
@@ -2303,6 +2404,22 @@ ${buildBaseCss()}
                 <button id="kb-reset-cols-btn" class="kb-btn" type="button" style="display:none;" title="Reset columns to original source note order">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
                     <span>Reset Columns</span>
+                </button>
+                <button id="kb-sort-btn" class="kb-btn" type="button" title="Cycle card sort order">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
+                    <span id="kb-sort-label">Sort Tasks</span>
+                </button>
+                <button id="kb-toggle-empty-btn" class="kb-btn" type="button" title="Show or hide empty columns">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <span id="kb-empty-label">Empty</span>
+                </button>
+                <button id="kb-toggle-info-btn" class="kb-btn" type="button" title="Expand or collapse details on all cards">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span id="kb-info-label">Info</span>
+                </button>
+                <button id="kb-toggle-date-action-btn" class="kb-btn" type="button" title="Toggle quick @ date button on cards">
+                    <span style="font-weight:700;font-size:13px;line-height:1;color:var(--kb-accent);">@</span>
+                    <span id="kb-date-action-label">Date</span>
                 </button>
             </div>
             <button id="kb-datefmt-btn" class="kb-btn" type="button" title="Date format for card chips">
@@ -2566,10 +2683,27 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target) {
   return "moved";
 }
 async function createTaskInColumn(app, noteUUID, target, content) {
+  let targetName = target?.columnName;
+  if (!targetName && target?.columnId && target.columnId !== "unsorted") {
+    try {
+      const { markdown } = await readNote(app, noteUUID);
+      const { columns } = buildColumnSpans(markdown);
+      const span = resolveSpan(columns, target.columnId);
+      if (span) targetName = span.name;
+    } catch {
+      targetName = null;
+    }
+  }
   const taskUuid = await app.insertTask({ uuid: noteUUID }, { content: String(content || "") });
   if (!taskUuid) return null;
+  if (target?.columnId === "unsorted") {
+    return taskUuid;
+  }
   try {
-    await moveTaskToColumn(app, noteUUID, taskUuid, target);
+    await moveTaskToColumn(app, noteUUID, taskUuid, {
+      columnId: target?.columnId,
+      columnName: targetName
+    });
   } catch (error) {
     console.error("createTaskInColumn relocate failed:", error);
   }
@@ -3126,7 +3260,7 @@ async function handleCreateCard(app, payload) {
   });
   const content = firstValue(result);
   if (!content) return;
-  await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId }, content);
+  await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId, columnName: payload.columnName }, content);
   await rerender(app);
 }
 async function handleOpenCard(app, payload) {
@@ -3314,19 +3448,89 @@ async function handleSetWipLimit(app, payload) {
   await saveTabsConfig(app, config);
   await rerender(app);
 }
+function parseDateToUnixSeconds(val) {
+  if (val === null || val === void 0) return null;
+  if (typeof val === "number") {
+    if (Number.isNaN(val) || val <= 0) return null;
+    return val > 1e11 ? Math.floor(val / 1e3) : Math.floor(val);
+  }
+  if (val instanceof Date) {
+    const ms = val.getTime();
+    return Number.isNaN(ms) ? null : Math.floor(ms / 1e3);
+  }
+  if (typeof val === "object") {
+    if (val.value !== void 0) return parseDateToUnixSeconds(val.value);
+    if (val.date !== void 0) return parseDateToUnixSeconds(val.date);
+    if (val.startAt !== void 0) return parseDateToUnixSeconds(val.startAt);
+  }
+  const str = String(val).trim();
+  if (!str) return null;
+  if (/^\d{9,14}$/.test(str)) {
+    const num = Number(str);
+    return num > 1e11 ? Math.floor(num / 1e3) : Math.floor(num);
+  }
+  const ymd = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymd) {
+    const [, y, m, d] = ymd;
+    const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 0, 0, 0);
+    const ms = date.getTime();
+    return Number.isNaN(ms) ? null : Math.floor(ms / 1e3);
+  }
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    return Math.floor(parsed.getTime() / 1e3);
+  }
+  return null;
+}
+function parseTimeToHoursMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== "string") return null;
+  const s = timeStr.trim().toLowerCase();
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?$/);
+  if (!m) return null;
+  let hours = parseInt(m[1], 10);
+  const minutes = m[2] ? parseInt(m[2], 10) : 0;
+  const meridian = m[3];
+  if (meridian === "pm" && hours < 12) hours += 12;
+  if (meridian === "am" && hours === 12) hours = 0;
+  if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+    return { hours, minutes };
+  }
+  return null;
+}
+function formatLocalTimeStr(unixSeconds) {
+  if (!unixSeconds || typeof unixSeconds !== "number" || Number.isNaN(unixSeconds)) return "";
+  const d = new Date(unixSeconds * 1e3);
+  const hr = d.getHours();
+  const min = d.getMinutes();
+  if (hr === 0 && min === 0) return "";
+  return `${String(hr).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+function combineDateAndTime(dateVal, timeStr) {
+  const baseSeconds = parseDateToUnixSeconds(dateVal);
+  if (!baseSeconds) return null;
+  if (!timeStr || typeof timeStr !== "string" || !timeStr.trim()) {
+    return baseSeconds;
+  }
+  const parsedTime = parseTimeToHoursMinutes(timeStr);
+  if (!parsedTime) return baseSeconds;
+  const d = new Date(baseSeconds * 1e3);
+  d.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+  return Math.floor(d.getTime() / 1e3);
+}
 async function handleCardMenu(app, payload) {
   const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
-  const choice = firstValue(await app.prompt("Card actions", {
+  const choice = firstValue(await app.prompt("Card Actions", {
     inputs: [{
-      label: "What do you want to do?",
+      label: "Choose action:",
       type: "radio",
       options: [
         { label: "Edit task details (full dialog)", value: "edit_details" },
         { label: "Add label (note link)", value: "label" },
-        { label: "Set start date / deadline", value: "date" },
+        { label: "Set start date / time", value: "date" },
         { label: "Snooze / Hide Until (set date)", value: "snooze" },
         { label: "Schedule Time Block (start & end time)", value: "timeblock" },
         { label: "Create note from card", value: "note" }
@@ -3348,41 +3552,54 @@ async function handleCardMenu(app, payload) {
     return;
   }
   if (choice === "date") {
-    const value = firstValue(await app.prompt("Set start date", {
-      inputs: [{ label: "Start date (blank clears):", type: "date" }]
-    }));
-    if (value === null || value === void 0) return;
-    const trimmed = String(value).trim();
-    const startAt = trimmed ? Math.floor(new Date(trimmed).getTime() / 1e3) : null;
-    if (trimmed && Number.isNaN(startAt)) return;
+    const currentVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
+    const currentTime = formatLocalTimeStr(task.startAt);
+    const result = await app.prompt("Set Start Date & Time", {
+      inputs: [
+        { label: "Start date (blank clears):", type: "date", value: currentVal },
+        { label: "Start time (optional, e.g. 14:30 or 2:30 PM):", type: "string", value: currentTime, placeholder: "HH:MM" }
+      ]
+    });
+    if (result === null || result === void 0) return;
+    const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
+    const startAt = combineDateAndTime(dateRaw, timeRaw);
     await app.updateTask(cardId, { startAt });
     await rerender(app);
     return;
   }
   if (choice === "snooze") {
-    const value = firstValue(await app.prompt("Snooze / Hide Until", {
-      inputs: [{ label: "Hide task until date (blank clears snooze):", type: "date" }]
-    }));
-    if (value === null || value === void 0) return;
-    const trimmed = String(value).trim();
-    const hideUntil = trimmed ? Math.floor(new Date(trimmed).getTime() / 1e3) : null;
+    const currentVal = typeof task.hideUntil === "number" && task.hideUntil > 0 ? Math.floor(task.hideUntil) : null;
+    const currentTime = formatLocalTimeStr(task.hideUntil);
+    const result = await app.prompt("Snooze / Hide Until", {
+      inputs: [
+        { label: "Hide task until date (blank clears snooze):", type: "date", value: currentVal },
+        { label: "Hide until time (optional, e.g. 14:30 or 2:30 PM):", type: "string", value: currentTime, placeholder: "HH:MM" }
+      ]
+    });
+    if (result === null || result === void 0) return;
+    const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
+    const hideUntil = combineDateAndTime(dateRaw, timeRaw);
     await app.updateTask(cardId, { hideUntil });
     await rerender(app);
     return;
   }
   if (choice === "timeblock") {
+    const sVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
+    const sTime = formatLocalTimeStr(task.startAt);
+    const eVal = typeof task.endAt === "number" && task.endAt > 0 ? Math.floor(task.endAt) : null;
+    const eTime = formatLocalTimeStr(task.endAt);
     const res = await app.prompt("Schedule Time Block", {
       inputs: [
-        { label: "Start Date/Time:", type: "date" },
-        { label: "End Date/Time (must be after start):", type: "date" }
+        { label: "Start Date:", type: "date", value: sVal },
+        { label: "Start Time (e.g. 10:00 or 10am):", type: "string", value: sTime, placeholder: "10:00" },
+        { label: "End Date:", type: "date", value: eVal },
+        { label: "End Time (e.g. 11:30 or 11:30am):", type: "string", value: eTime, placeholder: "11:30" }
       ]
     });
     if (!res) return;
-    const [startVal, endVal] = res;
-    const sTrim = String(startVal || "").trim();
-    const eTrim = String(endVal || "").trim();
-    const startAt = sTrim ? Math.floor(new Date(sTrim).getTime() / 1e3) : null;
-    const endAt = eTrim ? Math.floor(new Date(eTrim).getTime() / 1e3) : null;
+    const [sDate, sT, eDate, eT] = res;
+    const startAt = combineDateAndTime(sDate, sT);
+    const endAt = combineDateAndTime(eDate, eT);
     await app.updateTask(cardId, { startAt, endAt });
     await rerender(app);
     return;
@@ -3515,15 +3732,17 @@ async function handleQuickSetDate(app, payload) {
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
-  const currentIso = task.startAt ? new Date(task.startAt * 1e3).toISOString().slice(0, 10) : "";
-  const result = await app.prompt("Set Task Date (@)", {
-    inputs: [{ label: "Scheduled start date (leave blank to clear):", type: "date", value: currentIso }]
+  const currentVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
+  const currentTime = formatLocalTimeStr(task.startAt);
+  const result = await app.prompt("Set Task Date & Time (@)", {
+    inputs: [
+      { label: "Scheduled date (leave blank to clear):", type: "date", value: currentVal },
+      { label: "Scheduled time (optional, e.g. 14:30 or 2:30 PM):", type: "string", value: currentTime, placeholder: "HH:MM" }
+    ]
   });
-  const value = firstValue(result);
-  if (value === null || value === void 0) return;
-  const trimmed = String(value).trim();
-  const startAt = trimmed ? Math.floor(new Date(trimmed).getTime() / 1e3) : null;
-  if (trimmed && Number.isNaN(startAt)) return;
+  if (result === null || result === void 0) return;
+  const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
+  const startAt = combineDateAndTime(dateRaw, timeRaw);
   await app.updateTask(cardId, { startAt });
   await rerender(app);
 }

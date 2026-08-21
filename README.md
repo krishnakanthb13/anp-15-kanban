@@ -96,21 +96,21 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 ### Dynamic Sorting & Persisting to Note
 
-- **🔀 Sort Dropdown**: Use the header sort dropdown to immediately switch client-side sorting:
-  - **Sort: Note Order** (Source note sequence)
+- **🔀 Sort Tasks Cycling Button**: Click the header sort button to cycle through client-side sorting:
+  - **Sort Tasks** (Source note sequence)
   - **Sort: Score** (High to low)
   - **Sort: Date** (Scheduled/start date)
   - **Sort: Important** (Eisenhower Important first)
   - **Sort: Urgent** (Eisenhower Urgent first)
   *Visual dashboard sorting is non-destructive and does not rewrite the note.*
-- **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears in the header. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
-- **↺ Reset Sort**: Instantly restores the dropdown and dashboard view back to the natural source note order.
+- **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
+- **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task order.
 
 ### View Toolbar Controls (Empty Columns, Expand Info, Quick @ Date)
 
 - **👁️ Empty Button (`Empty`)**: Click to toggle between hiding and showing empty columns/headers across your board. When enabled, columns with 0 tasks remain visible for easy task creation (`+`).
 - **ℹ️ Info Button (`Info`)**: 1-click master switch to expand or collapse inline task details (`Start At`, `End At`, `Deadline`, `Hide Until`, `Score`, `Repeat`, `Parent Note`) across all visible cards at once.
-- **📅 @ Date Button (`@ Date`)**: Toggles the **Quick @ Date Mode**. When active, every task card displays a dedicated `@` button in its top-right action bar — clicking it instantly prompts with a native Date Selector to set or clear the task's scheduled start date.
+- **📅 @ Date Button (`@ Date`)**: Toggles the **Quick @ Date Mode**. When active, every task card displays a dedicated `@` button in its top-right action bar — clicking it prompts with a native Date Selector and optional Time input (e.g. `14:30` or `2:30 PM`) to schedule the exact start timestamp or clear it.
 
 ### Drag & Drop Column Reordering & Heading Persistence
 
@@ -134,9 +134,9 @@ Task cards dynamically display badges and metadata chips **only when those value
 Clicking the **⋯** menu on any card offers quick actions:
 - **Edit task details**: Opens the full task configuration dialog.
 - **Add label**: Links a note as a label (`[[Note Name]]`), rendered as a colored chip matching account tags.
-- **Set start date / deadline**: Sets native start time or deadline.
-- **Snooze / Hide Until**: Sets a date to hide the task until.
-- **Schedule Time Block**: Configures start and end times for calendar blocking.
+- **Set start date / time**: Sets native start date and optional time.
+- **Snooze / Hide Until**: Sets a date and optional time to hide the task until.
+- **Schedule Time Block**: Configures start and end dates/times for calendar blocking.
 - **Create note from card**: Creates a new note titled from the card and links it back to the task.
 
 ### Column management (Note Boards)

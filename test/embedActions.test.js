@@ -19,6 +19,10 @@ import {
   handleSetDateFormat,
   handleCardMenu,
   handleQuickSetDate,
+  parseDateToUnixSeconds,
+  parseTimeToHoursMinutes,
+  formatLocalTimeStr,
+  combineDateAndTime,
   handleGlobalSearch,
   handleMoveColumnToTab,
   handleRenameNote,
@@ -428,7 +432,7 @@ describe("embedActions", () => {
         await handleCardMenu(app, { cardId: "u1" });
 
         const [, updates] = app.updateTask.mock.calls[0];
-        expect(updates.startAt).toBe(Math.floor(new Date("2026-08-21").getTime() / 1000));
+        expect(updates.startAt).toBe(Math.floor(new Date(2026, 7, 21, 0, 0, 0).getTime() / 1000));
 
         app.prompt
           .mockResolvedValueOnce("date")
@@ -456,7 +460,18 @@ describe("embedActions", () => {
       });
     });
 
-    describe("handleQuickSetDate", () => {
+    describe("handleQuickSetDate and parseDateToUnixSeconds", () => {
+      it("parses diverse date formats reliably", () => {
+        expect(parseDateToUnixSeconds(null)).toBeNull();
+        expect(parseDateToUnixSeconds("")).toBeNull();
+        expect(parseDateToUnixSeconds("   ")).toBeNull();
+        expect(parseDateToUnixSeconds(1787270400)).toBe(1787270400);
+        expect(parseDateToUnixSeconds(1787270400000)).toBe(1787270400);
+        expect(parseDateToUnixSeconds("1787270400")).toBe(1787270400);
+        expect(parseDateToUnixSeconds("2026-08-25")).toBe(Math.floor(new Date(2026, 7, 25, 0, 0, 0).getTime() / 1000));
+        expect(parseDateToUnixSeconds(new Date("2026-08-25T00:00:00Z"))).toBe(Math.floor(new Date("2026-08-25T00:00:00Z").getTime() / 1000));
+      });
+
       it("prompts with current date and updates startAt timestamp", async () => {
         const app = makeApp();
         app.getTask.mockResolvedValue({ uuid: "u1", startAt: Math.floor(new Date("2026-08-21").getTime() / 1000) });
@@ -465,7 +480,19 @@ describe("embedActions", () => {
         await handleQuickSetDate(app, { cardId: "u1" });
 
         const [, updates] = app.updateTask.mock.calls[0];
-        expect(updates.startAt).toBe(Math.floor(new Date("2026-08-25").getTime() / 1000));
+        expect(updates.startAt).toBe(Math.floor(new Date(2026, 7, 25, 0, 0, 0).getTime() / 1000));
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("handles numeric epoch timestamp returns from Amplenote prompt", async () => {
+        const app = makeApp();
+        app.getTask.mockResolvedValue({ uuid: "u1", startAt: null });
+        app.prompt.mockResolvedValueOnce(1787270400);
+
+        await handleQuickSetDate(app, { cardId: "u1" });
+
+        const [, updates] = app.updateTask.mock.calls[0];
+        expect(updates.startAt).toBe(1787270400);
         expect(app.context.renderEmbed).toHaveBeenCalled();
       });
 
@@ -789,6 +816,41 @@ describe("embedActions", () => {
         await handleSaveColumnsToNote(app, { tabId: "t1", columnIds: ["2", "0"] });
 
         expect(app.replaceNoteContent).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("time helpers & handleQuickSetDate with time", () => {
+      it("parses various time formats accurately", () => {
+        expect(parseTimeToHoursMinutes("14:30")).toEqual({ hours: 14, minutes: 30 });
+        expect(parseTimeToHoursMinutes("2:30pm")).toEqual({ hours: 14, minutes: 30 });
+        expect(parseTimeToHoursMinutes("9am")).toEqual({ hours: 9, minutes: 0 });
+        expect(parseTimeToHoursMinutes("9:15 AM")).toEqual({ hours: 9, minutes: 15 });
+        expect(parseTimeToHoursMinutes("12pm")).toEqual({ hours: 12, minutes: 0 });
+        expect(parseTimeToHoursMinutes("12am")).toEqual({ hours: 0, minutes: 0 });
+        expect(parseTimeToHoursMinutes("invalid")).toBeNull();
+      });
+
+      it("combines date with time string", () => {
+        const combined = combineDateAndTime("2026-08-21", "14:30");
+        expect(typeof combined).toBe("number");
+        const d = new Date(combined * 1000);
+        expect(d.getHours()).toBe(14);
+        expect(d.getMinutes()).toBe(30);
+      });
+
+      it("handles quick set date and time prompt response", async () => {
+        const app = makeApp();
+        app.getTask.mockResolvedValue({ uuid: "t1", startAt: 1787270400 });
+        app.prompt.mockResolvedValue(["2026-08-21", "15:45"]);
+
+        await handleQuickSetDate(app, { cardId: "t1" });
+
+        expect(app.updateTask).toHaveBeenCalled();
+        const updated = app.updateTask.mock.calls[0][1];
+        expect(typeof updated.startAt).toBe("number");
+        const d = new Date(updated.startAt * 1000);
+        expect(d.getHours()).toBe(15);
+        expect(d.getMinutes()).toBe(45);
       });
     });
   });

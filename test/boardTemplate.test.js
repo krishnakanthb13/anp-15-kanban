@@ -45,7 +45,7 @@ describe("boardTemplate", () => {
   it("includes the header controls and containers", () => {
     [
       "kb-roundtrips", "kb-ping", "kb-refresh-tab", "kb-refresh-all",
-      "kb-theme-btn", "kb-tabs", "kb-board", "kb-sort-select",
+      "kb-theme-btn", "kb-tabs", "kb-board", "kb-sort-btn",
       "kb-toggle-empty-btn", "kb-toggle-info-btn", "kb-toggle-date-action-btn"
     ].forEach(id => {
       expect(html).toContain(`id="${id}"`);

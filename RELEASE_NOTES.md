@@ -1,3 +1,29 @@
+## v0.0.18 (2026-08-21) — Date & Time Scheduling & Task Sorting Refinements
+
+### 🚀 New Features & Enhancements
+- **Combined Date & Time Scheduling**: The `@` quick-date button and card action dialogs now provide both a visual date picker and an optional time field (e.g. `14:30` or `2:30 PM`), combining them into precise UTC timestamps for native Amplenote calendar time-blocking.
+- **Tactile Sort Tasks Button**: Renamed the default sorting state to `Sort Tasks` and positioned `💾 Save Sort` & `↺ Reset Sort` to the left of the sort button so expanding controls never shift the button under your cursor.
+- **Date Dialog 1970 Epoch Fix**: Passed raw numeric epoch seconds directly to Amplenote's native `{ type: "date" }` prompt inputs so existing task dates prefill accurately instead of showing Jan 1 1970.
+
+---
+
+## v0.0.16 (2026-08-21) — View Controls, Ergonomic Layout & Sync Fixes
+
+### 🚀 New Features & Enhancements
+- **Tactile Sort Cycling Button**: Click `#kb-sort-btn` in the header to cycle through client-side sorting modes (`Sort Tasks` ➔ `Sort: Score` ➔ `Sort: Date` ➔ `Sort: Important` ➔ `Sort: Urgent`), featuring active state highlighting and 1-click markdown persistence (`💾 Save Sort`).
+- **View Toolbar Master Controls**:
+  - **👁️ Show/Hide Empty Columns (`Empty`)**: Instantly toggle empty column/header visibility.
+  - **ℹ️ Expand/Collapse All Info (`Info`)**: Master 1-click toggle to reveal or hide inline metadata (Start/End date & time, Deadline, Snooze/Hide Until, Score, Recurrence, and Parent Note) across all cards simultaneously.
+  - **📅 Quick Date Mode (`@ Date`)**: Toggles dedicated `@` quick-date action buttons directly on cards for rapid date & time scheduling without opening context menus.
+- **Ergonomic Column Headers & Micro-Toolbars**: Moved the task count badge (`.kb-count`) to the far right alongside `+`, allocating full flex width to column titles to prevent premature text truncation. Tightened hover toolbars into compact floating micro-palettes across tabs, headers, and cards.
+- **Two-Step Tab Creation Wizard**: Simplified the "New Tab" prompt into a guided 2-step process (choose board type first, then configure only that specific selection) to eliminate cognitive clutter.
+
+### 🐛 Bug Fixes & Reliability
+- **Universal Date Parsing & Local Timezone Alignment**: Added `formatLocalIsoDate` to eliminate UTC date shifts in date picker dialogs and `parseDateToUnixSeconds` to reliably normalize epoch seconds, milliseconds, numeric strings, and ISO dates when writing to Amplenote servers.
+- **Reliable Task Creation in Columns**: Fixed heading relocation when clicking column `+` buttons by pre-resolving destination heading names before insertion, ensuring tasks never get misplaced by line-number shifts.
+
+---
+
 ## v0.0.15 (2026-08-21) — UI/UX Pro Max & Typography Polish
 
 ### 🚀 New Features & Enhancements
