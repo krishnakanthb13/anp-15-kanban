@@ -42,9 +42,12 @@ describe("clientScript", () => {
     });
   });
 
-  it("wires the phase-5 extras (search, card menu, labels, transfer)", () => {
-    ["globalSearch", "cardMenu", "moveColumnToTab",
-      "kb-search", "kb-card-menu", "kb-label-chip"].forEach(id => {
+  it("wires the phase-5 extras (search, card menu, labels, transfer, toggles)", () => {
+    [
+      "globalSearch", "cardMenu", "moveColumnToTab", "quickSetDate",
+      "kb-search", "kb-card-menu", "kb-label-chip", "kb-card-at-btn",
+      "kb-toggle-empty-btn", "kb-toggle-info-btn", "kb-toggle-date-action-btn"
+    ].forEach(id => {
       expect(script).toContain(id);
     });
   });

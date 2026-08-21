@@ -131,6 +131,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks |
 | `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
 | `cardMenu` | `handleCardMenu` | Context menu (edit details, label, date, snooze, timeblock, create note) |
+| `quickSetDate` | `handleQuickSetDate` | Direct date picker prompt for card start date |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
 | `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board |
 | `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown |
@@ -149,10 +150,10 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
    - CSS custom property declarations (`--kb-*`) enforcing light/dark parity across backgrounds, borders, headers, cards, text, accents, danger states, and elevations.
  - **`boardTemplate.js`**:
     - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
-    - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), custom `<select id="kb-sort-select">` sort dropdown, tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
+    - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), custom `<select id="kb-sort-select">` sort dropdown, view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
     - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
  - **`clientScript.js`**:
-    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, dynamic sort mode switching (`#kb-sort-select`), optimistic UI updates, search filtering, card inspector, and 0ms client theme cycler.
+    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, dynamic sort mode switching (`#kb-sort-select`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date mode, search filtering, card inspector, and 0ms client theme cycler.
  
  ---
  

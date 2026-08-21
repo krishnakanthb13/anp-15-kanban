@@ -106,6 +106,12 @@ Task cards dynamically display badges and metadata chips **only when those value
 - **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears in the header. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
 - **↺ Reset Sort**: Instantly restores the dropdown and dashboard view back to the natural source note order.
 
+### View Toolbar Controls (Empty Columns, Expand Info, Quick @ Date)
+
+- **👁️ Empty Button (`Empty`)**: Click to toggle between hiding and showing empty columns/headers across your board. When enabled, columns with 0 tasks remain visible for easy task creation (`+`).
+- **ℹ️ Info Button (`Info`)**: 1-click master switch to expand or collapse inline task details (`Start At`, `End At`, `Deadline`, `Hide Until`, `Score`, `Repeat`, `Parent Note`) across all visible cards at once.
+- **📅 @ Date Button (`@ Date`)**: Toggles the **Quick @ Date Mode**. When active, every task card displays a dedicated `@` button in its top-right action bar — clicking it instantly prompts with a native Date Selector to set or clear the task's scheduled start date.
+
 ### Drag & Drop Column Reordering & Heading Persistence
 
 - **Drag Columns Directly**: Click and drag any column header (or its `⠿` grip handle) to reorder columns visually across the board in real time.

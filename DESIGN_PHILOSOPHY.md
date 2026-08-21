@@ -78,6 +78,6 @@ The interface combines Google Fonts typography (**Inter** + **JetBrains Mono**),
 
 ## 10. Progressive Disclosure & Ergonomic Controls
 
-Complex configuration is broken into sequential single-purpose steps (e.g. 2-step prompt wizard for adding board tabs: choose type first, then configure only that specific selection). For multi-state views like sorting, direct `<select>` dropdown controls are used instead of requiring the user to cycle sequentially through multiple states.
+Complex configuration is broken into sequential single-purpose steps (e.g. 2-step prompt wizard for adding board tabs: choose type first, then configure only that specific selection). For multi-state views like sorting, direct `<select>` dropdown controls are used instead of requiring the user to cycle sequentially through multiple states. Global view toggles (Empty columns show/hide, Expand/Collapse all info, and Quick `@` date mode) give power users immediate, frictionless board customizability without visual clutter.
 
 **Why:** Presenting users with irrelevant or conditional inputs in a single monolithic modal creates cognitive overload and confusion. Progressive disclosure and direct 1-click controls minimize friction, make options immediately discoverable, and provide clear mental models for everyday operations.

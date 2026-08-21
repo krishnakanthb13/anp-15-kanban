@@ -181,6 +181,8 @@ function buildClientScript() {
   var THEME_STORAGE_KEY = "ANP_ACTIVE_THEME";
   var currentTheme = null;
   var sortMode = "none";
+  var showEmptyColumns = false;
+  var quickDateEnabled = false;
   var collapsedSections = {};
   var openInfoCards = {};
   var initialColumnOrders = {};
@@ -516,8 +518,8 @@ function buildClientScript() {
         return hay.indexOf(searchQuery) !== -1;
       });
 
-      // Hide empty columns on both Tag Boards and Note Boards
-      if (!visibleCards.length) return;
+      // Hide empty columns unless showEmptyColumns is enabled
+      if (!showEmptyColumns && !visibleCards.length) return;
       anyVisible = true;
 
       var colEl = el("section", "kb-column" + (isLast && data.kind === "note" ? " kb-column-last" : ""));
@@ -735,6 +737,18 @@ function buildClientScript() {
 
     // Card Action Buttons (Top Right) with crisp SVGs
     var actions = el("div", "kb-card-actions");
+
+    if (quickDateEnabled) {
+      var atBtn = el("button", "kb-card-at-btn", "@");
+      atBtn.type = "button";
+      atBtn.title = "Set task date (@)";
+      atBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        callPlugin("quickSetDate", { cardId: card.id });
+      });
+      actions.appendChild(atBtn);
+    }
+
     var infoBtn = el("button", "kb-card-info-btn");
     infoBtn.type = "button";
     infoBtn.title = "View task details";
@@ -994,11 +1008,80 @@ function buildClientScript() {
     if (btn) btn.classList.toggle("kb-busy", !!busy);
   }
 
+  function toggleEmptyColumns() {
+    showEmptyColumns = !showEmptyColumns;
+    var btn = document.getElementById("kb-toggle-empty-btn");
+    var lbl = document.getElementById("kb-empty-label");
+    if (btn) btn.classList.toggle("kb-btn-active", showEmptyColumns);
+    if (lbl) lbl.textContent = showEmptyColumns ? "Empty: Show" : "Empty";
+    renderBoard();
+    showToast(showEmptyColumns ? "Showing all columns (including empty)" : "Hiding empty columns");
+  }
+
+  function toggleAllInfo() {
+    var tab = activeTab();
+    var data = tab && STATE.boards ? STATE.boards[tab.id] : null;
+    var cols = (data && data.columns) || [];
+    var allCards = [];
+    cols.forEach(function (c) {
+      if (c.cards) allCards = allCards.concat(c.cards);
+      if (c.sections) {
+        c.sections.forEach(function (s) {
+          if (s.cards) allCards = allCards.concat(s.cards);
+        });
+      }
+    });
+
+    var totalCards = allCards.length;
+    var openCount = 0;
+    allCards.forEach(function (c) {
+      if (openInfoCards[c.id]) openCount++;
+    });
+
+    var shouldExpand = openCount < totalCards;
+    allCards.forEach(function (c) {
+      if (shouldExpand) {
+        openInfoCards[c.id] = true;
+      } else {
+        delete openInfoCards[c.id];
+      }
+    });
+
+    if (data && data.kind === "tag" && shouldExpand) {
+      collapsedSections = {};
+    }
+
+    var btn = document.getElementById("kb-toggle-info-btn");
+    var lbl = document.getElementById("kb-info-label");
+    if (btn) btn.classList.toggle("kb-btn-active", shouldExpand);
+    if (lbl) lbl.textContent = shouldExpand ? "Info: All" : "Info";
+
+    renderBoard();
+    showToast(shouldExpand ? "Expanded all task details" : "Collapsed all task details");
+  }
+
+  function toggleQuickDate() {
+    quickDateEnabled = !quickDateEnabled;
+    var btn = document.getElementById("kb-toggle-date-action-btn");
+    if (btn) btn.classList.toggle("kb-btn-active", quickDateEnabled);
+    renderBoard();
+    showToast(quickDateEnabled ? "Quick @ date buttons enabled on cards" : "Quick @ date buttons disabled");
+  }
+
   /* ---------------- actions ---------------- */
 
   function wireControls() {
     var themeBtn = document.getElementById("kb-theme-btn");
     if (themeBtn) themeBtn.addEventListener("click", cycleTheme);
+
+    var toggleEmptyBtn = document.getElementById("kb-toggle-empty-btn");
+    if (toggleEmptyBtn) toggleEmptyBtn.addEventListener("click", toggleEmptyColumns);
+
+    var toggleInfoBtn = document.getElementById("kb-toggle-info-btn");
+    if (toggleInfoBtn) toggleInfoBtn.addEventListener("click", toggleAllInfo);
+
+    var toggleDateBtn = document.getElementById("kb-toggle-date-action-btn");
+    if (toggleDateBtn) toggleDateBtn.addEventListener("click", toggleQuickDate);
 
     var sortSelect = document.getElementById("kb-sort-select");
     if (sortSelect) {
@@ -1408,6 +1491,18 @@ function buildBaseCss() {
     .kb-btn:active {
         transform: translateY(0) scale(0.98);
         box-shadow: none;
+    }
+    .kb-btn.kb-btn-active {
+        background: color-mix(in srgb, var(--kb-accent) 16%, var(--kb-bg-card));
+        color: var(--kb-accent);
+        border-color: var(--kb-accent);
+        font-weight: 600;
+    }
+    .kb-btn-group .kb-btn.kb-btn-active {
+        background: var(--kb-bg-card);
+        color: var(--kb-accent);
+        border-color: var(--kb-accent);
+        box-shadow: 0 1px 3px var(--kb-shadow);
     }
     .kb-btn.kb-busy {
         opacity: 0.55;
@@ -1895,7 +1990,8 @@ function buildBaseCss() {
     }
     
     .kb-card-menu,
-    .kb-card-info-btn {
+    .kb-card-info-btn,
+    .kb-card-at-btn {
         background: var(--kb-bg-column);
         border: 1px solid var(--kb-border);
         color: var(--kb-text-muted);
@@ -1906,8 +2002,16 @@ function buildBaseCss() {
         justify-content: center;
         transition: all 0.12s ease;
     }
+    .kb-card-at-btn {
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+        min-width: 20px;
+        color: var(--kb-accent);
+    }
     .kb-card-menu:hover,
-    .kb-card-info-btn:hover {
+    .kb-card-info-btn:hover,
+    .kb-card-at-btn:hover {
         background: var(--kb-bg-card);
         color: var(--kb-accent);
         border-color: var(--kb-accent);
@@ -2172,6 +2276,18 @@ ${buildBaseCss()}
                         <svg class="kb-icon kb-icon-fill" width="8" height="8" viewBox="0 0 24 24"><polygon points="6 9 12 15 18 9"></polygon></svg>
                     </span>
                 </div>
+                <button id="kb-toggle-empty-btn" class="kb-btn" type="button" title="Show or hide empty columns">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <span id="kb-empty-label">Empty</span>
+                </button>
+                <button id="kb-toggle-info-btn" class="kb-btn" type="button" title="Expand or collapse details on all cards">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span id="kb-info-label">Info</span>
+                </button>
+                <button id="kb-toggle-date-action-btn" class="kb-btn" type="button" title="Toggle quick @ date button on cards">
+                    <span style="font-weight:700;font-size:13px;line-height:1;color:var(--kb-accent);">@</span>
+                    <span id="kb-date-action-label">Date</span>
+                </button>
                 <button id="kb-save-sort-btn" class="kb-btn" type="button" style="display:none;" title="Save active card sort order into note markdown">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                     <span>Save Sort</span>
@@ -3394,6 +3510,23 @@ async function handleSaveColumnsToNote(app, payload) {
     await rerender(app);
   }
 }
+async function handleQuickSetDate(app, payload) {
+  const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
+  if (!cardId) return;
+  const task = await app.getTask(cardId);
+  if (!task) return;
+  const currentIso = task.startAt ? new Date(task.startAt * 1e3).toISOString().slice(0, 10) : "";
+  const result = await app.prompt("Set Task Date (@)", {
+    inputs: [{ label: "Scheduled start date (leave blank to clear):", type: "date", value: currentIso }]
+  });
+  const value = firstValue(result);
+  if (value === null || value === void 0) return;
+  const trimmed = String(value).trim();
+  const startAt = trimmed ? Math.floor(new Date(trimmed).getTime() / 1e3) : null;
+  if (trimmed && Number.isNaN(startAt)) return;
+  await app.updateTask(cardId, { startAt });
+  await rerender(app);
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
@@ -3417,6 +3550,7 @@ var ACTIONS = {
   saveColumnsToNote: handleSaveColumnsToNote,
   setWipLimit: handleSetWipLimit,
   cardMenu: handleCardMenu,
+  quickSetDate: handleQuickSetDate,
   saveSortToNote: handleSaveSortToNote,
   globalSearch: handleGlobalSearch,
   moveColumnToTab: handleMoveColumnToTab,

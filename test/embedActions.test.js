@@ -18,6 +18,7 @@ import {
   handleMoveTabDir,
   handleSetDateFormat,
   handleCardMenu,
+  handleQuickSetDate,
   handleGlobalSearch,
   handleMoveColumnToTab,
   handleRenameNote,
@@ -451,6 +452,39 @@ describe("embedActions", () => {
         await handleCardMenu(app, { cardId: "u1" });
         app.getTask.mockResolvedValue(null);
         await handleCardMenu(app, { cardId: "ghost" });
+        expect(app.updateTask).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("handleQuickSetDate", () => {
+      it("prompts with current date and updates startAt timestamp", async () => {
+        const app = makeApp();
+        app.getTask.mockResolvedValue({ uuid: "u1", startAt: Math.floor(new Date("2026-08-21").getTime() / 1000) });
+        app.prompt.mockResolvedValueOnce("2026-08-25");
+
+        await handleQuickSetDate(app, { cardId: "u1" });
+
+        const [, updates] = app.updateTask.mock.calls[0];
+        expect(updates.startAt).toBe(Math.floor(new Date("2026-08-25").getTime() / 1000));
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("clears startAt when prompt submitted blank", async () => {
+        const app = makeApp();
+        app.getTask.mockResolvedValue({ uuid: "u1", startAt: 123456 });
+        app.prompt.mockResolvedValueOnce("");
+
+        await handleQuickSetDate(app, { cardId: "u1" });
+
+        expect(app.updateTask).toHaveBeenCalledWith("u1", { startAt: null });
+      });
+
+      it("aborts when cancelled or task missing", async () => {
+        const app = makeApp();
+        app.prompt.mockResolvedValueOnce(null);
+        await handleQuickSetDate(app, { cardId: "u1" });
+        app.getTask.mockResolvedValueOnce(null);
+        await handleQuickSetDate(app, { cardId: "missing" });
         expect(app.updateTask).not.toHaveBeenCalled();
       });
     });
