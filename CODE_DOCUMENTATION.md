@@ -78,19 +78,18 @@ Amplenote tasks map into rich card objects with all native metadata:
 ---
 
 ## Tab Types & Creation Contract (`features/embedActions.js`)
+ 
+`handleAddTab` executes a 2-step progressive disclosure wizard:
+ 
+- **Step 1 (Board Type Selection)**: Prompts user with a 3-option radio selector:
+  1. `note`: Existing Note Board (headings as columns)
+  2. `new_note`: Create New Note Board (auto-creates note with columns)
+  3. `tag`: Tag Board (all notes with tag as columns)
 
-`handleAddTab` presents 3 distinct board creation pathways:
-
-1. **Note Board (`kind: "note"`)**:
-   - Picks an existing note.
-   - Headings at shallowest depth become columns; tasks under headings become cards.
-2. **Create New Note Board (`kind: "note"`)**:
-   - Accepts an optional note name. If omitted/empty, uses `defaultKanbanNoteName()` (`Kanban Board - YYYY-MM-DD HH:mm`).
-   - Automatically creates note with tag `["-reports/-kanban"]` and inserts default columns `# To Do`, `# In Progress`, `# Done`.
-3. **Tag Board (`kind: "tag"`)**:
-   - Selects a tag.
-   - Notes carrying the tag are rendered as columns.
-   - Inside each note column, markdown headings are parsed into collapsible sections (`▼ / ▶`), with tasks organized inside their respective headings.
+- **Step 2 (Context-Specific Prompt)**: Sequentially displays only the required input:
+  - **If `note`**: Displays a single `{ type: "note" }` picker prompt.
+  - **If `new_note`**: Displays a single `{ type: "string" }` prompt for the board title (falling back to `defaultKanbanNoteName()` if blank). Creates note under tag `["-reports/-kanban"]` with default `# To Do`, `# In Progress`, `# Done` headings.
+  - **If `tag`**: Displays a single `{ type: "tags", limit: 1 }` tag selector prompt.
 
 ---
 
@@ -149,11 +148,11 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
    - 8-theme registry (`Clean Daylight`, `Sepia Parchment`, `Matcha Latte`, `Nord Frost`, `Midnight Slate`, `Nord Arctic`, `Dracula Neo`, `Emerald Forest`).
    - CSS custom property declarations (`--kb-*`) enforcing light/dark parity across backgrounds, borders, headers, cards, text, accents, danger states, and elevations.
  - **`boardTemplate.js`**:
-   - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
-   - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 768px)` breakpoints.
-   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
+    - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
+    - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), custom `<select id="kb-sort-select">` sort dropdown, tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
+    - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
  - **`clientScript.js`**:
-   - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, optimistic UI updates, search filtering, card inspector, and 0ms client theme cycler.
+    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, dynamic sort mode switching (`#kb-sort-select`), optimistic UI updates, search filtering, card inspector, and 0ms client theme cycler.
  
  ---
  

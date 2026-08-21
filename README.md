@@ -45,11 +45,14 @@ Until tabs are configured, the board shows a **Demo Board** so you can explore t
 
 The tab bar sits above the board:
 
-- **+ New tab** opens the tab creation dialog with 3 clear options:
-  1. **Note Board (Existing Note)**: Select an existing note where headings act as columns.
-  2. **Create New Note Board**: Specify an optional note name (defaults to `Kanban Board - YYYY-MM-DD HH:mm` if blank); auto-creates the note tagged `-reports/-kanban` with default `# To Do`, `# In Progress`, and `# Done` columns.
-  3. **Tag Board**: Select a tag where notes under that tag act as columns with collapsible heading sections.
+- **+ New tab** opens a clean **2-step progressive disclosure wizard**:
+  - **Step 1 (Choose Board Type)**: Select between:
+    1. **Note Board (Existing Note)**: Headings from an existing note act as columns.
+    2. **Create New Note Board**: Auto-generates a fresh note tagged `-reports/-kanban` with default `# To Do`, `# In Progress`, and `# Done` columns.
+    3. **Tag Board**: Notes carrying a specific tag act as columns with collapsible heading sections.
+  - **Step 2 (Context-Specific Input)**: Prompts *only* for the relevant field based on your choice (Note picker for Note Board, optional Board Title for New Board, or Tag selector for Tag Board).
 - **Click** a tab to switch boards; data is re-derived fresh on every switch.
+- **Drag & Drop** tabs to reorder them in your tab bar.
 - **Hover a tab** for its tools: ← / → reorder tabs, ✕ closes it (the underlying note/tag is never deleted).
 
 ### Board interactions (Note Boards)
@@ -93,11 +96,15 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 ### Dynamic Sorting & Persisting to Note
 
-- **🔀 Sort Control**: Click the sort button in the header to cycle client-side sorting instantly:
-  `Note Order ➔ Score ➔ Date ➔ Important ➔ Urgent`.
+- **🔀 Sort Dropdown**: Use the header sort dropdown to immediately switch client-side sorting:
+  - **Sort: Note Order** (Source note sequence)
+  - **Sort: Score** (High to low)
+  - **Sort: Date** (Scheduled/start date)
+  - **Sort: Important** (Eisenhower Important first)
+  - **Sort: Urgent** (Eisenhower Urgent first)
   *Visual dashboard sorting is non-destructive and does not rewrite the note.*
 - **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears in the header. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
-- **↺ Reset Sort**: Instantly restores the dashboard view back to the natural source note order.
+- **↺ Reset Sort**: Instantly restores the dropdown and dashboard view back to the natural source note order.
 
 ### Drag & Drop Column Reordering & Heading Persistence
 

@@ -69,3 +69,13 @@ Create note from card
 5. Dashboard Sorting vs Note Persisted Sorting - there should be an another options to reset to the order how it is present in the source note. correct?
 
 ---
+
+1. It should not show the notes or headers as columns if they are empty.
+i remember we implemented this - can you make this happen like a button on the top - show empty notes or header or hide, it will be useful when a note or tagged notes all do not have any tasks in them
+and
+2. add an another button on top to collapse all info or expand all info for all the task in the current window - it will be helpful
+and
+3. add a at button for every task - this again should be enabled only by pressing a button on top to add date using a date selector - possible, and again hitting the top button should disable the button on hover
+
+---
+

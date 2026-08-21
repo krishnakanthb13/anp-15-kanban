@@ -73,3 +73,11 @@ Eight curated themes ship in balanced light/dark pairs using pure CSS custom pro
 The interface combines Google Fonts typography (**Inter** + **JetBrains Mono**), calibrated typography scales, and tactile micro-interactions (hover elevations, button active scales, WIP pulsing warnings, and drag-drop ghost tilts) with full WCAG focus-visible rings and `@media (prefers-reduced-motion: reduce)` support.
 
 **Why:** Productivity tools must feel delightful and responsive without sacrificing legibility or accessibility. Smooth hardware-accelerated transitions and distinct visual hierarchies turn raw task lists into an engaging, state-of-the-art workflow board.
+
+---
+
+## 10. Progressive Disclosure & Ergonomic Controls
+
+Complex configuration is broken into sequential single-purpose steps (e.g. 2-step prompt wizard for adding board tabs: choose type first, then configure only that specific selection). For multi-state views like sorting, direct `<select>` dropdown controls are used instead of requiring the user to cycle sequentially through multiple states.
+
+**Why:** Presenting users with irrelevant or conditional inputs in a single monolithic modal creates cognitive overload and confusion. Progressive disclosure and direct 1-click controls minimize friction, make options immediately discoverable, and provide clear mental models for everyday operations.

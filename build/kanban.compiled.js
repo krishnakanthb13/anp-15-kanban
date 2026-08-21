@@ -430,8 +430,10 @@ function buildClientScript() {
   }
 
   function updateSortUi() {
-    var lbl = document.getElementById("kb-sort-label");
-    if (lbl) lbl.textContent = "Sort: " + (SORT_LABELS[sortMode] || "Note Order");
+    var select = document.getElementById("kb-sort-select");
+    if (select && select.value !== sortMode) {
+      select.value = sortMode;
+    }
 
     var tab = activeTab();
     var isNoteBoard = tab && tab.kind === "note";
@@ -460,16 +462,10 @@ function buildClientScript() {
     if (resetColsBtn) resetColsBtn.style.display = (isColsDirty && isNoteBoard) ? "inline-flex" : "none";
   }
 
-  function cycleSort() {
-    var modes = ["none", "score", "startDate", "important", "urgent"];
-    var idx = modes.indexOf(sortMode);
-    sortMode = modes[(idx + 1) % modes.length];
-    updateSortUi();
-    renderBoard();
-  }
-
   function resetSort() {
     sortMode = "none";
+    var select = document.getElementById("kb-sort-select");
+    if (select) select.value = "none";
     updateSortUi();
     renderBoard();
     showToast("Reset to source note order");
@@ -1004,8 +1000,19 @@ function buildClientScript() {
     var themeBtn = document.getElementById("kb-theme-btn");
     if (themeBtn) themeBtn.addEventListener("click", cycleTheme);
 
-    var sortBtn = document.getElementById("kb-sort-btn");
-    if (sortBtn) sortBtn.addEventListener("click", cycleSort);
+    var sortSelect = document.getElementById("kb-sort-select");
+    if (sortSelect) {
+      sortSelect.addEventListener("change", function () {
+        sortMode = sortSelect.value;
+        updateSortUi();
+        renderBoard();
+        if (sortMode !== "none") {
+          showToast("Sorted by " + (SORT_LABELS[sortMode] || sortMode));
+        } else {
+          showToast("Reset to source note order");
+        }
+      });
+    }
 
     var resetSortBtn = document.getElementById("kb-reset-sort-btn");
     if (resetSortBtn) resetSortBtn.addEventListener("click", resetSort);
@@ -1215,6 +1222,72 @@ function buildBaseCss() {
         box-shadow: none;
     }
     .kb-btn-group .kb-btn:hover {
+        background: var(--kb-bg-card);
+        color: var(--kb-accent);
+        box-shadow: 0 1px 3px var(--kb-shadow);
+    }
+    .kb-select-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+    .kb-select-icon {
+        position: absolute;
+        left: 8px;
+        pointer-events: none;
+        color: var(--kb-text-muted);
+        display: flex;
+        align-items: center;
+        z-index: 2;
+    }
+    .kb-select-arrow {
+        position: absolute;
+        right: 8px;
+        pointer-events: none;
+        color: var(--kb-text-muted);
+        display: flex;
+        align-items: center;
+        z-index: 2;
+    }
+    .kb-select {
+        background: var(--kb-bg-card);
+        color: var(--kb-text);
+        border: 1px solid var(--kb-border);
+        border-radius: 7px;
+        padding: 5px 22px 5px 26px;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.15s ease;
+        line-height: 1.4;
+    }
+    .kb-select:hover {
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-accent) 6%, var(--kb-bg-card));
+    }
+    .kb-select:focus {
+        border-color: var(--kb-accent);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--kb-accent) 22%, transparent);
+    }
+    .kb-select option {
+        background: var(--kb-bg-card);
+        color: var(--kb-text);
+    }
+    .kb-btn-group .kb-select-wrap .kb-select {
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        box-shadow: none;
+    }
+    .kb-btn-group .kb-select-wrap .kb-select:hover {
         background: var(--kb-bg-card);
         color: var(--kb-accent);
         box-shadow: 0 1px 3px var(--kb-shadow);
@@ -2084,10 +2157,21 @@ ${buildBaseCss()}
 
         <div class="kb-header-right">
             <div class="kb-btn-group" role="group" aria-label="Sort and view options">
-                <button id="kb-sort-btn" class="kb-btn" type="button" title="Cycle card sorting">
-                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
-                    <span id="kb-sort-label">Sort: Note Order</span>
-                </button>
+                <div class="kb-select-wrap" title="Sort cards by">
+                    <span class="kb-select-icon">
+                        <svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
+                    </span>
+                    <select id="kb-sort-select" class="kb-select" aria-label="Sort cards by">
+                        <option value="none">Sort: Note Order</option>
+                        <option value="score">Sort: Score</option>
+                        <option value="startDate">Sort: Date</option>
+                        <option value="important">Sort: Important</option>
+                        <option value="urgent">Sort: Urgent</option>
+                    </select>
+                    <span class="kb-select-arrow">
+                        <svg class="kb-icon kb-icon-fill" width="8" height="8" viewBox="0 0 24 24"><polygon points="6 9 12 15 18 9"></polygon></svg>
+                    </span>
+                </div>
                 <button id="kb-save-sort-btn" class="kb-btn" type="button" style="display:none;" title="Save active card sort order into note markdown">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                     <span>Save Sort</span>
@@ -2752,35 +2836,47 @@ function defaultKanbanNoteName(now = /* @__PURE__ */ new Date()) {
   return `Kanban Board - ${dateStr}`;
 }
 async function handleAddTab(app) {
-  const result = await app.prompt("Add board tab", {
+  const choice = firstValue(await app.prompt("Add Board Tab", {
     inputs: [
       {
-        label: "Board type:",
+        label: "Choose board type:",
         type: "radio",
         options: [
-          { label: "Note board (headings as columns from existing note)", value: "note" },
-          { label: "Create new note board (creates note under -reports/-kanban)", value: "new_note" },
-          { label: "Tag board (notes under tag as columns with collapsible headings)", value: "tag" }
+          { label: "Existing Note Board (headings as columns)", value: "note" },
+          { label: "Create New Note Board (auto-creates note with columns)", value: "new_note" },
+          { label: "Tag Board (all notes with tag as columns)", value: "tag" }
         ]
-      },
-      { label: "Existing Note (for Note board):", type: "note" },
-      { label: "New Note Name (optional, blank = default with date):", type: "string" },
-      { label: "Tag (for Tag board):", type: "tags", limit: 1 }
+      }
     ]
-  });
-  if (!result) return;
-  const [kind, noteHandle, newNoteName, tagValue] = result;
-  const tagText = Array.isArray(tagValue) ? tagValue[0] : tagValue;
+  }));
+  if (!choice) return;
   let tab = null;
-  if (kind === "note") {
+  if (choice === "note") {
+    const noteHandle = firstValue(await app.prompt("Select Note for Board", {
+      inputs: [
+        {
+          label: "Choose an existing note (headings will become columns):",
+          type: "note"
+        }
+      ]
+    }));
     if (!noteHandle || !noteHandle.uuid) return;
     tab = createTab({
       kind: "note",
       name: noteHandle.name || "Note board",
       noteUUID: noteHandle.uuid
     });
-  } else if (kind === "new_note") {
-    const title = newNoteName && String(newNoteName).trim() || defaultKanbanNoteName();
+  } else if (choice === "new_note") {
+    const titleInput = firstValue(await app.prompt("Create New Note Board", {
+      inputs: [
+        {
+          label: "Board title (optional \u2014 leave blank for timestamped name):",
+          type: "string"
+        }
+      ]
+    }));
+    if (titleInput === null || titleInput === void 0) return;
+    const title = titleInput && String(titleInput).trim() || defaultKanbanNoteName();
     const uuid = await app.createNote(title, ["-reports/-kanban"]);
     if (!uuid) return;
     await app.replaceNoteContent({ uuid }, "# To Do\n\n# In Progress\n\n# Done\n");
@@ -2789,7 +2885,17 @@ async function handleAddTab(app) {
       name: title,
       noteUUID: uuid
     });
-  } else if (kind === "tag") {
+  } else if (choice === "tag") {
+    const tagVal = firstValue(await app.prompt("Select Tag for Board", {
+      inputs: [
+        {
+          label: "Select or type a tag (all notes with this tag become columns):",
+          type: "tags",
+          limit: 1
+        }
+      ]
+    }));
+    const tagText = Array.isArray(tagVal) ? tagVal[0] : tagVal;
     if (!tagText || !String(tagText).trim()) return;
     const clean = String(tagText).trim();
     tab = createTab({ kind: "tag", name: clean, tag: clean });

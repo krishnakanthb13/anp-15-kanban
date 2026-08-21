@@ -295,7 +295,9 @@ describe("embedActions", () => {
   describe("tab management (Phase 4)", () => {
     it("addTab creates a note tab from a picked note and activates it", async () => {
       const app = withNoteTab(makeApp());
-      app.prompt.mockResolvedValue(["note", { uuid: "n9", name: "Picked Note" }, null, null]);
+      app.prompt
+        .mockResolvedValueOnce("note")
+        .mockResolvedValueOnce({ uuid: "n9", name: "Picked Note" });
 
       await handleAddTab(app);
 
@@ -309,7 +311,9 @@ describe("embedActions", () => {
     it("addTab creates a new note board under -reports/-kanban", async () => {
       const app = makeApp();
       app.createNote.mockResolvedValue("new-note-uuid");
-      app.prompt.mockResolvedValue(["new_note", null, "Custom Kanban", null]);
+      app.prompt
+        .mockResolvedValueOnce("new_note")
+        .mockResolvedValueOnce("Custom Kanban");
 
       await handleAddTab(app);
 
@@ -328,7 +332,9 @@ describe("embedActions", () => {
 
     it("addTab creates a tag tab named after the last path segment", async () => {
       const app = makeApp();
-      app.prompt.mockResolvedValue(["tag", null, null, ["work/projects"]]);
+      app.prompt
+        .mockResolvedValueOnce("tag")
+        .mockResolvedValueOnce(["work/projects"]);
 
       await handleAddTab(app);
 
@@ -339,11 +345,13 @@ describe("embedActions", () => {
 
     it("addTab aborts on cancel or missing selection", async () => {
       const app = makeApp();
-      app.prompt.mockResolvedValue(null);
+      app.prompt.mockResolvedValueOnce(null);
       await handleAddTab(app);
-      app.prompt.mockResolvedValue(["note", null, null, null]);
+      app.prompt
+        .mockResolvedValueOnce("note")
+        .mockResolvedValueOnce(null);
       await handleAddTab(app);
-      app.prompt.mockResolvedValue(["bogus", null, null, null]);
+      app.prompt.mockResolvedValueOnce("bogus");
       await handleAddTab(app);
       expect(app.setSetting).not.toHaveBeenCalled();
     });
