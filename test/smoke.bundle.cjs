@@ -15,8 +15,11 @@ const NOTE_MD = [
   const app = {
     settings: {
       "Kanban Tabs": JSON.stringify({
-        tabs: [{ id: "t1", kind: "note", name: "My Board", noteUUID: "n1", columnLimits: { Alpha: 5 } }],
-        activeTabId: "t1",
+        tabs: [
+          { id: "t1", kind: "note", name: "My Board", noteUUID: "n1", columnLimits: { Alpha: 5 } },
+          { id: "tg", kind: "tag", name: "projects", tag: "projects" },
+        ],
+        activeTabId: "tg",
         settings: {},
       }),
     },
@@ -28,6 +31,14 @@ const NOTE_MD = [
       { uuid: "u2", content: "done", completedAt: 1700000000 },
     ]),
     htmlFromContent: async (c) => `<div class="ample-editor"><p>${c}</p></div>`,
+    getTags: async () => ([
+      { text: "projects", color: "2563eb", noteCount: 2 },
+      { text: "projects/alpha", color: "ff0000", noteCount: 1 },
+    ]),
+    filterNotes: async () => ([
+      { uuid: "k1", name: "Alpha doc", tags: ["projects/alpha"] },
+      { uuid: "k2", name: "Plain doc", tags: ["projects"] },
+    ]),
     replaceNoteContent: async () => true,
     insertNoteContent: async () => {},
     insertTask: async () => "new-task",
@@ -51,9 +62,12 @@ const NOTE_MD = [
       .every(a => html.includes(`"${a}"`)),
     themeSystem: html.includes('[data-theme="midnight"]'),
     dndWired: html.includes("dragstart") && html.includes("moveCard"),
+    tagBoardBuilt: html.includes('"kind":"tag"') && html.includes("No sub-tag"),
+    tagColorsMapped: html.includes("ff0000"),
+    openCardWired: html.includes("openCard"),
   };
   console.log(checks);
   const allPass = Object.values(checks).every(Boolean);
-  console.log(allPass ? "PHASE 2 SMOKE PASS" : "PHASE 2 SMOKE FAIL");
+  console.log(allPass ? "PHASE 3 SMOKE PASS" : "PHASE 3 SMOKE FAIL");
   process.exit(allPass ? 0 : 1);
 })().catch(e => { console.error("SMOKE ERROR", e); process.exit(1); });

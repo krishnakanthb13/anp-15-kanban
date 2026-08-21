@@ -12,6 +12,7 @@ import {
   handleDeleteColumn,
   handleMoveColumn,
   handleSetWipLimit,
+  handleOpenCard,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -28,8 +29,23 @@ function makeApp(markdown = NOTE_MD) {
     updateTask: jest.fn().mockResolvedValue(true),
     getTask: jest.fn().mockResolvedValue({ uuid: "u1", content: "one" }),
     prompt: jest.fn().mockResolvedValue(["typed content"]),
+    navigate: jest.fn().mockResolvedValue(),
+    createNote: jest.fn().mockResolvedValue("new-note"),
+    addNoteTag: jest.fn().mockResolvedValue(true),
+    removeNoteTag: jest.fn().mockResolvedValue(true),
+    getTags: jest.fn().mockResolvedValue([]),
+    filterNotes: jest.fn().mockResolvedValue([]),
     context: { renderEmbed: jest.fn().mockResolvedValue() },
   };
+}
+
+function withTagTab(app) {
+  app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+    tabs: [{ id: "tg", kind: "tag", name: "projects", tag: "projects" }],
+    activeTabId: "tg",
+    settings: {},
+  });
+  return app;
 }
 
 function withNoteTab(app) {
@@ -205,6 +221,75 @@ describe("embedActions", () => {
       app.getTask.mockResolvedValue(null);
       await handleEditCard(app, { cardId: "ghost" });
       expect(app.updateTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("tag boards (Phase 3)", () => {
+    const TAG_NOTES = [
+      { uuid: "n1", name: "Alpha doc", tags: ["projects", "projects/alpha"] },
+      { uuid: "n2", name: "Plain doc", tags: ["projects"] },
+    ];
+
+    function tagApp() {
+      const app = withTagTab(makeApp());
+      app.getTags.mockResolvedValue([
+        { text: "projects", color: "2563eb" },
+        { text: "projects/alpha", color: "ff0000" },
+      ]);
+      app.filterNotes.mockResolvedValue(TAG_NOTES);
+      return app;
+    }
+
+    it("moveCard retags the note when dropped on another sub-tag column", async () => {
+      const app = tagApp();
+      await handleMoveCard(app, { tabId: "tg", cardId: "n2", toColumnId: "sub:projects/alpha" });
+
+      expect(app.addNoteTag).toHaveBeenCalledWith({ uuid: "n2" }, "projects/alpha");
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("moveCard clears the sub-tag when dropped on No sub-tag", async () => {
+      const app = tagApp();
+      await handleMoveCard(app, { tabId: "tg", cardId: "n1", toColumnId: "nosub" });
+      expect(app.removeNoteTag).toHaveBeenCalledWith({ uuid: "n1" }, "projects/alpha");
+      expect(app.addNoteTag).not.toHaveBeenCalled();
+    });
+
+    it("moveCard is a no-op for same-column drops", async () => {
+      const app = tagApp();
+      await handleMoveCard(app, { tabId: "tg", cardId: "n1", toColumnId: "sub:projects/alpha" });
+      expect(app.addNoteTag).not.toHaveBeenCalled();
+      expect(app.removeNoteTag).not.toHaveBeenCalled();
+    });
+
+    it("createCard creates a note tagged with the target sub-tag", async () => {
+      const app = tagApp();
+      await handleCreateCard(app, { tabId: "tg", columnId: "sub:projects/alpha" });
+      expect(app.createNote).toHaveBeenCalledWith("typed content", ["projects/alpha"]);
+    });
+
+    it("createCard uses the base tag for the No sub-tag column", async () => {
+      const app = tagApp();
+      await handleCreateCard(app, { tabId: "tg", columnId: "nosub" });
+      expect(app.createNote).toHaveBeenCalledWith("typed content", ["projects"]);
+    });
+
+    it("openCard navigates to the note", async () => {
+      const app = makeApp();
+      await handleOpenCard(app, { cardId: "abc" });
+      expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes/abc");
+    });
+
+    it("structural column actions are rejected on tag boards", async () => {
+      const app = tagApp();
+      await handleCreateColumn(app, { tabId: "tg" });
+      await handleRenameColumn(app, { tabId: "tg", columnId: "sub:projects/alpha" });
+      await handleDeleteColumn(app, { tabId: "tg", columnId: "sub:projects/alpha" });
+      await handleMoveColumn(app, { tabId: "tg", columnId: "sub:projects/alpha", direction: "left" });
+      await handleSetWipLimit(app, { tabId: "tg", columnId: "sub:projects/alpha" });
+      expect(app.prompt).not.toHaveBeenCalled();
+      expect(app.replaceNoteContent).not.toHaveBeenCalled();
+      expect(app.setSetting).not.toHaveBeenCalled();
     });
   });
 

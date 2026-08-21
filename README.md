@@ -3,7 +3,7 @@
 A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards.
 Icon: `view_kanban`
 
-> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–2 are implemented — the persistent embed shell, theming, the note board MVP, rich card rendering, WIP limits, and column management. Tag boards and tab-management UI land in later phases (see [Roadmap](#roadmap)).
+> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–3 are implemented — the persistent embed shell, theming, the note board MVP, rich card rendering, WIP limits, column management, and tag boards. Tab-management UI lands in Phase 4 (see [Roadmap](#roadmap)).
 
 ## Installation
 
@@ -69,6 +69,16 @@ Hover a column header for its tools:
 
 Click a column's count chip to set a Work-In-Progress limit (0 or blank clears it). Once a column exceeds its limit, the chip turns red showing `count / limit`. Limits warn rather than block drops, and are stored per-tab keyed by column name.
 
+### Tag boards
+
+A tab can also be a **tag board**: columns are the tag's immediate sub-tags (plus a synthetic **No sub-tag** column), and cards are the notes carrying the tag.
+
+- **Live data**: cards come straight from a tag query on every render — notes tagged anywhere in Amplenote appear automatically, no refresh gymnastics needed.
+- **Drag & drop retags**: dropping a note card on another column swaps its sub-tag; dropping on *No sub-tag* removes the sub-tag. The base tag always stays.
+- **`+` creates a note** in the target column's sub-tag (or the base tag).
+- **Click a card** to open that note in the main editor.
+- Column headers show a color dot matching each sub-tag's color. Structural column tools (rename/delete/reorder/WIP) don't apply here — those columns *are* tags.
+
 ### Refresh & sync
 
 The board is pull-based (Amplenote plugins have no push notifications):
@@ -129,7 +139,5 @@ Build with `node esbuild.js 15` from the repository root (or `npm run build -- 1
 
 ## Roadmap
 
-- **Phase 2** — Rich card rendering (Rich Footnotes via `htmlFromContent`, first-image footer), WIP limits, column create/delete/rename/reorder with confirm-before-write
-- **Phase 3** — Tag boards (sub-tags as columns, notes as cards)
 - **Phase 4** — Multi-tab management UI, per-tab vs refresh-all progress, date-format setting UI
 - **Phase 5** — Labels with tag-color coding, start-date picker, create-note-from-card, search, cross-tab column drag

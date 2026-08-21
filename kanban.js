@@ -4,6 +4,7 @@ import { getSessionSnapshot, bumpRoundTrips } from "./lib/core/sessionState.js";
 import { withDemoContent } from "./lib/core/demoBoard.js";
 import { handleEmbedAction } from "./lib/features/embedActions.js";
 import { buildNoteBoard } from "./lib/api/noteBoard.js";
+import { buildTagBoard } from "./lib/api/tagBoard.js";
 import { SETTINGS_KEYS, DEFAULT_THEME_ID, DEFAULT_DATE_FORMAT } from "./lib/core/constants.js";
 
 /* ----------------------------------- */
@@ -44,19 +45,21 @@ const plugin = {
       themeId = DEFAULT_THEME_ID;
     }
 
-    // Derive board snapshots fresh from source of truth. Note boards are
-    // built from their note; tag boards arrive in Phase 3.
+    // Derive board snapshots fresh from source of truth: note boards from
+    // their note's markdown, tag boards from live account queries.
     const boards = {};
     for (const tab of config.tabs) {
-      if (tab.kind === "note" && tab.noteUUID) {
-        try {
+      try {
+        if (tab.kind === "note" && tab.noteUUID) {
           boards[tab.id] = await buildNoteBoard(app, tab.noteUUID, {
             columnLimits: tab.columnLimits || {},
           });
-        } catch (error) {
-          console.error(`Failed to build board for tab ${tab.id}:`, error);
-          boards[tab.id] = { kind: "note", noteUUID: tab.noteUUID, columns: [], hasHeadings: false };
+        } else if (tab.kind === "tag" && tab.tag) {
+          boards[tab.id] = await buildTagBoard(app, tab.tag);
         }
+      } catch (error) {
+        console.error(`Failed to build board for tab ${tab.id}:`, error);
+        boards[tab.id] = { kind: tab.kind, columns: [], hasHeadings: false };
       }
     }
 

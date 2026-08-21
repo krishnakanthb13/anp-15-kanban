@@ -1,6 +1,6 @@
 # Code Documentation — Kanban Plugin
 
-Technical reference for contributors. Scope: v0.0.9 (rebuild Phases 0–2).
+Technical reference for contributors. Scope: v0.0.10 (rebuild Phases 0–3).
 
 ## Entry Point (`kanban.js`)
 
@@ -26,12 +26,16 @@ lib/
     demoBoard.js       # Hardcoded demo tab shown while no real tabs are configured
   api/
     markdownIndex.js   # Pure parsing layer: markdown text → column spans → task placement
-    noteBoard.js       # buildNoteBoard(): assembles a board snapshot via app.* calls
+    noteBoard.js       # buildNoteBoard(): assembles a note board snapshot via app.* calls
+    tagBoard.js        # buildTagBoard(): sub-tag columns + live filterNotes cards
     taskOps.js         # Mutations: moveTaskToColumn, createTaskInColumn, setTaskCompleted,
                        # updateCardContent
+    columnOps.js       # Structural heading ops: create/rename/delete/reorder
+    noteOps.js         # Tag-board note ops: retagNote, createTaggedNote, openNote
   features/
     embedActions.js    # Command dispatch table: ping, saveTheme, setActiveTab, refreshTab,
-                       # refreshAll, moveCard, createCard, editCard
+                       # refreshAll, moveCard, createCard, editCard, openCard,
+                       # createColumn, renameColumn, deleteColumn, moveColumn, setWipLimit
   ui/
     themes.js          # 8-theme registry, palette tokens, CSS builder, isValidThemeId guard
     boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + script injection)
@@ -80,6 +84,16 @@ Index-shift handling: when the removed task line sits before the destination hea
 ## Rich Cards & WIP Limits
 
 `buildNoteBoard` enriches every card via `app.htmlFromContent` (Amplenote's own editor markup — functional Rich Footnotes and links) with graceful fallback to the plain-text preview on failure, plus `imageUrl` extracted from the first inline `![...](...)`. Per-tab `columnLimits` (keyed by column name, sanitized in `normalizeConfig`) flow into columns as `wipLimit`; the client turns the count chip red past the limit — warnings only, drops are never blocked.
+
+## Tag Boards (`api/tagBoard.js` + `api/noteOps.js`)
+
+The second board kind inverts the mapping: columns are the board tag's **immediate sub-tags** (grandchildren excluded, keeping the board 2-D) plus a synthetic "No sub-tag" column; cards are notes from a live `filterNotes({tag})` query.
+
+- **Live queries** mean externally-tagged notes appear automatically — there is no sync code because tags are the source of truth.
+- A note carrying several sub-tags lands in the first match; none → No sub-tag.
+- **Drag = retag**: `handleMoveCard` branches by tab kind. For tag boards it derives the source column from fresh board data, then swaps sub-tags via `removeNoteTag`/`addNoteTag` (base tag untouched). Same-column drops are no-ops.
+- **Click = open** (`openCard` → `app.navigate`); `+` creates a note tagged with the target column's sub-tag.
+- Structural column tools are note-board-only by design — tag columns *are* tags, so renaming/deleting them is out of scope. The client hides those tools and renders each column's tag color as a dot.
 
 ## Column Management & Confirm-Before-Write
 

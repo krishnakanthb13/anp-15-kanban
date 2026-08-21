@@ -29,6 +29,12 @@ describe("clientScript", () => {
     });
   });
 
+  it("wires the phase-3 tag-board behaviors", () => {
+    ["openCard", "kb-col-dot", "kb-tag-chip"].forEach(id => {
+      expect(script).toContain(id);
+    });
+  });
+
   it("contains no template literal interpolation that could leak server data", () => {
     expect(script).not.toContain("${");
   });

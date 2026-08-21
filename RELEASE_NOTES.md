@@ -1,9 +1,19 @@
+## v0.0.10 (2026-08-21) — Tag Boards
+
+### 🚀 New Features
+- **Tag Boards**: The second board kind — columns are a tag's immediate sub-tags (plus a synthetic **No sub-tag** column) and cards are the notes carrying the tag. Data is queried live on every render, so notes tagged anywhere in Amplenote appear automatically.
+- **Retag by Drag & Drop**: Dropping a note card on another column swaps its sub-tag; dropping on *No sub-tag* clears it. The base tag always stays.
+- **Open Notes from Cards**: Clicking a tag-board card opens that note in the main editor; `+` creates a new note directly in the target column's sub-tag.
+- **Tag Color Markers**: Column headers show each sub-tag's color as a dot; tab-kind icons (📄 note / 🏷 tag) keep board types legible at a glance.
+
+---
+
 ## v0.0.9 (2026-08-21) — Rich Cards & Column Management
 
 ### 🚀 New Features
 - **Rich Card Rendering**: Card bodies render with Amplenote's own editor markup (`htmlFromContent`) — Rich Footnotes, links, checkboxes, and formatting behave exactly as they do in notes, with clickable web URLs. Cards fall back to a clean plain-text preview if rendering fails.
 - **Card Images**: The first inline image in a task's content is embedded at the bottom of its card (lazy-loaded).
-- **Column Management**: Hover tools on every column header — move left/right, rename, and delete. Heading order and text stay in sync with the underlying note; deleting requires an explicit confirmation and moves its tasks to the top of the note; the last remaining column cannot be deleted.
+- **Column Management**: Hover tools on every note-board column — move left/right, rename, and delete. Heading order and text stay in sync with the underlying note; deleting requires an explicit confirmation and moves its tasks to the top of the note; the last remaining column cannot be deleted.
 - **WIP Limits**: Per-column Work-In-Progress limits (click the count chip to set/clear). Past the limit, the chip turns red showing `count / limit` — warnings only, drops are never blocked.
 
 ---
