@@ -1,5 +1,5 @@
 # Security Audit — Kanban Plugin
-**Date**: 2026-08-21 (re-audit after v0.0.13 rebuild, Phases 0–5 + notes boards)
+**Date**: 2026-08-21 (full re-audit after the ground-up rebuild)
 **Auditor**: Agent
 **Scope**: `kanban.js`, `lib/**`, embed client script, build artifact
 

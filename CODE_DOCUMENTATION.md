@@ -1,18 +1,20 @@
 # Code Documentation — Kanban Plugin
 
-Technical reference for contributors. Scope: v0.0.13 (rebuild Phases 0–5 + notes boards, complete).
+Technical reference for contributors and developers working on the Kanban plugin codebase.
 
 ## Entry Point (`kanban.js`)
 
-The plugin object exposes three surfaces:
+The plugin object exposes three main surfaces:
 
 | Member | Role |
 | :--- | :--- |
-| `appOption["Open Kanban Board"]` | Launcher: `app.openEmbed()` + navigate to `https://www.amplenote.com/notes/plugins/{pluginUUID}` |
-| `renderEmbed(app)` | Builds the full HTML document for the embed iframe on every render |
-| `onEmbedCall(app, ...args)` | Command receiver for the sandboxed embed; bumps the session round-trip counter, then dispatches via `handleEmbedAction` |
+| `appOption["Open Kanban Board"]` | Launcher: calls `app.openEmbed()` + navigates to `https://www.amplenote.com/notes/plugins/{pluginUUID}` |
+| `renderEmbed(app)` | Builds the full HTML document for the embed iframe on every render cycle |
+| `onEmbedCall(app, ...args)` | Command receiver for the sandboxed embed; increments the session round-trip counter, then dispatches via `handleEmbedAction` |
 
-`buildViewState(app)` (exported for testability) assembles the serializable state consumed by the client: tabs config, board snapshots per tab, theme/date settings, session meta.
+`buildViewState(app)` (exported for testability) assembles the serializable state consumed by the client: tabs configuration, board snapshots per tab, theme/date settings, and session metadata.
+
+---
 
 ## Module Map
 
@@ -22,131 +24,141 @@ lib/
     constants.js       # Settings keys ("Kanban Tabs" / "Kanban Theme" / "Kanban Date Format"),
                        # defaults, id generator, tab-shape validation
     tabsConfig.js      # JSON persistence (load/save) + pure CRUD ops (add/remove/activate/move)
-    sessionState.js    # Module-scope session state (round-trip counter); never authoritative
+    sessionState.js    # Module-scope session state (round-trip counter); non-authoritative
     demoBoard.js       # Hardcoded demo tab shown while no real tabs are configured
   api/
-    markdownIndex.js   # Pure parsing layer: markdown text → column spans → task placement
-    noteBoard.js       # buildNoteBoard(): assembles a note board snapshot via app.* calls
-    tagBoard.js        # buildTagBoard(): sub-tag columns + live filterNotes cards
-    notesBoard.js      # buildNotesBoard(): tagged notes as columns, their tasks as cards
+    markdownIndex.js   # Pure parsing layer: markdown text → column spans → task line index
+    noteBoard.js       # buildNoteBoard(): assembles note board snapshot with full task attributes
+    tagBoard.js        # buildTagBoard(): notes as columns with collapsible heading sections & tasks
+    notesBoard.js      # buildNotesBoard(): tagged notes as columns, tasks as cards
     taskOps.js         # Mutations: moveTaskToColumn, createTaskInColumn, setTaskCompleted,
-                       # updateCardContent
-    columnOps.js       # Structural heading ops: create/rename/delete/reorder
-    noteOps.js         # Tag-board note ops: retagNote, createTaggedNote, openNote
+                       # updateCardContent, addLabelToTask, sortTasksInNoteMarkdown
+    columnOps.js       # Structural heading ops: create/rename/delete/reorder/transfer
+    noteOps.js         # Note operations: createTaggedNote, openNote
   features/
-    embedActions.js    # Command dispatch table: ping, saveTheme, setActiveTab, refreshTab,
-                       # refreshAll, moveCard, createCard, editCard, openCard,
-                       # createColumn, renameColumn, deleteColumn, moveColumn, setWipLimit,
-                       # addTab, closeTab, moveTabDir, setDateFormat, cardMenu,
-                       # globalSearch, moveColumnToTab
+    embedActions.js    # Command dispatch table: handleAddTab, handleMoveCard, handleCreateCard,
+                       # handleEditTaskDetails, handleSaveSortToNote, handleCardMenu, etc.
   ui/
     themes.js          # 8-theme registry, palette tokens, CSS builder, isValidThemeId guard
-    boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + script injection)
-    clientScript.js    # The embed-side JS source (ES5-style string; runs inside the iframe).
-                       # CONSTRAINT: as a template literal it must contain no regex
-                       # literals, backslash escapes, or embedded double quotes —
-                       # they get unescaped in transit and corrupt the emitted script.
-                       # Use String.fromCharCode() for such characters.
+    boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + sort/save header controls)
+    clientScript.js    # Embed-side JS: rendering, DnD, collapsible sections, conditional badges,
+                       # sort cycler, saveSort trigger, theme cycler (ES5 template-safe string).
   utils/
     html.js            # escapeHtml, toJsonForScript (script-safe JSON embedding)
     prompt.js          # firstValue(): normalizes single- vs multi-input prompt results
     formatTimestamp.js # Unix timestamp formatting
 ```
 
-## The Embed Round-Trip Contract
+---
 
-The embed iframe is sandboxed — it cannot call `app.*`. Every privileged operation follows one loop:
+## Task Schema & Card Model (`api/noteBoard.js`)
 
-1. **Dispatch** — client calls `window.callAmplenotePlugin(action, payload)`.
-2. **Mutate** — `onEmbedCall` → `handleEmbedAction` routes to a handler which performs the real work against notes/tasks/settings.
-3. **Re-render** — handler ends with `app.context.renderEmbed()`; `renderEmbed` re-derives **all** state fresh from the source of truth (embed args are never trusted).
-4. **Optimistic UI** — the client updates its own DOM immediately on drag/drop; the next render reconciles any drift.
+Amplenote tasks map into rich card objects with all native metadata:
 
-## Markdown Indexing (`api/markdownIndex.js`)
+| Field | Source Property | Description |
+| :--- | :--- | :--- |
+| `id` | `task.uuid` | Unique task identifier |
+| `title` | `plainPreview(task.content)` | Plaintext summary of task content |
+| `content` | `task.content` | Raw markdown content |
+| `imageUrl` | `firstImageUrl(...)` | First embedded image URL in markdown |
+| `completedAt` | `task.completedAt` | Unix timestamp of completion |
+| `dismissedAt` | `task.dismissedAt` | Unix timestamp of dismissal |
+| `startAt` | `task.startAt` | Scheduled start timestamp (UTC seconds) |
+| `endAt` | `task.endAt` | Scheduled end timestamp for time-blocking |
+| `deadline` | `task.deadline` | Task due date timestamp |
+| `hideUntil` | `task.hideUntil` | Snooze timestamp |
+| `repeat` | `task.repeat` | iCalendar RRULE recurrence string |
+| `isRepeating`| `task.isRepeating` | Recurrence boolean flag |
+| `isParent` | `task.isParent` | Subtask indicator boolean flag |
+| `important` | `task.important` | Eisenhower Important boolean flag |
+| `urgent` | `task.urgent` | Eisenhower Urgent boolean flag |
+| `score` | `task.score` | Calculated Amplenote task score (number) |
+| `noteUUID` | `task.noteUUID` | Parent note identifier |
 
-Tasks in Amplenote markdown carry their metadata in an HTML comment (`<!-- {"uuid": "..."} -->`), which makes physical lines locatable:
+---
 
-1. `parseHeadings` finds all heading lines; `findColumnLevel` picks the shallowest level present as the column level.
-2. `buildColumnSpans` gives each column a line span ending at the next same-level heading — deeper sub-headings stay inside their parent column.
-3. `findTaskLines` locates each task's line by tolerant uuid regex; `assignTasksToColumns` places tasks by position (tasks above the first heading → implicit "Unsorted" pseudo-column).
+## Tab Types & Creation Contract (`features/embedActions.js`)
 
-## Task Relocation (`api/taskOps.js`)
+`handleAddTab` presents 3 distinct board creation pathways:
 
-Moves compute a **minimal line diff on freshly-read markdown** and write once via whole-note `replaceNoteContent`.
+1. **Note Board (`kind: "note"`)**:
+   - Picks an existing note.
+   - Headings at shallowest depth become columns; tasks under headings become cards.
+2. **Create New Note Board (`kind: "note"`)**:
+   - Accepts an optional note name. If omitted/empty, uses `defaultKanbanNoteName()` (`Kanban Board - YYYY-MM-DD HH:mm`).
+   - Automatically creates note with tag `["-reports/-kanban"]` and inserts default columns `# To Do`, `# In Progress`, `# Done`.
+3. **Tag Board (`kind: "tag"`)**:
+   - Selects a tag.
+   - Notes carrying the tag are rendered as columns.
+   - Inside each note column, markdown headings are parsed into collapsible sections (`▼ / ▶`), with tasks organized inside their respective headings.
 
-> Deliberate deviation from ds.md §3: section-scoped `replaceNoteContent` was rejected because API section boundaries split at *every* heading — with nested sub-headings, a section-scoped write would truncate content below the sub-heading.
+---
 
-Index-shift handling: when the removed task line sits before the destination heading, the destination span shifts by one before insertion. Status strings (`moved` / `same-column` / `no-task` / …) let callers distinguish real moves from no-ops — completion only toggles on `"moved"`.
+## Task Operations & Sorting Persistence (`api/taskOps.js`)
 
-## Drop-to-Done Semantics (`features/embedActions.js`)
+1. **Task Relocation (`moveTaskToColumn`)**:
+   - Reads fresh markdown from note.
+   - Locates target heading span and source task line.
+   - Computes single-line relocation diff and writes back via `app.replaceNoteContent`.
+2. **Markdown Task Sorting (`sortTasksInNoteMarkdown`)**:
+   - Triggered only via the explicit user action `handleSaveSortToNote`.
+   - Reads note markdown and tasks via `app.getNoteTasks`.
+   - Groups tasks under each heading section and sorts task lines in place according to `sortMode` (`score`, `startDate`, `important`, `urgent`).
+   - Writes sorted markdown back to the note safely.
 
-`handleMoveCard` re-checks against fresh markdown whether the target is the last heading column:
-- last column → `setTaskCompleted(true)` (native strikethrough),
-- any other column → reopen (`completedAt: null`),
-- same-column drop → nothing is written.
+---
 
-## Rich Cards & WIP Limits
+## Embed Action Dispatcher (`features/embedActions.js`)
 
-`buildNoteBoard` enriches every card via `app.htmlFromContent` (Amplenote's own editor markup — functional Rich Footnotes and links) with graceful fallback to the plain-text preview on failure, plus `imageUrl` extracted from the first inline `![...](...)`. Per-tab `columnLimits` (keyed by column name, sanitized in `normalizeConfig`) flow into columns as `wipLimit`; the client turns the count chip red past the limit — warnings only, drops are never blocked.
+All communication from the sandboxed iframe routes through `handleEmbedAction`:
 
-## Tag Boards (`api/tagBoard.js` + `api/noteOps.js`)
+| Action | Handler | Description |
+| :--- | :--- | :--- |
+| `ping` | `handlePing` | Bumps round-trip counter and triggers re-render |
+| `saveTheme` | `handleSaveTheme` | Persists theme choice to account settings |
+| `setActiveTab` | `handleSetActiveTab` | Switches active tab and refreshes view |
+| `refreshTab` | `handleRefreshTab` | Re-queries active board data |
+| `refreshAll` | `handleRefreshAll` | Re-queries all tabs |
+| `addTab` | `handleAddTab` | Prompts for Note Board, New Note Board, or Tag Board |
+| `closeTab` | `handleCloseTab` | Removes tab configuration |
+| `moveTabDir` | `handleMoveTabDir` | Moves tab left or right in tab bar |
+| `reorderTabs` | `handleReorderTabs` | Persists drag-and-drop tab ordering to settings |
+| `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string |
+| `moveCard` | `handleMoveCard` | Moves tasks across headings, sections, or notes |
+| `createCard` | `handleCreateCard` | Inserts task in column heading or note |
+| `editCard` | `handleEditCard` | Quick raw-markdown task editor |
+| `editTaskDetails`| `handleEditTaskDetails` | Full task properties editor dialog |
+| `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
+| `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks |
+| `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
+| `cardMenu` | `handleCardMenu` | Context menu (edit details, label, date, snooze, timeblock, create note) |
+| `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
+| `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board |
+| `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown |
+| `renameColumn` | `handleRenameColumn` | Renames heading in note markdown |
+| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to top |
+| `moveColumn` | `handleMoveColumn` | Re-orders headings in note markdown |
+| `setWipLimit` | `handleSetWipLimit` | Sets WIP limit for column |
+| `renameNote` | `handleRenameNote` | Renames note on Tag / Notes boards |
 
-The second board kind inverts the mapping: columns are the board tag's **immediate sub-tags** (grandchildren excluded, keeping the board 2-D) plus a synthetic "No sub-tag" column; cards are notes from a live `filterNotes({tag})` query.
-- **Live queries** mean externally-tagged notes appear automatically — there is no sync code because tags are the source of truth.
-- A note carrying several sub-tags lands in the first match; none → No sub-tag.
-- **Drag = retag**: `handleMoveCard` branches by tab kind. For tag boards it derives the source column from fresh board data, then swaps sub-tags via `removeNoteTag`/`addNoteTag` (base tag untouched). Same-column drops are no-ops.
-- **Click = open** (`openCard` → `app.navigate`); `+` creates a note tagged with the target column's sub-tag.
-- Structural column tools are note-board-only by design — tag columns *are* tags, so renaming/deleting them is out of scope. The client hides those tools and renders each column's tag color as a dot.
+---
 
-## Notes Boards (`api/notesBoard.js`)
+## Client-Side Scripting (`ui/clientScript.js`)
 
-The third kind: a tag's **notes** become columns (`note:<uuid>` ids) and the tasks inside each note become cards. Built for "one note per project" workflows.
+Runs inside the embed iframe. Key technical constraints and features:
+- **String template safety**: Avoids unescaped backslashes, double quotes, and regex literals to prevent corruption during string embedding. Uses `String.fromCharCode()` for character escapes.
+- **Optimistic UI**: Reorders DOM nodes on drag drop immediately, reconciled when the server re-renders.
+- **Conditional Badge Rendering**: Only renders badges, time ranges, and info rows when the task possesses non-null values for those properties.
+- **Visual Sort vs Persistent Sort**:
+  - `cycleSort()` cycles in-memory array sorting and re-renders columns instantly.
+  - Controls visibility of `#kb-save-sort-btn`, enabling the user to trigger `saveSortToNote`.
 
-- **Drag = native move**: `handleMoveCard` branches again — for notes boards it derives the source column from fresh board data, then calls `updateTask(taskUuid, { noteUUID: target })`. No markdown rewriting needed; same-column drops are no-ops.
-- `+` inserts a task directly into the target note; card click opens the raw-markdown editor; the ⋯ menu (labels / start date / create note) works here.
-- Column tools are limited to rename (`renameNote` → `app.setNoteName`). No done-column rule, no structural heading ops, no WIP limits on this kind.
+---
 
-## Tab Management (`features/embedActions.js`)
-
-Tabs are pure configuration — closing or reordering a tab never touches notes/tags:
-
-- **addTab** runs one prompt (kind radio + note picker + tag picker), builds the descriptor via `createTab`, appends with `addTab` (first tab auto-activates), saves, re-renders.
-- **closeTab** / **moveTabDir** reuse the pure `removeTab`/`moveTab` primitives; `normalizeConfig` repairs `activeTabId` on load if it ever points at a removed tab.
-- **setDateFormat** writes `config.settings.dateFormat`; the client formats card chips from tokens (`YYYY MM DD MMM`) via `formatStamp`.
-- The client renders tabs as hoverable chips with per-tab tools and a trailing "+ New tab" button; switching tabs is just `setActiveTab` + full re-render (boards are always freshly derived).
-
-## Phase 5 Extras
-
-- **Labels**: wiki-links (`[[Note Name]]`) in task content are parsed by `resolveLabels` and rendered as chips, color-coded via a case-insensitive match against account tag colors. `addLabelToTask` appends the link (duplicate-safe). The same primitive powers **create-note-from-card**, which creates the note then links it back — non-destructive by design.
-- **Start dates**: `cardMenu` → date input → unix seconds into native `startAt`; blank clears.
-- **Two-tier search**: the header box filters the active board client-side (titles/content/labels/tags); Enter triggers `globalSearch` → `app.searchNotes` → selectable result list → navigate.
-- **Cross-tab column move**: `transferColumn` copies the heading+content block into the target note (insert-first) before removing it from the source — an interrupted move duplicates visibly instead of losing data. Gated behind target selection + confirmation checkbox.
-
-### Prompt result contract
-Single-input prompts resolve to the value itself; multi-input prompts resolve to an Array. All handlers normalize through `firstValue` (`utils/prompt.js`) — never index raw results.
-
-## Column Management & Confirm-Before-Write
-
-`api/columnOps.js` performs structural heading operations as whole-note minimal rewrites on freshly-read markdown:
-
-- **create** appends a heading matching the shallowest existing level (H2 if none),
-- **rename** rewrites one heading line in place (markers preserved),
-- **delete** extracts the column's content above the first remaining heading (or the very top, when deleting the first column); refuses to delete the last remaining column,
-- **reorder** rebuilds the note from preamble + heading/content blocks in the requested order; malformed id permutations abort without writing.
-
-Destructive actions gate on prompts in `embedActions`: `deleteColumn` requires an affirmative checkbox before any write runs.
-
-## Theming (`ui/themes.js`)
-
-All colors are `[data-theme="<id>"]` CSS custom properties (`--kb-*`). The client cycler switches the attribute (0ms), persists to `localStorage`, then round-trips `saveTheme` for cross-device sync. Server-side writes pass through `isValidThemeId` (strict registry check — unlike `resolveTheme`, no silent fallback).
-
-## Testing & Build
+## Testing Strategy
 
 ```bash
-npx jest "anp-15-kanban/test"     # scoped suite (needs --experimental-vm-modules)
-node esbuild.js 15                # bundle → build/kanban.compiled.js
+npx jest "anp-15-kanban/test"     # Jest unit and integration suites (18 suites, 187 tests)
+node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
+node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
 ```
-
-- Pure logic (indexing, config ops, template assembly) is tested without mocking; API-touching modules use an `app` mock object.
-- **Compile check**: `clientScript.test.js` parses the emitted embed script with `new Function(source)` — a SyntaxError there means template-literal escaping corrupted the code. This guards a real production incident where `/["\\]/g` reached the browser as invalid `/["\]/g`.
-- `test/smoke.bundle.cjs` executes the compiled artifact end-to-end (render → action → re-render) as a pre-release sanity check.

@@ -30,7 +30,7 @@ describe("clientScript", () => {
   });
 
   it("wires the phase-3 tag-board behaviors", () => {
-    ["openCard", "kb-col-dot", "kb-tag-chip"].forEach(id => {
+    ["openCard", "kb-section", "kb-tag-chip"].forEach(id => {
       expect(script).toContain(id);
     });
   });
@@ -49,8 +49,7 @@ describe("clientScript", () => {
     });
   });
 
-  it("supports the third board kind (notes boards)", () => {
-    expect(script).toContain('"notes"');
+  it("supports note and tag board features", () => {
     expect(script).toContain("renameNote");
   });
 

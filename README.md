@@ -1,9 +1,9 @@
 # Kanban Plugin
 
-A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards.
+A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards, while Tag boards turn notes under a tag into columns with collapsible heading sections.
 Icon: `view_kanban`
 
-> **Status:** Rebuild complete (plan: `ds.md`) plus a third board kind. Implemented: persistent embed shell, theming, note boards, rich cards, WIP limits, column management, tag boards, notes boards, tab management, and the extras (labels, start dates, create-note-from-card, two-tier search, cross-tab column move).
+> **Status:** Fully updated with Note Boards, Create New Note Boards, Tag Boards (with collapsible heading blocks), Notes Boards, rich task metadata & editing, Eisenhower matrix badges, visual sorting with note-persistence triggers, and responsive theme support.
 
 ## Installation
 
@@ -45,11 +45,14 @@ Until tabs are configured, the board shows a **Demo Board** so you can explore t
 
 The tab bar sits above the board:
 
-- **+ New tab** adds a board: pick *note board* (then a note) or *tag board* (then a tag).
+- **+ New tab** opens the tab creation dialog with 3 clear options:
+  1. **Note Board (Existing Note)**: Select an existing note where headings act as columns.
+  2. **Create New Note Board**: Specify an optional note name (defaults to `Kanban Board - YYYY-MM-DD HH:mm` if blank); auto-creates the note tagged `-reports/-kanban` with default `# To Do`, `# In Progress`, and `# Done` columns.
+  3. **Tag Board**: Select a tag where notes under that tag act as columns with collapsible heading sections.
 - **Click** a tab to switch boards; data is re-derived fresh on every switch.
 - **Hover a tab** for its tools: ← / → reorder tabs, ✕ closes it (the underlying note/tag is never deleted).
 
-### Board interactions (note boards)
+### Board interactions (Note Boards)
 
 A note board maps one note onto the board:
 
@@ -58,73 +61,90 @@ A note board maps one note onto the board:
 - **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note.
 - **Drop into the last column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
-- **Click a card** to edit its raw markdown (changes write back to the task). Links inside a card open natively.
-- Completed cards render struck-through with a ✓ chip; start/deadline dates show as chips when set.
+- **Click a card** opens the rich task editor dialog (markdown content, Important/Urgent quadrant, target note & heading section, task score, and lifecycle status).
+- **`ℹ` button on a card** toggles an inline task details inspector showing all non-empty properties (Start At, End At, Deadline, Hide Until, Repeat schedule, Completed/Dismissed status, and Note link).
 
-### Rich cards
+### Tag Boards (Notes as Columns with Collapsible Sections)
 
-Card bodies render with Amplenote's own editor markup (`htmlFromContent`) — bold/italic, checkboxes, links, and Rich Footnotes look and behave exactly as they do in notes, including clickable web URLs. The first inline image in a task's content is embedded at the bottom of its card.
+A tab can also be a **Tag Board**:
+- **Columns** = notes carrying the selected tag.
+- **Collapsible Heading Blocks** = within each note column, each heading is rendered as a collapsible section (`▼ / ▶`) showing the section title, card count, and a `+` button to create tasks directly under that heading.
+- **Drag & drop** across sections or columns automatically relocates the task under that heading or updates its parent note.
+- **Column Header Actions**: rename note (✎) or open the note directly in Amplenote (↗).
 
-### Column management
+### Notes Boards
+
+The third kind maps a tag where notes act as columns and all tasks inside each note are listed as cards:
+- Dragging a card between columns moves the task to that note natively (`updateTask`), without touching markdown formatting.
+- `+` inserts a task directly into the target note.
+
+### Rich Card Badges & Conditional Indicators
+
+Task cards dynamically display badges and metadata chips **only when those values are present**:
+
+- **🔥 Urgent** / **⭐ Important**: Eisenhower priority quadrant badges.
+- **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`).
+- **📋 Subtasks**: Displayed when a task has child subtasks (`isParent`).
+- **🕒 Time Block**: Displayed when both start and end times are set (e.g. `🕒 2026-08-21 10:00-11:30`).
+- **▶ Start Date** / **⏰ Due Date**: Scheduled start date or deadline timestamp.
+- **🙈 Snoozed**: Displayed when a task has a future `hideUntil` snooze timestamp.
+- **🔁 Repeat**: Displays recurrence frequency (e.g. `🔁 daily`, `🔁 weekly`).
+- **Rich Editor Content**: Supports bold, italics, Rich Footnotes, inline images, and clickable URLs.
+
+### Dynamic Sorting & Persisting to Note
+
+- **🔀 Sort Control**: Click the sort button in the header to cycle client-side sorting instantly:
+  `Note Order ➔ Score ➔ Date ➔ Important ➔ Urgent`.
+  *Visual dashboard sorting is non-destructive and does not rewrite the note.*
+- **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears in the header. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
+- **↺ Reset Sort**: Instantly restores the dashboard view back to the natural source note order.
+
+### Drag & Drop Column Reordering & Heading Persistence
+
+- **Drag Columns Directly**: Click and drag any column header (or its `⠿` grip handle) to reorder columns visually across the board in real time.
+- **💾 Save Columns**: When column order is modified, a `💾 Save Columns` button appears in the header. Clicking it prompts for confirmation and rewrites the note markdown so heading sections match your new column layout.
+- **↺ Reset Columns**: Restores the board columns back to the note's original heading sequence without modifying the note.
+
+### Drag & Drop Tab Reordering
+
+- **Drag Tabs**: Click and drag any tab in the top tab bar to reorder your boards. The new sequence is persisted quietly in the background.
+
+### Keyboard Shortcuts & Rich UX
+
+- **`T` / `t`**: Cycle through the 8 themes with 0ms client-side switching.
+- **`/`**: Instantly focus and select the card filter search input.
+- **`Esc`**: Clear search filter and blur search input.
+- **Live Toast Notifications**: Non-intrusive bottom-right toast feedback for reorders, theme switches, and note updates.
+
+### Card Context Menu (`⋯`)
+
+Clicking the **⋯** menu on any card offers quick actions:
+- **Edit task details**: Opens the full task configuration dialog.
+- **Add label**: Links a note as a label (`[[Note Name]]`), rendered as a colored chip matching account tags.
+- **Set start date / deadline**: Sets native start time or deadline.
+- **Snooze / Hide Until**: Sets a date to hide the task until.
+- **Schedule Time Block**: Configures start and end times for calendar blocking.
+- **Create note from card**: Creates a new note titled from the card and links it back to the task.
+
+### Column management (Note Boards)
 
 Hover a column header for its tools:
-
 - **← / →** move the column left/right — headings are reordered in the note to match.
 - **✎ renames** the column by editing the heading text in place.
-- **✕ deletes** the column after an explicit confirmation checkbox; its tasks move to the top of the note (under no heading). The last remaining column cannot be deleted.
+- **✕ deletes** the column after an explicit confirmation checkbox; its tasks move to the top of the note.
+- **⇥ Move column to another board**: Transfers the heading and all its tasks to another Note Board tab safely.
 
-### WIP limits
+### WIP Limits
 
-Click a column's count chip to set a Work-In-Progress limit (0 or blank clears it). Once a column exceeds its limit, the chip turns red showing `count / limit`. Limits warn rather than block drops, and are stored per-tab keyed by column name.
+Click a column's count chip to set a Work-In-Progress limit (0 or blank clears it). Once a column exceeds its limit, the chip turns red showing `count / limit`.
 
-### Tag boards
+### Two-Tier Search
 
-A tab can also be a **tag board**: columns are the tag's immediate sub-tags (plus a synthetic **No sub-tag** column), and cards are the notes carrying the tag.
-
-- **Live data**: cards come straight from a tag query on every render — notes tagged anywhere in Amplenote appear automatically, no refresh gymnastics needed.
-- **Drag & drop retags**: dropping a note card on another column swaps its sub-tag; dropping on *No sub-tag* removes the sub-tag. The base tag always stays.
-- **`+` creates a note** in the target column's sub-tag (or the base tag).
-- **Click a card** to open that note in the main editor.
-- Column headers show a color dot matching each sub-tag's color. Structural column tools (rename/delete/reorder/WIP) don't apply here — those columns *are* tags.
-
-### Refresh & sync
-
-The board is pull-based (Amplenote plugins have no push notifications):
-
-- **⟳ Tab** re-pulls the active tab's board data.
-- **⇉ All** re-pulls every tab; a progress bar runs while syncing.
-
-### Date format
-
-Click the **📅** button in the header to set the format used for card date chips, using `YYYY` / `MM` / `DD` / `MMM` tokens (e.g. `DD MMM YYYY` → *21 Aug 2026*). The choice persists with your tab configuration.
-
-### Notes boards
-
-The third kind inverts again: a tag's **notes** become columns and the tasks inside each note become cards — ideal for "one note per project" workflows.
-
-- Dragging a card between columns moves the task to that note natively (`updateTask`), no markdown rewriting involved.
-- `+` inserts a task directly into the target note; clicking a card opens its raw-markdown editor; the ⋯ menu (labels / start date / create note) works here too.
-- Hover tools let you rename the column's note. There's no "last column = done" rule on this kind.
-
-### Labels & card extras
-
-Hover a card on a note board and click **⋯** for card actions:
-
-- **Add label** attaches a note link (`[[Note Name]]`) to the task. Label chips render on the card, color-coded when the label name matches one of your tags. Multiple labels are supported.
-- **Set start date** writes the task's native start date via a date picker (blank clears).
-- **Create note from card** creates a new note titled from the card and links it back to the task — non-destructive; the task stays put.
-
-### Search
-
-The header search box filters the active board instantly as you type (titles, content, labels, tags). Press **Enter** to run a full-text search across *all* notes and open a match.
-
-### Cross-tab columns
-
-On note boards, hover a column header and use the **⇥** tool to move that entire column (heading + tasks) to another note-board tab. The transfer inserts into the target before removing from the source, so an interrupted move can only ever duplicate — never lose — data.
+The header search box filters the active board client-side in real time (titles, content, labels, tags). Pressing **Enter** runs a full-text search across all notes in your account and lets you navigate to any match.
 
 ### Themes
 
-Click the 🎨 theme button or press **T** (outside inputs) to cycle 8 curated palettes with light/dark parity. The choice persists locally (instant) and to your account settings (cross-device).
+Click the 🎨 theme button or press **T** (outside inputs) to cycle 8 curated palettes with light/dark parity.
 
 | Theme | Type | | Theme | Type |
 | :--- | :--- | :--- | :--- | :--- |
@@ -134,8 +154,6 @@ Click the 🎨 theme button or press **T** (outside inputs) to cycle 8 curated p
 | 🧊 Nord Frost | light | | 🌲 Emerald Forest | dark |
 
 ## Technical Details
-
-This plugin is modular and compiled with `esbuild` into a single IIFE-style artifact that Amplenote executes safely.
 
 ```
 kanban.js                  # Entry: appOption launcher, renderEmbed, onEmbedCall dispatcher
@@ -147,32 +165,25 @@ lib/
     demoBoard.js           # Hardcoded demo content shown before any tabs exist
   api/
     markdownIndex.js       # Pure parsing layer: markdown → columns/cards mapping
-    noteBoard.js           # Builds a note board snapshot via the API
-    taskOps.js             # Task mutations: move/complete/create/edit
-    columnOps.js           # Structural heading ops: create/rename/delete/reorder
+    noteBoard.js           # Builds note board snapshot with full task models
+    tagBoard.js            # Builds tag board with note columns & collapsible sections
+    notesBoard.js          # Builds notes board with note columns & task cards
+    taskOps.js             # Task mutations: move, complete, create, edit, sort in markdown
+    columnOps.js           # Structural heading ops: create/rename/delete/reorder/transfer
+    noteOps.js             # Note operations: createTaggedNote, openNote
   features/
     embedActions.js        # Command dispatch table for all embed actions
   ui/
     themes.js              # 8-theme registry + CSS variable palettes
-    boardTemplate.js       # Full HTML document assembly (theme CSS + layout)
-    clientScript.js        # Embed-side JS: rendering, DnD, theme cycler
+    boardTemplate.js       # Full HTML document assembly (theme CSS + layout + header controls)
+    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, theme cycler
   utils/
     html.js                # HTML escaping + script-safe JSON embedding
+    prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
 test/                      # Jest suites (run: npx jest "anp-15-kanban/test")
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```
 
-Build with `node esbuild.js 15` from the repository root (or `npm run build -- 15`).
-
-### Architecture notes
-
-- **Embed round trip:** the embed iframe is sandboxed and cannot call `app.*`. Every action flows `callAmplenotePlugin(action, payload)` → `onEmbedCall` → mutation → `app.context.renderEmbed()` with freshly derived state. The client applies optimistic DOM updates between dispatch and re-render.
-- **Source of truth:** board data is always re-derived from notes/settings at render time; nothing board-shaped is cached server-side.
-- **Task relocation:** moves rewrite the note with a minimal line diff (tasks carry their metadata in an HTML comment, making lines locatable). Section-scoped `replaceNoteContent` is deliberately avoided because API section boundaries split at *every* heading, which would truncate content below sub-headings.
-- **Theming:** all colors are `[data-theme]` CSS custom properties (`--kb-*`), enabling 0ms client-side theme switching per the cross-plugin cycling-themes standard.
-
-## Roadmap
-
-All phases of the rebuild plan (`ds.md`) are implemented. Future ideas: mobile fallbacks for sidebar embeds, per-board heading-level override, virtualized rendering for very large boards.
+Build with `node esbuild.js 15` from the repository root.

@@ -180,6 +180,59 @@ function buildClientScript() {
   var THEMES = window.__KANBAN_THEMES__ || [];
   var THEME_STORAGE_KEY = "ANP_ACTIVE_THEME";
   var currentTheme = null;
+  var sortMode = "none";
+  var collapsedSections = {};
+  var openInfoCards = {};
+  var initialColumnOrders = {};
+  var dragType = null; // "card" | "column" | "tab"
+  var dragCardId = null;
+  var dragColId = null;
+  var dragTabIndex = null;
+
+  /* ---------------- crisp svg icons ---------------- */
+
+  var SVG_ICONS = {
+    note: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+    tag: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+    chevronLeft: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>',
+    chevronRight: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>',
+    close: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    plus: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+    edit: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
+    transfer: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>',
+    trash: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+    externalLink: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>',
+    chevronDownSolid: '<svg class="kb-icon kb-icon-fill" width="10" height="10" viewBox="0 0 24 24"><polygon points="6 9 12 15 18 9"></polygon></svg>',
+    chevronRightSolid: '<svg class="kb-icon kb-icon-fill" width="10" height="10" viewBox="0 0 24 24"><polygon points="9 6 15 12 9 18"></polygon></svg>',
+    info: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
+    more: '<svg class="kb-icon kb-icon-fill" width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle><circle cx="5" cy="12" r="2"></circle></svg>',
+    grip: '<svg class="kb-icon kb-icon-fill" width="10" height="14" viewBox="0 0 24 24"><circle cx="9" cy="5" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="9" cy="19" r="2"></circle><circle cx="15" cy="5" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="15" cy="19" r="2"></circle></svg>'
+  };
+
+  function svg(name) {
+    var wrapper = document.createElement("span");
+    wrapper.style.display = "inline-flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.justifyContent = "center";
+    wrapper.innerHTML = SVG_ICONS[name] || "";
+    return wrapper.firstElementChild || document.createTextNode("");
+  }
+
+  /* ---------------- toasts ---------------- */
+
+  function showToast(msg) {
+    var host = document.getElementById("kb-toasts");
+    if (!host) return;
+    var toast = document.createElement("div");
+    toast.className = "kb-toast";
+    toast.textContent = msg;
+    host.appendChild(toast);
+    setTimeout(function () { toast.classList.add("kb-toast-visible"); }, 10);
+    setTimeout(function () {
+      toast.classList.remove("kb-toast-visible");
+      setTimeout(function () { if (toast.parentElement) toast.parentElement.removeChild(toast); }, 250);
+    }, 2800);
+  }
 
   /* ---------------- bridge ---------------- */
 
@@ -214,8 +267,9 @@ function buildClientScript() {
       if (persist) {
         localStorage.setItem(THEME_STORAGE_KEY, theme.id);
         callPlugin("saveTheme", theme.id);
+        showToast("Theme: " + theme.name);
       }
-    } catch (e) { /* storage may be unavailable; theme still applies visually */ }
+    } catch (e) { /* storage fallback */ }
     var iconEl = document.getElementById("kb-theme-icon");
     var nameEl = document.getElementById("kb-theme-name");
     if (iconEl) iconEl.textContent = theme.icon;
@@ -234,7 +288,7 @@ function buildClientScript() {
     applyTheme(stored || STATE.settings && STATE.settings.theme || (THEMES[0] && THEMES[0].id), false);
   }
 
-  /* ---------------- rendering ---------------- */
+  /* ---------------- rendering helpers ---------------- */
 
   function el(tag, className, text) {
     var node = document.createElement(tag);
@@ -251,7 +305,7 @@ function buildClientScript() {
     return tabs[0] || null;
   }
 
-  var KIND_ICONS = { note: "\\uD83D\\uDFE4", tag: "\\uD83C\\uDFF7", notes: "\\uD83D\\uDCDD" };
+  /* ---------------- tabs with drag and drop ---------------- */
 
   function renderTabs() {
     var host = document.getElementById("kb-tabs");
@@ -259,27 +313,75 @@ function buildClientScript() {
     host.innerHTML = "";
     var tabs = STATE.tabs || [];
     var act = activeTab();
-    tabs.forEach(function (tab) {
+
+    tabs.forEach(function (tab, tabIdx) {
       var chip = el("div", "kb-tab" + (act && tab.id === act.id ? " kb-tab-active" : ""));
-      chip.title = tab.name + " (" + tab.kind + " board)";
-      chip.appendChild(el("span", "kb-tab-icon", KIND_ICONS[tab.kind] || "?"));
+      chip.setAttribute("draggable", "true");
+      chip.setAttribute("data-tab-index", String(tabIdx));
+      chip.title = (tab.kind === "tag" ? "Tag Board: #" : "Note Board: ") + tab.name;
+
+      var badge = el("span", "kb-tab-badge kb-tab-badge-" + tab.kind);
+      badge.appendChild(svg(tab.kind === "tag" ? "tag" : "note"));
+      badge.appendChild(document.createTextNode(tab.kind === "tag" ? "TAG" : "NOTE"));
+      chip.appendChild(badge);
+
       chip.appendChild(el("span", "kb-tab-name", tab.name));
 
       var activate = function () {
+        if (STATE.activeTabId === tab.id) return;
+        STATE.activeTabId = tab.id;
+        renderAll();
         callPlugin("setActiveTab", { tabId: tab.id });
       };
       chip.addEventListener("click", activate);
 
+      // Tab drag-and-drop
+      chip.addEventListener("dragstart", function (e) {
+        dragType = "tab";
+        dragTabIndex = tabIdx;
+        e.dataTransfer.setData("text/plain", "tab::" + tabIdx);
+        e.dataTransfer.effectAllowed = "move";
+        chip.classList.add("kb-tab-dragging");
+      });
+      chip.addEventListener("dragend", function () {
+        dragType = null;
+        dragTabIndex = null;
+        chip.classList.remove("kb-tab-dragging");
+      });
+      chip.addEventListener("dragover", function (e) {
+        if (dragType !== "tab") return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        chip.classList.add("kb-tab-drop-hover");
+      });
+      chip.addEventListener("dragleave", function () {
+        chip.classList.remove("kb-tab-drop-hover");
+      });
+      chip.addEventListener("drop", function (e) {
+        if (dragType !== "tab") return;
+        e.preventDefault();
+        chip.classList.remove("kb-tab-drop-hover");
+        if (dragTabIndex === null || dragTabIndex === tabIdx) return;
+
+        var fromIdx = dragTabIndex;
+        var toIdx = tabIdx;
+        var movedTab = STATE.tabs.splice(fromIdx, 1)[0];
+        STATE.tabs.splice(toIdx, 0, movedTab);
+        renderTabs();
+        callPlugin("reorderTabs", { fromIndex: fromIdx, toIndex: toIdx });
+        showToast("Tab reordered");
+      });
+
       var tools = el("span", "kb-tab-tools");
-      addTabTool(tools, "\\u2190", "Move tab left", function (e) {
+      addTabToolSvg(tools, "chevronLeft", "Move tab left", function (e) {
         e.stopPropagation();
         callPlugin("moveTabDir", { tabId: tab.id, direction: "left" });
       });
-      addTabTool(tools, "\\u2192", "Move tab right", function (e) {
+      addTabToolSvg(tools, "chevronRight", "Move tab right", function (e) {
         e.stopPropagation();
         callPlugin("moveTabDir", { tabId: tab.id, direction: "right" });
       });
-      addTabTool(tools, "\\u2715", "Close tab", function (e) {
+      addTabToolSvg(tools, "close", "Close tab", function (e) {
         e.stopPropagation();
         callPlugin("closeTab", { tabId: tab.id });
       });
@@ -287,24 +389,102 @@ function buildClientScript() {
       host.appendChild(chip);
     });
 
-    var addBtn = el("button", "kb-tab-add", "+ New tab");
+    var addBtn = el("button", "kb-tab-add");
     addBtn.type = "button";
     addBtn.title = "Add a note or tag board";
+    addBtn.appendChild(svg("plus"));
+    addBtn.appendChild(document.createTextNode(" New tab"));
     addBtn.addEventListener("click", function () {
       callPlugin("addTab");
     });
     host.appendChild(addBtn);
   }
 
-  function addTabTool(host, glyph, title, onClick) {
-    var btn = el("button", "kb-tab-tool", glyph);
+  function addTabToolSvg(host, iconName, title, onClick) {
+    var btn = el("button", "kb-tab-tool");
     btn.type = "button";
     btn.title = title;
+    btn.appendChild(svg(iconName));
     btn.addEventListener("click", onClick);
     host.appendChild(btn);
   }
 
   var searchQuery = "";
+
+  /* ---------------- sorting ---------------- */
+
+  var SORT_LABELS = { none: "Note Order", score: "Score", startDate: "Date", important: "Important", urgent: "Urgent" };
+
+  function applySort(cards) {
+    var copy = cards.slice();
+    if (sortMode === "score") {
+      copy.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+    } else if (sortMode === "startDate") {
+      copy.sort(function (a, b) { return (b.startAt || 0) - (a.startAt || 0); });
+    } else if (sortMode === "important") {
+      copy.sort(function (a, b) { return (b.important ? 1 : 0) - (a.important ? 1 : 0); });
+    } else if (sortMode === "urgent") {
+      copy.sort(function (a, b) { return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0); });
+    }
+    return copy;
+  }
+
+  function updateSortUi() {
+    var lbl = document.getElementById("kb-sort-label");
+    if (lbl) lbl.textContent = "Sort: " + (SORT_LABELS[sortMode] || "Note Order");
+
+    var tab = activeTab();
+    var isNoteBoard = tab && tab.kind === "note";
+    var isSorted = sortMode !== "none";
+
+    var saveSortBtn = document.getElementById("kb-save-sort-btn");
+    if (saveSortBtn) saveSortBtn.style.display = (isSorted && isNoteBoard) ? "inline-flex" : "none";
+
+    var resetSortBtn = document.getElementById("kb-reset-sort-btn");
+    if (resetSortBtn) resetSortBtn.style.display = isSorted ? "inline-flex" : "none";
+
+    // Column reorder dirty state
+    var currentCols = (tab && STATE.boards && STATE.boards[tab.id] && STATE.boards[tab.id].columns) || [];
+    var initialCols = tab && initialColumnOrders[tab.id];
+    var isColsDirty = false;
+    if (initialCols && isNoteBoard) {
+      var curIds = currentCols.map(function (c) { return c.id; }).join(",");
+      var initIds = initialCols.map(function (c) { return c.id; }).join(",");
+      isColsDirty = curIds !== initIds;
+    }
+
+    var saveColsBtn = document.getElementById("kb-save-cols-btn");
+    if (saveColsBtn) saveColsBtn.style.display = (isColsDirty && isNoteBoard) ? "inline-flex" : "none";
+
+    var resetColsBtn = document.getElementById("kb-reset-cols-btn");
+    if (resetColsBtn) resetColsBtn.style.display = (isColsDirty && isNoteBoard) ? "inline-flex" : "none";
+  }
+
+  function cycleSort() {
+    var modes = ["none", "score", "startDate", "important", "urgent"];
+    var idx = modes.indexOf(sortMode);
+    sortMode = modes[(idx + 1) % modes.length];
+    updateSortUi();
+    renderBoard();
+  }
+
+  function resetSort() {
+    sortMode = "none";
+    updateSortUi();
+    renderBoard();
+    showToast("Reset to source note order");
+  }
+
+  function resetColumns() {
+    var tab = activeTab();
+    if (!tab || !initialColumnOrders[tab.id] || !STATE.boards || !STATE.boards[tab.id]) return;
+    STATE.boards[tab.id].columns = initialColumnOrders[tab.id].slice();
+    renderBoard();
+    updateSortUi();
+    showToast("Reset column order to source note");
+  }
+
+  /* ---------------- board rendering & column drag-and-drop ---------------- */
 
   function renderBoard() {
     var board = document.getElementById("kb-board");
@@ -313,6 +493,13 @@ function buildClientScript() {
     var tab = activeTab();
     var data = tab && STATE.boards ? STATE.boards[tab.id] : null;
     var columns = data && data.columns ? data.columns : [];
+
+    // Cache initial column order on first load
+    if (tab && !initialColumnOrders[tab.id] && columns.length) {
+      initialColumnOrders[tab.id] = columns.slice();
+    }
+
+    updateSortUi();
 
     if (!columns.length) {
       board.appendChild(el("div", "kb-empty", "No board data yet. Use \\u201CRefresh\\u201D or add a tab."));
@@ -323,134 +510,268 @@ function buildClientScript() {
     columns.forEach(function (col, colIndex) {
       var isLast = colIndex === columns.length - 1;
       var isTagBoard = data.kind === "tag";
-      var isNotesBoard = data.kind === "notes";
 
-      // Client-side search filter: hide non-matching cards and emptied columns.
-      var visibleCards = (col.cards || []).filter(function (card) {
+      var allColCards = col.cards || [];
+      var visibleCards = allColCards.filter(function (card) {
         if (!searchQuery) return true;
         var hay = ((card.title || "") + " " + (card.content || "") + " " +
           (card.tags || []).join(" ") + " " +
           (card.labels || []).map(function (l) { return l.name; }).join(" ")).toLowerCase();
         return hay.indexOf(searchQuery) !== -1;
       });
-      if (searchQuery && !visibleCards.length) return; // skip emptied column
-      anyVisible = anyVisible || visibleCards.length > 0;
+
+      // Hide empty columns on both Tag Boards and Note Boards
+      if (!visibleCards.length) return;
+      anyVisible = true;
 
       var colEl = el("section", "kb-column" + (isLast && data.kind === "note" ? " kb-column-last" : ""));
       colEl.setAttribute("data-column-id", col.id);
+      colEl.setAttribute("data-column-index", String(colIndex));
 
       var head = el("header", "kb-column-head");
+      head.setAttribute("draggable", "true");
+      head.title = "Drag to reorder column";
+
+      // Column drag-and-drop
+      head.addEventListener("dragstart", function (e) {
+        dragType = "column";
+        dragColId = col.id;
+        e.dataTransfer.setData("text/plain", "col::" + col.id);
+        e.dataTransfer.effectAllowed = "move";
+        colEl.classList.add("kb-col-dragging");
+      });
+      head.addEventListener("dragend", function () {
+        dragType = null;
+        dragColId = null;
+        colEl.classList.remove("kb-col-dragging");
+      });
+      colEl.addEventListener("dragover", function (e) {
+        if (dragType !== "column") return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        colEl.classList.add("kb-col-drop-hover");
+      });
+      colEl.addEventListener("dragleave", function () {
+        colEl.classList.remove("kb-col-drop-hover");
+      });
+      colEl.addEventListener("drop", function (e) {
+        if (dragType !== "column") return;
+        e.preventDefault();
+        colEl.classList.remove("kb-col-drop-hover");
+        if (!dragColId || dragColId === col.id) return;
+
+        var fromIdx = columns.findIndex(function (c) { return c.id === dragColId; });
+        var toIdx = colIndex;
+        if (fromIdx === -1 || fromIdx === toIdx) return;
+
+        var moved = columns.splice(fromIdx, 1)[0];
+        columns.splice(toIdx, 0, moved);
+        renderBoard();
+        showToast("Column reordered (Save to Note to persist)");
+      });
+
       var titleWrap = el("div", "kb-col-titlewrap");
-      if (isTagBoard) {
-        titleWrap.appendChild(el("h3", "kb-column-title", col.name));
-        if (col.color) {
-          var dot = el("span", "kb-col-dot");
-          dot.style.background = "#" + String(col.color).replace("#", "");
-          dot.title = "Tag color";
-          titleWrap.appendChild(dot);
-        }
-      } else {
-        titleWrap.appendChild(el("h3", "kb-column-title", col.name));
-      }
+      var dragHandle = el("span", "kb-col-drag-handle");
+      dragHandle.appendChild(svg("grip"));
+      titleWrap.appendChild(dragHandle);
+      titleWrap.appendChild(el("h3", "kb-column-title", col.name));
       head.appendChild(titleWrap);
 
-      // Count chip doubles as the WIP-limit control on note boards; turns red past the limit.
       var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
       var count = el("span", "kb-count" + (over ? " kb-over" : ""),
         over ? visibleCards.length + " / " + col.wipLimit : String(visibleCards.length));
       if (data.kind === "note") {
         count.title = "Set WIP limit";
-        count.addEventListener("click", function () {
+        count.addEventListener("click", function (e) {
+          e.stopPropagation();
           callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id });
         });
       }
       head.appendChild(count);
-      colEl.appendChild(head);
 
+      // Column tools with crisp SVGs
       if (data.kind === "note") {
         var tools = el("div", "kb-col-tools");
-        addTool(tools, "\\u2190", "Move column left", function () {
+        addColToolSvg(tools, "chevronLeft", "Move column left", function (e) {
+          e.stopPropagation();
           callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "left" });
         });
-        addTool(tools, "\\u2192", "Move column right", function () {
+        addColToolSvg(tools, "chevronRight", "Move column right", function (e) {
+          e.stopPropagation();
           callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "right" });
         });
-        addTool(tools, "\\u270E", "Rename column", function () {
+        addColToolSvg(tools, "edit", "Rename column", function (e) {
+          e.stopPropagation();
           callPlugin("renameColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        addTool(tools, "\\u21E5", "Move column to another board tab", function () {
+        addColToolSvg(tools, "transfer", "Move column to another board tab", function (e) {
+          e.stopPropagation();
           callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        addTool(tools, "\\u2715", "Delete column (tasks move to top)", function () {
+        addColToolSvg(tools, "trash", "Delete column (tasks move to top)", function (e) {
+          e.stopPropagation();
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
         head.appendChild(tools);
-      } else if (isNotesBoard) {
-        var ntools = el("div", "kb-col-tools");
-        addTool(ntools, "\\u270E", "Rename note", function () {
+      } else if (isTagBoard) {
+        var ttools = el("div", "kb-col-tools");
+        addColToolSvg(ttools, "externalLink", "Open note in Amplenote", function (e) {
+          e.stopPropagation();
+          callPlugin("openCard", { noteUUID: col.noteUUID });
+        });
+        addColToolSvg(ttools, "edit", "Rename note", function (e) {
+          e.stopPropagation();
           callPlugin("renameNote", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        head.appendChild(ntools);
+        head.appendChild(ttools);
       }
 
-      var addBtn = el("button", "kb-add-card", "+");
+      var addBtn = el("button", "kb-add-card");
       addBtn.type = "button";
-      addBtn.title = isTagBoard ? "New note in " + col.name : "Add card to " + col.name;
-      addBtn.addEventListener("click", function () {
+      addBtn.title = "Add card to " + col.name;
+      addBtn.appendChild(svg("plus"));
+      addBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
         callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id });
       });
       head.appendChild(addBtn);
+      colEl.appendChild(head);
 
-      var list = el("div", "kb-cards");
-      wireDropZone(list, col, isTagBoard);
-      visibleCards.forEach(function (card) {
-        list.appendChild(buildCardEl(card, isTagBoard));
-      });
-      colEl.appendChild(list);
+      // Section-based cards for Tag board vs Flat cards for Note board
+      if (isTagBoard && col.sections && col.sections.length > 0) {
+        var sectionsHost = el("div", "kb-sections");
+        col.sections.forEach(function (sec) {
+          var secCards = (sec.cards || []).filter(function (card) {
+            if (!searchQuery) return true;
+            var hay = ((card.title || "") + " " + (card.content || "") + " " +
+              (card.tags || []).join(" ") + " " +
+              (card.labels || []).map(function (l) { return l.name; }).join(" ")).toLowerCase();
+            return hay.indexOf(searchQuery) !== -1;
+          });
+
+          // Omit empty sections
+          if (!secCards.length) return;
+
+          var secKey = col.id + "::" + sec.id;
+          var isCollapsed = !!collapsedSections[secKey];
+
+          var secEl = el("div", "kb-section");
+          var secHead = el("div", "kb-section-head");
+          var tw = el("div", "kb-section-titlewrap");
+          var toggleIcon = el("span", "kb-section-toggle");
+          toggleIcon.appendChild(svg(isCollapsed ? "chevronRightSolid" : "chevronDownSolid"));
+          tw.appendChild(toggleIcon);
+          tw.appendChild(el("span", "kb-section-title", sec.name + " (" + secCards.length + ")"));
+          secHead.appendChild(tw);
+
+          var secAdd = el("button", "kb-col-btn");
+          secAdd.type = "button";
+          secAdd.title = "Add task in " + sec.name;
+          secAdd.appendChild(svg("plus"));
+          secAdd.addEventListener("click", function (e) {
+            e.stopPropagation();
+            callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
+          });
+          secHead.appendChild(secAdd);
+
+          secHead.addEventListener("click", function () {
+            collapsedSections[secKey] = !collapsedSections[secKey];
+            renderBoard();
+          });
+          secEl.appendChild(secHead);
+
+          var secList = el("div", "kb-section-cards" + (isCollapsed ? " kb-collapsed" : ""));
+          wireDropZone(secList, col.id, sec.id);
+          applySort(secCards).forEach(function (card) {
+            secList.appendChild(buildCardEl(card));
+          });
+          secEl.appendChild(secList);
+          sectionsHost.appendChild(secEl);
+        });
+        colEl.appendChild(sectionsHost);
+      } else {
+        var list = el("div", "kb-cards");
+        wireDropZone(list, col.id, null);
+        applySort(visibleCards).forEach(function (card) {
+          list.appendChild(buildCardEl(card));
+        });
+        colEl.appendChild(list);
+      }
+
       board.appendChild(colEl);
     });
 
-    if (searchQuery && !anyVisible) {
-      board.appendChild(el("div", "kb-empty", "No cards match \\u201C" + searchQuery + "\\u201D."));
+    if (!anyVisible) {
+      board.appendChild(el("div", "kb-empty", searchQuery
+        ? "No cards match \\u201C" + searchQuery + "\\u201D."
+        : "No tasks found in this board. Click \\u201C+\\u201D to add a task."));
     }
   }
 
-  function addTool(host, glyph, title, onClick) {
-    var btn = el("button", "kb-col-btn", glyph);
+  function addColToolSvg(host, iconName, title, onClick) {
+    var btn = el("button", "kb-col-btn");
     btn.type = "button";
     btn.title = title;
+    btn.appendChild(svg(iconName));
     btn.addEventListener("click", onClick);
     host.appendChild(btn);
   }
 
-  /* ---------------- drag & drop ---------------- */
+  /* ---------------- card building ---------------- */
 
-  var dragCardId = null;
-
-  function buildCardEl(card, isTagBoard) {
+  function buildCardEl(card) {
     var cardEl = el("article", "kb-card" + (card.completedAt ? " kb-card-done" : ""));
     cardEl.setAttribute("data-card-id", card.id);
     cardEl.setAttribute("draggable", "true");
 
-    // Rich body: Amplenote's own editor markup (functional Rich Footnotes,
-    // links, formatting). Falls back to the plain-text preview.
+    // Badges (Urgent, Important, Score, Subtasks) - only when values exist
+    var hasBadges = card.urgent || card.important || (card.score !== null && card.score !== undefined) || card.isParent;
+    if (hasBadges) {
+      var badges = el("div", "kb-task-badges");
+      if (card.urgent) badges.appendChild(el("span", "kb-badge kb-badge-urgent", "\\uD83D\\uDD25 Urgent"));
+      if (card.important) badges.appendChild(el("span", "kb-badge kb-badge-important", "\\u2B50 Important"));
+      if (card.score !== null && card.score !== undefined) {
+        badges.appendChild(el("span", "kb-badge kb-badge-score", "\\uD83C\\uDFAF " + Number(card.score).toFixed(1)));
+      }
+      if (card.isParent) badges.appendChild(el("span", "kb-badge kb-badge-subtask", "\\uD83D\\uDCCB Subtasks"));
+      cardEl.appendChild(badges);
+    }
+
+    // Card Action Buttons (Top Right) with crisp SVGs
+    var actions = el("div", "kb-card-actions");
+    var infoBtn = el("button", "kb-card-info-btn");
+    infoBtn.type = "button";
+    infoBtn.title = "View task details";
+    infoBtn.appendChild(svg("info"));
+    infoBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      openInfoCards[card.id] = !openInfoCards[card.id];
+      renderBoard();
+    });
+    actions.appendChild(infoBtn);
+
+    var moreBtn = el("button", "kb-card-menu");
+    moreBtn.type = "button";
+    moreBtn.title = "Card actions";
+    moreBtn.appendChild(svg("more"));
+    moreBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      callPlugin("cardMenu", { cardId: card.id });
+    });
+    actions.appendChild(moreBtn);
+    cardEl.appendChild(actions);
+
+    // Body / Content
     if (card.html) {
       var body = el("div", "kb-card-body");
       body.innerHTML = card.html;
       cardEl.appendChild(body);
     } else {
-      cardEl.appendChild(el("div", "kb-card-title", card.title));
+      cardEl.appendChild(el("div", "kb-card-title", card.title || card.content));
     }
 
-    if (isTagBoard && card.tags && card.tags.length) {
-      var chips = el("div", "kb-card-tags");
-      card.tags.forEach(function (t) {
-        chips.appendChild(el("span", "kb-tag-chip", t));
-      });
-      cardEl.appendChild(chips);
-    }
-
-    if (!isTagBoard && card.labels && card.labels.length) {
+    // Labels
+    if (card.labels && card.labels.length) {
       var labels = el("div", "kb-card-labels");
       card.labels.forEach(function (l) {
         var chip = el("span", "kb-label-chip", l.name);
@@ -464,18 +785,16 @@ function buildClientScript() {
       cardEl.appendChild(labels);
     }
 
-    // "More" menu button (note boards): label / start date / create note.
-    if (!isTagBoard) {
-      var more = el("button", "kb-card-menu", "\\u22EF");
-      more.type = "button";
-      more.title = "Label, start date, or create note";
-      more.addEventListener("click", function (e) {
-        e.stopPropagation();
-        callPlugin("cardMenu", { cardId: card.id });
+    // Tags
+    if (card.tags && card.tags.length) {
+      var tagChips = el("div", "kb-card-tags");
+      card.tags.forEach(function (t) {
+        tagChips.appendChild(el("span", "kb-tag-chip", t));
       });
-      cardEl.appendChild(more);
+      cardEl.appendChild(tagChips);
     }
 
+    // Image
     if (card.imageUrl) {
       var img = document.createElement("img");
       img.className = "kb-card-img";
@@ -485,39 +804,91 @@ function buildClientScript() {
       cardEl.appendChild(img);
     }
 
-    if (card.completedAt || card.startAt || card.deadline) {
+    // Meta chips - only when present
+    var nowSec = Math.floor(Date.now() / 1000);
+    var hasMeta = card.completedAt || card.startAt || card.deadline || card.repeat || card.isRepeating || (card.hideUntil && card.hideUntil > nowSec);
+    if (hasMeta) {
       var bits = [];
       if (card.completedAt) bits.push("\\u2713 done");
-      if (card.startAt) bits.push("\\u25B6 " + formatStamp(card.startAt));
+      if (card.startAt && card.endAt) {
+        bits.push("\\uD83D\\uDD52 " + formatTimeRange(card.startAt, card.endAt));
+      } else if (card.startAt) {
+        bits.push("\\u25B6 " + formatStamp(card.startAt));
+      }
       if (card.deadline) bits.push("\\u23F0 " + formatStamp(card.deadline));
-      cardEl.appendChild(el("div", "kb-card-meta", bits.join("  \\u00B7  ")));
+      if (card.hideUntil && card.hideUntil > nowSec) bits.push("\\uD83D\\uDE48 " + formatStamp(card.hideUntil));
+      if (card.repeat) {
+        bits.push("\\uD83D\\uDD01 " + formatTaskRepeat(card.repeat));
+      } else if (card.isRepeating) {
+        bits.push("\\uD83D\\uDD01 repeat");
+      }
+      if (bits.length) {
+        cardEl.appendChild(el("div", "kb-card-meta", bits.join("  \\u00B7  ")));
+      }
     }
 
+    // Inline Task Details Popup (from \u2139 button) - only outputs rows that have values
+    if (openInfoCards[card.id]) {
+      var details = el("div", "kb-task-details");
+      var parts = [];
+
+      var prio = [];
+      if (card.important) prio.push("<b>Important:</b> Yes");
+      if (card.urgent) prio.push("<b>Urgent:</b> Yes");
+      if (card.score !== null && card.score !== undefined) prio.push("<b>Score:</b> " + Number(card.score).toFixed(2));
+      if (prio.length) parts.push(prio.join(" | "));
+
+      var dates = [];
+      if (card.startAt) dates.push("<b>Start:</b> " + formatFullStamp(card.startAt));
+      if (card.endAt) dates.push("<b>End:</b> " + formatFullStamp(card.endAt));
+      if (card.deadline) dates.push("<b>Deadline:</b> " + formatFullStamp(card.deadline));
+      if (card.hideUntil) dates.push("<b>Hide until:</b> " + formatFullStamp(card.hideUntil));
+      if (dates.length) parts.push(dates.join("<br>"));
+
+      if (card.repeat || card.isRepeating) {
+        parts.push("<b>Repeat:</b> " + formatTaskRepeat(card.repeat || "Recurring"));
+      }
+
+      var status = [];
+      if (card.completedAt) status.push("<b>Completed:</b> " + formatFullStamp(card.completedAt));
+      if (card.dismissedAt) status.push("<b>Dismissed:</b> " + formatFullStamp(card.dismissedAt));
+      if (status.length) parts.push(status.join("<br>"));
+
+      if (card.noteName) parts.push("<b>Note:</b> " + card.noteName);
+
+      details.innerHTML = parts.join("<hr>");
+      cardEl.appendChild(details);
+    }
+
+    // Drag events
     cardEl.addEventListener("dragstart", function (e) {
+      dragType = "card";
       dragCardId = card.id;
-      e.dataTransfer.setData("text/plain", card.id);
+      e.dataTransfer.setData("text/plain", "card::" + card.id);
       e.dataTransfer.effectAllowed = "move";
       cardEl.classList.add("kb-dragging");
     });
     cardEl.addEventListener("dragend", function () {
+      dragType = null;
       dragCardId = null;
       cardEl.classList.remove("kb-dragging");
     });
 
-    // Click behavior by board kind: tag-board cards open their note;
-    // note-board cards open the raw-markdown editor (links stay native).
+    // Click opens rich task editor
     cardEl.addEventListener("click", function (e) {
-      if (dragCardId) return;
-      if (e.target && e.target.closest && e.target.closest("a")) return;
-      if (isTagBoard) callPlugin("openCard", { cardId: card.id });
-      else callPlugin("editCard", { cardId: card.id });
+      if (dragCardId || dragType) return;
+      if (e.target && e.target.closest && (e.target.closest("a") || e.target.closest("button"))) return;
+      callPlugin("editCard", { cardId: card.id });
     });
 
     return cardEl;
   }
 
-  function wireDropZone(listEl, col, isTagBoard) {
+  /* ---------------- drop zone for cards ---------------- */
+
+  function wireDropZone(listEl, columnId, sectionId) {
     listEl.addEventListener("dragover", function (e) {
+      if (dragType && dragType !== "card") return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       listEl.classList.add("kb-drop-hover");
@@ -526,35 +897,29 @@ function buildClientScript() {
       listEl.classList.remove("kb-drop-hover");
     });
     listEl.addEventListener("drop", function (e) {
+      if (dragType && dragType !== "card") return;
       e.preventDefault();
       listEl.classList.remove("kb-drop-hover");
-      var cardId = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || dragCardId;
+      var raw = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || ("card::" + dragCardId);
+      var cardId = raw.indexOf("card::") === 0 ? raw.slice(6) : (dragCardId || raw);
       if (!cardId) return;
 
-      // Optimistic UI: move the DOM node immediately; server re-render reconciles.
-      var cardEl = board.querySelector('[data-card-id="' + cssEscape(cardId) + '"]');
+      var board = document.getElementById("kb-board");
+      var cardEl = board && board.querySelector('[data-card-id="' + cssEscape(cardId) + '"]');
       if (cardEl && cardEl.parentElement !== listEl) {
         listEl.insertBefore(cardEl, listEl.firstChild);
-        bumpCount(col.id);
-        if (!isTagBoard && listEl.closest(".kb-column-last")) cardEl.classList.add("kb-card-done");
-        else cardEl.classList.remove("kb-card-done");
       }
-      callPlugin("moveCard", { tabId: STATE.activeTabId, cardId: cardId, toColumnId: col.id });
+      callPlugin("moveCard", {
+        tabId: STATE.activeTabId,
+        cardId: cardId,
+        toColumnId: columnId,
+        toSectionId: sectionId,
+      });
     });
-  }
-
-  function bumpCount(columnId) {
-    var colEl = board.querySelector('[data-column-id="' + cssEscape(String(columnId)) + '"]');
-    if (!colEl) return;
-    var count = colEl.querySelector(".kb-count");
-    if (count) count.textContent = String(colEl.querySelectorAll(".kb-card").length);
   }
 
   function cssEscape(value) {
     if (window.CSS && CSS.escape) return CSS.escape(value);
-    // NOTE: this script ships inside a template literal, so it must never
-    // contain backslash escapes or embedded double quotes \u2014 both get
-    // corrupted in transit. String.fromCharCode keeps this escape-free.
     var BS = String.fromCharCode(92);
     var DQ = String.fromCharCode(34);
     var s = String(value);
@@ -563,7 +928,10 @@ function buildClientScript() {
     return s;
   }
 
+  /* ---------------- formatters ---------------- */
+
   function formatStamp(unixSeconds) {
+    if (!unixSeconds) return "";
     var d = new Date(unixSeconds * 1000);
     var fmt = (STATE.settings && STATE.settings.dateFormat) || "YYYY-MM-DD";
     var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -574,6 +942,29 @@ function buildClientScript() {
       .replace(/MMM/g, months[d.getMonth()])
       .replace(/MM/g, pad(d.getMonth() + 1))
       .replace(/DD/g, pad(d.getDate()));
+  }
+
+  function formatTimeRange(startSec, endSec) {
+    var d1 = new Date(startSec * 1000);
+    var d2 = new Date(endSec * 1000);
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var t1 = pad(d1.getHours()) + ":" + pad(d1.getMinutes());
+    var t2 = pad(d2.getHours()) + ":" + pad(d2.getMinutes());
+    return formatStamp(startSec) + " " + t1 + "-" + t2;
+  }
+
+  function formatFullStamp(unixSeconds) {
+    if (!unixSeconds) return "Not set";
+    var d = new Date(unixSeconds * 1000);
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " +
+      pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function formatTaskRepeat(repeatString) {
+    if (!repeatString || typeof repeatString !== "string") return "Recurring";
+    var m = repeatString.match(/FREQ=([^;\\s]+)/i);
+    return m ? m[1].toLowerCase() : repeatString;
   }
 
   function renderMeta() {
@@ -613,6 +1004,34 @@ function buildClientScript() {
     var themeBtn = document.getElementById("kb-theme-btn");
     if (themeBtn) themeBtn.addEventListener("click", cycleTheme);
 
+    var sortBtn = document.getElementById("kb-sort-btn");
+    if (sortBtn) sortBtn.addEventListener("click", cycleSort);
+
+    var resetSortBtn = document.getElementById("kb-reset-sort-btn");
+    if (resetSortBtn) resetSortBtn.addEventListener("click", resetSort);
+
+    var saveSortBtn = document.getElementById("kb-save-sort-btn");
+    if (saveSortBtn) {
+      saveSortBtn.addEventListener("click", function () {
+        callPlugin("saveSortToNote", { tabId: STATE.activeTabId, sortMode: sortMode });
+      });
+    }
+
+    var saveColsBtn = document.getElementById("kb-save-cols-btn");
+    if (saveColsBtn) {
+      saveColsBtn.addEventListener("click", function () {
+        var tab = activeTab();
+        var cols = (tab && STATE.boards && STATE.boards[tab.id] && STATE.boards[tab.id].columns) || [];
+        var colIds = cols.map(function (c) { return c.id; });
+        callPlugin("saveColumnsToNote", { tabId: STATE.activeTabId, columnIds: colIds });
+      });
+    }
+
+    var resetColsBtn = document.getElementById("kb-reset-cols-btn");
+    if (resetColsBtn) {
+      resetColsBtn.addEventListener("click", resetColumns);
+    }
+
     var refreshTabBtn = document.getElementById("kb-refresh-tab");
     if (refreshTabBtn) {
       refreshTabBtn.addEventListener("click", function () {
@@ -649,6 +1068,12 @@ function buildClientScript() {
         if (e.key === "Enter" && search.value.trim()) {
           callPlugin("globalSearch", { query: search.value.trim() });
         }
+        if (e.key === "Escape") {
+          search.value = "";
+          searchQuery = "";
+          renderBoard();
+          search.blur();
+        }
       });
     }
 
@@ -663,7 +1088,13 @@ function buildClientScript() {
     window.addEventListener("keydown", function (e) {
       var tag = document.activeElement && document.activeElement.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "t" || e.key === "T") cycleTheme();
+      if (e.key === "t" || e.key === "T") {
+        cycleTheme();
+      } else if (e.key === "/") {
+        e.preventDefault();
+        var s = document.getElementById("kb-search");
+        if (s) { s.focus(); s.select(); }
+      }
     });
   }
 
@@ -691,7 +1122,7 @@ function buildBaseCss() {
         height: 100%;
     }
     body {
-        font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: var(--kb-bg);
         color: var(--kb-text);
         display: flex;
@@ -701,6 +1132,24 @@ function buildBaseCss() {
     button {
         font-family: inherit;
         cursor: pointer;
+    }
+
+    /* ---------- SVG Icons ---------- */
+    .kb-icon {
+        display: inline-block;
+        vertical-align: middle;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+    }
+    .kb-icon-stroke {
+        stroke: currentColor;
+        fill: none;
+    }
+    .kb-icon-fill {
+        fill: currentColor;
+        stroke: none;
     }
 
     /* ---------- header ---------- */
@@ -719,6 +1168,9 @@ function buildBaseCss() {
         font-size: 15px;
         margin-right: auto;
         white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 7px;
     }
     .kb-btn {
         background: var(--kb-bg-card);
@@ -727,13 +1179,21 @@ function buildBaseCss() {
         border-radius: 6px;
         padding: 6px 10px;
         font-size: 13px;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        font-weight: 500;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
-    .kb-btn:hover { border-color: var(--kb-accent); }
+    .kb-btn:hover {
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
+    }
     .kb-btn.kb-busy { opacity: 0.55; pointer-events: none; }
     .kb-roundtrips {
         font-size: 11px;
+        font-weight: 600;
         color: var(--kb-text-muted);
         border: 1px dashed var(--kb-border);
         border-radius: 10px;
@@ -770,17 +1230,49 @@ function buildBaseCss() {
     .kb-tab {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        max-width: 220px;
-        padding: 6px 12px;
+        gap: 7px;
+        max-width: 250px;
+        padding: 6px 10px;
         border: 1px solid var(--kb-border);
         border-bottom: none;
         border-radius: 8px 8px 0 0;
         background: var(--kb-bg-column);
         color: var(--kb-text-muted);
         font-size: 13px;
-        cursor: pointer;
+        cursor: grab;
         user-select: none;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    }
+    .kb-tab.kb-tab-dragging {
+        opacity: 0.4;
+        transform: scale(0.96);
+    }
+    .kb-tab.kb-tab-drop-hover {
+        border-color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-accent) 15%, var(--kb-bg-column));
+    }
+    .kb-tab-badge {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 2px 5px;
+        border-radius: 4px;
+        line-height: 1;
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .kb-tab-badge-note {
+        background: color-mix(in srgb, var(--kb-accent) 15%, transparent);
+        color: var(--kb-accent);
+        border: 1px solid color-mix(in srgb, var(--kb-accent) 30%, transparent);
+    }
+    .kb-tab-badge-tag {
+        background: color-mix(in srgb, var(--kb-danger) 15%, transparent);
+        color: var(--kb-danger);
+        border: 1px solid color-mix(in srgb, var(--kb-danger) 30%, transparent);
     }
     .kb-tab-tools {
         display: flex;
@@ -793,10 +1285,11 @@ function buildBaseCss() {
         background: transparent;
         border: none;
         color: inherit;
-        font-size: 10px;
-        line-height: 1;
         padding: 2px 3px;
         border-radius: 3px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
     .kb-tab-tool:hover {
         background: var(--kb-bg-card);
@@ -810,7 +1303,11 @@ function buildBaseCss() {
         background: transparent;
         color: var(--kb-text-muted);
         font-size: 12px;
+        font-weight: 600;
         white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
     }
     .kb-tab-add:hover {
         border-color: var(--kb-accent);
@@ -823,9 +1320,11 @@ function buildBaseCss() {
         box-shadow: inset 0 -2px 0 var(--kb-accent);
     }
     .kb-tab-name {
+        max-width: 140px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-weight: 600;
     }
 
     /* ---------- board ---------- */
@@ -841,10 +1340,11 @@ function buildBaseCss() {
     .kb-empty {
         margin: 40px auto;
         color: var(--kb-text-muted);
+        font-size: 14px;
     }
     .kb-column {
         flex: 0 0 auto;
-        width: 300px;
+        width: 320px;
         max-height: 100%;
         display: flex;
         flex-direction: column;
@@ -852,6 +1352,15 @@ function buildBaseCss() {
         border: 1px solid var(--kb-border);
         border-radius: 10px;
         box-shadow: 0 2px 8px var(--kb-shadow);
+        transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .kb-column.kb-col-dragging {
+        opacity: 0.4;
+        transform: scale(0.98);
+    }
+    .kb-column.kb-col-drop-hover {
+        outline: 2px dashed var(--kb-accent);
+        outline-offset: 2px;
     }
     .kb-column-head {
         display: flex;
@@ -859,6 +1368,21 @@ function buildBaseCss() {
         justify-content: space-between;
         padding: 10px 12px;
         border-bottom: 1px solid var(--kb-border);
+        cursor: grab;
+    }
+    .kb-col-drag-handle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--kb-text-muted);
+        cursor: grab;
+        opacity: 0.6;
+        margin-right: 4px;
+        flex-shrink: 0;
+    }
+    .kb-col-drag-handle:hover {
+        opacity: 1;
+        color: var(--kb-accent);
     }
     .kb-column-title {
         margin: 0;
@@ -885,7 +1409,7 @@ function buildBaseCss() {
     }
     .kb-col-tools {
         display: flex;
-        gap: 2px;
+        gap: 3px;
         opacity: 0;
         transition: opacity 0.15s ease;
     }
@@ -894,15 +1418,67 @@ function buildBaseCss() {
         background: transparent;
         border: none;
         color: var(--kb-text-muted);
-        font-size: 12px;
-        line-height: 1;
         padding: 3px 4px;
         border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
     .kb-col-btn:hover {
         background: var(--kb-bg-card);
         color: var(--kb-accent);
     }
+
+    /* ---------- sections (for tag boards with collapsible headers) ---------- */
+    .kb-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        overflow-y: auto;
+    }
+    .kb-section {
+        border: 1px solid var(--kb-border);
+        border-radius: 6px;
+        background: var(--kb-bg);
+        overflow: hidden;
+    }
+    .kb-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px;
+        background: var(--kb-bg-column);
+        cursor: pointer;
+        user-select: none;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .kb-section-head:hover {
+        background: color-mix(in srgb, var(--kb-accent) 10%, var(--kb-bg-column));
+    }
+    .kb-section-titlewrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+    .kb-section-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--kb-text-muted);
+    }
+    .kb-section-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px;
+    }
+    .kb-section-cards.kb-collapsed {
+        display: none;
+    }
+
     .kb-cards {
         padding: 8px;
         overflow-y: auto;
@@ -917,26 +1493,62 @@ function buildBaseCss() {
         padding: 10px;
         box-shadow: 0 1px 3px var(--kb-shadow);
         cursor: grab;
+        position: relative;
     }
     .kb-card:hover { border-color: var(--kb-accent); }
     .kb-card.kb-dragging { opacity: 0.45; }
-    .kb-cards.kb-drop-hover {
+    .kb-cards.kb-drop-hover,
+    .kb-section-cards.kb-drop-hover {
         outline: 2px dashed var(--kb-accent);
         outline-offset: -2px;
         background: color-mix(in srgb, var(--kb-accent) 8%, transparent);
     }
+
+    /* ---------- card badges & metadata ---------- */
+    .kb-task-badges {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 6px;
+    }
+    .kb-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        line-height: 1.2;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .kb-badge-urgent {
+        background: color-mix(in srgb, var(--kb-danger) 15%, transparent);
+        color: var(--kb-danger);
+        border: 1px solid var(--kb-danger);
+    }
+    .kb-badge-important {
+        background: color-mix(in srgb, var(--kb-accent) 15%, transparent);
+        color: var(--kb-accent);
+        border: 1px solid var(--kb-accent);
+    }
+    .kb-badge-score {
+        background: var(--kb-bg-column);
+        color: var(--kb-text-muted);
+        border: 1px solid var(--kb-border);
+    }
+    .kb-badge-subtask {
+        background: color-mix(in srgb, var(--kb-accent) 12%, transparent);
+        border: 1px solid var(--kb-border);
+        color: var(--kb-text);
+    }
+
     .kb-col-titlewrap {
         display: flex;
         align-items: center;
         gap: 6px;
         min-width: 0;
         margin-right: auto;
-    }
-    .kb-col-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex: 0 0 auto;
     }
     .kb-card-tags {
         display: flex;
@@ -963,29 +1575,40 @@ function buildBaseCss() {
         border-radius: 6px;
         padding: 5px 10px;
         font-size: 13px;
-        width: 200px;
+        width: 180px;
     }
     .kb-search:focus { outline: none; border-color: var(--kb-accent); }
-    .kb-card-menu {
+    
+    .kb-card-actions {
         position: absolute;
-        top: 4px;
-        right: 4px;
-        background: transparent;
-        border: none;
-        color: var(--kb-text-muted);
-        font-size: 14px;
-        line-height: 1;
-        padding: 2px 4px;
-        border-radius: 4px;
+        top: 6px;
+        right: 6px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
         opacity: 0;
         transition: opacity 0.15s ease;
     }
-    .kb-card:hover .kb-card-menu { opacity: 1; }
-    .kb-card-menu:hover {
+    .kb-card:hover .kb-card-actions { opacity: 1; }
+    
+    .kb-card-menu,
+    .kb-card-info-btn {
         background: var(--kb-bg-column);
-        color: var(--kb-accent);
+        border: 1px solid var(--kb-border);
+        color: var(--kb-text-muted);
+        padding: 3px 5px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
-    .kb-card { position: relative; }
+    .kb-card-menu:hover,
+    .kb-card-info-btn:hover {
+        background: var(--kb-bg-card);
+        color: var(--kb-accent);
+        border-color: var(--kb-accent);
+    }
+
     .kb-card-labels {
         display: flex;
         flex-wrap: wrap;
@@ -1017,17 +1640,18 @@ function buildBaseCss() {
         background: transparent;
         border: none;
         color: var(--kb-text-muted);
-        font-size: 15px;
-        line-height: 1;
-        padding: 2px 6px;
+        padding: 3px 6px;
         border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
     .kb-add-card:hover {
         background: var(--kb-accent);
         color: var(--kb-accent-text);
     }
     .kb-column-last .kb-column-title { color: var(--kb-accent); }
-    .kb-card-title { font-size: 13px; }
+    .kb-card-title { font-size: 13px; font-weight: 500; }
     .kb-card-body { font-size: 13px; overflow-wrap: break-word; }
     .kb-card-body img { max-width: 100%; border-radius: 6px; }
     .kb-card-body ample-editor,
@@ -1042,16 +1666,72 @@ function buildBaseCss() {
         margin-top: 8px;
     }
     .kb-card-meta {
-        margin-top: 4px;
+        margin-top: 6px;
         font-size: 11px;
         color: var(--kb-text-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+    .kb-card-meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
     }
     .kb-card-done .kb-card-title {
         text-decoration: line-through;
         color: var(--kb-text-muted);
     }
 
-    /* ---------- scrollbars (theme-aware) ---------- */
+    /* ---------- task info details card ---------- */
+    .kb-task-details {
+        margin-top: 8px;
+        padding: 8px;
+        background: var(--kb-bg-column);
+        border: 1px solid var(--kb-border);
+        border-radius: 6px;
+        font-size: 11px;
+        line-height: 1.5;
+    }
+    .kb-task-details hr {
+        border: none;
+        border-top: 1px solid var(--kb-border);
+        margin: 6px 0;
+    }
+
+    /* ---------- toasts ---------- */
+    .kb-toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        pointer-events: none;
+    }
+    .kb-toast {
+        background: var(--kb-bg-header);
+        color: var(--kb-text);
+        border: 1px solid var(--kb-border);
+        border-left: 3px solid var(--kb-accent);
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        box-shadow: 0 4px 12px var(--kb-shadow);
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: auto;
+    }
+    .kb-toast.kb-toast-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* ---------- scrollbars ---------- */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-thumb {
         background: var(--kb-border);
@@ -1077,14 +1757,47 @@ ${buildBaseCss()}
 </head>
 <body>
     <header class="kb-header">
-        <div class="kb-brand">\u{1F5C2} Kanban Board</div>
+        <div class="kb-brand">
+            <svg class="kb-icon kb-icon-stroke" width="18" height="18" viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"></rect><rect x="10" y="3" width="5" height="12" rx="1"></rect><rect x="17" y="3" width="5" height="16" rx="1"></rect></svg>
+            <span>Kanban Board</span>
+        </div>
         <span id="kb-roundtrips" class="kb-roundtrips" title="Embed round trips this session">0</span>
-        <button id="kb-ping" class="kb-btn" type="button">Ping</button>
-        <button id="kb-refresh-tab" class="kb-btn" type="button" title="Re-pull the active tab">\u27F3 Tab</button>
-        <button id="kb-refresh-all" class="kb-btn" type="button" title="Re-pull every tab">\u21C9 All</button>
-        <input id="kb-search" class="kb-search" type="search" placeholder="Filter board (Enter = all notes)" spellcheck="false">
+        <button id="kb-ping" class="kb-btn" type="button" title="Test embed connection">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>Ping</span>
+        </button>
+        <button id="kb-refresh-tab" class="kb-btn" type="button" title="Re-pull the active tab">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            <span>Tab</span>
+        </button>
+        <button id="kb-refresh-all" class="kb-btn" type="button" title="Re-pull every tab">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+            <span>All</span>
+        </button>
+        <button id="kb-sort-btn" class="kb-btn" type="button" title="Cycle card sorting">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
+            <span id="kb-sort-label">Sort: Note Order</span>
+        </button>
+        <button id="kb-save-sort-btn" class="kb-btn" type="button" style="display:none;" title="Save active card sort order into note markdown">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>Save Sort</span>
+        </button>
+        <button id="kb-save-cols-btn" class="kb-btn" type="button" style="display:none;" title="Save dragged column order into note headings">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>Save Columns</span>
+        </button>
+        <button id="kb-reset-cols-btn" class="kb-btn" type="button" style="display:none;" title="Reset columns to original source note order">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+            <span>Reset Columns</span>
+        </button>
+        <button id="kb-reset-sort-btn" class="kb-btn" type="button" style="display:none;" title="Reset dashboard to original note order">
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+            <span>Reset Sort</span>
+        </button>
+        <input id="kb-search" class="kb-search" type="search" placeholder="Filter cards (Press / to focus)" spellcheck="false">
         <button id="kb-datefmt-btn" class="kb-btn" type="button" title="Date format for card chips">
-            \u{1F4C5} <span id="kb-datefmt-label"></span>
+            <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span id="kb-datefmt-label"></span>
         </button>
         <button id="kb-theme-btn" class="kb-btn" type="button" title="Cycle themes (or press T)">
             <span id="kb-theme-icon">\u{1F3A8}</span> <span id="kb-theme-name">Theme</span>
@@ -1093,6 +1806,7 @@ ${buildBaseCss()}
     </header>
     <nav id="kb-tabs" class="kb-tabs"></nav>
     <main id="kb-board" class="kb-board"></main>
+    <div id="kb-toasts" class="kb-toast-container"></div>
     <script>window.__KANBAN_THEMES__ = ${themesJson};</script>
     <script>window.__KANBAN_STATE__ = ${stateJson};</script>
     <script>
@@ -1143,7 +1857,7 @@ async function saveTabsConfig(app, config) {
   return config;
 }
 function createTab({ kind, name, noteUUID = null, tag = null }) {
-  if (kind !== "note" && kind !== "tag") {
+  if (kind !== "note" && kind !== "tag" && kind !== "notes") {
     throw new Error(`Invalid tab kind: ${kind}`);
   }
   return { id: newId("tab"), kind, name: String(name || "Untitled"), noteUUID, tag };
@@ -1346,9 +2060,6 @@ async function createTaskInColumn(app, noteUUID, target, content) {
 async function setTaskCompleted(app, taskUuid, done = true) {
   await app.updateTask(taskUuid, { completedAt: done ? nowSeconds() : null });
 }
-async function updateCardContent(app, taskUuid, content) {
-  await app.updateTask(taskUuid, { content });
-}
 async function addLabelToTask(app, taskUuid, labelName) {
   const name = String(labelName || "").trim();
   if (!name) return;
@@ -1358,6 +2069,49 @@ async function addLabelToTask(app, taskUuid, labelName) {
   const content = `${task.content || ""}
 [[${name}]]`;
   await app.updateTask(taskUuid, { content });
+}
+async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  const tasks = await app.getNoteTasks({ uuid: noteUUID });
+  if (!markdown || !tasks || !tasks.length) return false;
+  const { columns } = buildColumnSpans(markdown);
+  const lines = markdown.split("\n");
+  const taskLineMap = findTaskLines(lines, tasks);
+  const taskByUuid = new Map(tasks.map((t) => [t.uuid, t]));
+  const compareFn = (uuidA, uuidB) => {
+    const a = taskByUuid.get(uuidA) || {};
+    const b = taskByUuid.get(uuidB) || {};
+    if (sortMode === "score") {
+      return (b.score || 0) - (a.score || 0);
+    }
+    if (sortMode === "startDate") {
+      return (b.startAt || 0) - (a.startAt || 0);
+    }
+    if (sortMode === "important") {
+      return (b.important ? 1 : 0) - (a.important ? 1 : 0);
+    }
+    if (sortMode === "urgent") {
+      return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0);
+    }
+    return 0;
+  };
+  let nextLines = [...lines];
+  for (const span of columns) {
+    const spanTasks = [];
+    for (const [uuid, lineIdx] of taskLineMap.entries()) {
+      if (lineIdx >= span.contentStart && lineIdx < span.contentEnd) {
+        spanTasks.push({ uuid, lineIdx, line: lines[lineIdx] });
+      }
+    }
+    if (spanTasks.length <= 1) continue;
+    spanTasks.sort((x, y) => compareFn(x.uuid, y.uuid));
+    const originalIndices = spanTasks.map((t) => t.lineIdx).sort((a, b) => a - b);
+    for (let i = 0; i < spanTasks.length; i++) {
+      nextLines[originalIndices[i]] = spanTasks[i].line;
+    }
+  }
+  await app.replaceNoteContent({ uuid: noteUUID }, nextLines.join("\n"));
+  return true;
 }
 
 // anp-15-kanban/lib/api/columnOps.js
@@ -1445,61 +2199,6 @@ ${trimmed}
   return "moved";
 }
 
-// anp-15-kanban/lib/api/tagBoard.js
-var NOSUB_ID = "nosub";
-var SUB_PREFIX = "sub:";
-function immediateSubTags(baseTag, tags) {
-  const prefix = `${baseTag}/`;
-  return (tags || []).filter((t) => typeof t?.text === "string" && t.text.startsWith(prefix)).filter((t) => !t.text.slice(prefix.length).includes("/")).map((t) => ({ text: t.text, color: t.color || null }));
-}
-function columnForNote(baseTag, subTags, noteTags) {
-  const set = new Set(noteTags || []);
-  const hit = subTags.find((st) => set.has(st.text));
-  return hit ? SUB_PREFIX + hit.text : NOSUB_ID;
-}
-async function buildTagBoard(app, tag) {
-  if (!tag) {
-    return { kind: "tag", tag, columns: [], hasHeadings: false };
-  }
-  const [allTags, notes] = await Promise.all([
-    app.getTags() || [],
-    app.filterNotes({ tag }) || []
-  ]);
-  const subs = immediateSubTags(tag, allTags);
-  const byId = /* @__PURE__ */ new Map();
-  const makeColumn = (id, name, color) => {
-    const col = { id, name, color, wipLimit: null, cards: [] };
-    byId.set(id, col);
-    return col;
-  };
-  subs.forEach((st) => makeColumn(SUB_PREFIX + st.text, st.text.slice(tag.length + 1), st.color));
-  makeColumn(NOSUB_ID, "No sub-tag", null);
-  for (const note of notes) {
-    const col = byId.get(columnForNote(tag, subs, note.tags)) || byId.get(NOSUB_ID);
-    col.cards.push(toNoteCard(note));
-  }
-  const columns = [...byId.values()];
-  return {
-    kind: "tag",
-    tag,
-    columns,
-    hasHeadings: true
-  };
-}
-function toNoteCard(note) {
-  return {
-    id: note.uuid,
-    title: note.name || "Untitled note",
-    tags: note.tags || [],
-    completedAt: null,
-    startAt: null,
-    deadline: null,
-    imageUrl: null,
-    html: null,
-    isNoteCard: true
-  };
-}
-
 // anp-15-kanban/lib/api/noteBoard.js
 async function buildNoteBoard(app, noteUUID, options = {}) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
@@ -1558,9 +2257,16 @@ function toCardModel(task) {
     completedAt: task.completedAt ?? null,
     dismissedAt: task.dismissedAt ?? null,
     startAt: task.startAt ?? null,
+    endAt: task.endAt ?? null,
     deadline: task.deadline ?? null,
+    hideUntil: task.hideUntil ?? null,
+    repeat: task.repeat ?? null,
+    isRepeating: !!task.isRepeating,
+    isParent: !!task.isParent,
     important: !!task.important,
-    urgent: !!task.urgent
+    urgent: !!task.urgent,
+    score: typeof task.score === "number" ? task.score : null,
+    noteUUID: task.noteUUID || null
   };
 }
 async function renderCardHtml(app, cards) {
@@ -1592,17 +2298,19 @@ function plainPreview(markdown) {
   return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
 }
 
-// anp-15-kanban/lib/api/notesBoard.js
+// anp-15-kanban/lib/api/tagBoard.js
 var NOTE_PREFIX = "note:";
-async function buildNotesBoard(app, tag) {
+async function buildTagBoard(app, tag) {
   if (!tag) {
-    return { kind: "notes", tag, columns: [], hasHeadings: false };
+    return { kind: "tag", tag, columns: [], hasHeadings: false };
   }
-  const notes = await app.filterNotes({ tag }) || [];
+  const [notes, allTags] = await Promise.all([
+    app.filterNotes({ tag }) || [],
+    app.getTags() || []
+  ]);
   let colorMap = {};
   try {
-    const tags = await app.getTags() || [];
-    tags.forEach((t) => {
+    allTags.forEach((t) => {
       if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
     });
   } catch {
@@ -1611,24 +2319,66 @@ async function buildNotesBoard(app, tag) {
   const columns = [];
   const allCards = [];
   for (const note of notes) {
+    let markdown = "";
+    try {
+      markdown = await app.getNoteContent({ uuid: note.uuid }) || "";
+    } catch {
+      markdown = "";
+    }
     const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
-    const cards = tasks.map((t) => toCardModel(t));
-    allCards.push(...cards);
-    columns.push({
-      id: NOTE_PREFIX + note.uuid,
-      name: note.name || "Untitled note",
-      color: null,
-      wipLimit: null,
-      cards,
-      noteUUID: note.uuid
-    });
+    const { columns: headingSpans } = buildColumnSpans(markdown);
+    const lines = markdown.split("\n");
+    const { columnCards, unsorted } = assignTasksToColumns(headingSpans, lines, tasks);
+    const sections = [];
+    if (unsorted.length > 0) {
+      const unsortedCards = unsorted.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
+      sections.push({
+        id: "unsorted",
+        name: "Unsorted",
+        cards: unsortedCards
+      });
+      allCards.push(...unsortedCards);
+    }
+    if (headingSpans.length > 0) {
+      for (const span of headingSpans) {
+        const spanTasks = columnCards.get(span.id) || [];
+        const spanCards = spanTasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
+        sections.push({
+          id: span.id,
+          name: span.name,
+          cards: spanCards
+        });
+        allCards.push(...spanCards);
+      }
+    } else if (unsorted.length === 0 && tasks.length > 0) {
+      const noteCards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
+      sections.push({
+        id: "main",
+        name: "Tasks",
+        cards: noteCards
+      });
+      allCards.push(...noteCards);
+    }
+    const nonEmptySections = sections.filter((s) => s.cards && s.cards.length > 0);
+    const flatCards = nonEmptySections.flatMap((s) => s.cards);
+    if (flatCards.length > 0) {
+      columns.push({
+        id: NOTE_PREFIX + note.uuid,
+        name: note.name || "Untitled note",
+        noteUUID: note.uuid,
+        tags: note.tags || [],
+        sections: nonEmptySections,
+        cards: flatCards,
+        wipLimit: null
+      });
+    }
   }
   await renderCardHtml(app, allCards);
   allCards.forEach((card) => {
     card.labels = resolveLabels(card.content, colorMap);
   });
   return {
-    kind: "notes",
+    kind: "tag",
     tag,
     columns,
     hasHeadings: true
@@ -1636,19 +2386,6 @@ async function buildNotesBoard(app, tag) {
 }
 
 // anp-15-kanban/lib/api/noteOps.js
-async function retagNote(app, noteUUID, { fromSub, toSub }) {
-  const handle = { uuid: noteUUID };
-  let changed = false;
-  if (fromSub && fromSub !== toSub) {
-    await app.removeNoteTag(handle, fromSub);
-    changed = true;
-  }
-  if (toSub && toSub !== fromSub) {
-    await app.addNoteTag(handle, toSub);
-    changed = true;
-  }
-  return changed;
-}
 async function createTaggedNote(app, title, tags = []) {
   const clean = String(title || "").trim();
   if (!clean) return null;
@@ -1684,13 +2421,17 @@ async function handleSetActiveTab(app, payload) {
   if (!tabId) return;
   const config = setActiveTab(await loadTabsConfig(app), tabId);
   await saveTabsConfig(app, config);
-  await rerender(app);
 }
 async function handleRefreshTab(app) {
   await rerender(app);
 }
 async function handleRefreshAll(app) {
   await rerender(app);
+}
+function defaultKanbanNoteName(now = /* @__PURE__ */ new Date()) {
+  const pad = (n) => (n < 10 ? "0" : "") + n;
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return `Kanban Board - ${dateStr}`;
 }
 async function handleAddTab(app) {
   const result = await app.prompt("Add board tab", {
@@ -1699,16 +2440,18 @@ async function handleAddTab(app) {
         label: "Board type:",
         type: "radio",
         options: [
-          { label: "Note board (headings as columns)", value: "note" },
-          { label: "Tag board (sub-tags as columns)", value: "tag" }
+          { label: "Note board (headings as columns from existing note)", value: "note" },
+          { label: "Create new note board (creates note under -reports/-kanban)", value: "new_note" },
+          { label: "Tag board (notes under tag as columns with collapsible headings)", value: "tag" }
         ]
       },
-      { label: "Note to board (for note boards):", type: "note" },
-      { label: "Tag to board (for tag boards):", type: "tags", limit: 1 }
+      { label: "Existing Note (for Note board):", type: "note" },
+      { label: "New Note Name (optional, blank = default with date):", type: "string" },
+      { label: "Tag (for Tag board):", type: "tags", limit: 1 }
     ]
   });
   if (!result) return;
-  const [kind, noteHandle, tagValue] = result;
+  const [kind, noteHandle, newNoteName, tagValue] = result;
   const tagText = Array.isArray(tagValue) ? tagValue[0] : tagValue;
   let tab = null;
   if (kind === "note") {
@@ -1718,10 +2461,20 @@ async function handleAddTab(app) {
       name: noteHandle.name || "Note board",
       noteUUID: noteHandle.uuid
     });
+  } else if (kind === "new_note") {
+    const title = newNoteName && String(newNoteName).trim() || defaultKanbanNoteName();
+    const uuid = await app.createNote(title, ["-reports/-kanban"]);
+    if (!uuid) return;
+    await app.replaceNoteContent({ uuid }, "# To Do\n\n# In Progress\n\n# Done\n");
+    tab = createTab({
+      kind: "note",
+      name: title,
+      noteUUID: uuid
+    });
   } else if (kind === "tag") {
     if (!tagText || !String(tagText).trim()) return;
     const clean = String(tagText).trim();
-    tab = createTab({ kind: "tag", name: clean.split("/").pop(), tag: clean });
+    tab = createTab({ kind: "tag", name: clean, tag: clean });
   } else {
     return;
   }
@@ -1780,12 +2533,22 @@ async function isLastColumn(app, noteUUID, columnId) {
 async function handleMoveCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
   if (!tab || !payload.cardId || !payload.toColumnId) return;
-  if (tab.kind === "tag") {
-    await moveNoteCard(app, tab, payload.cardId, payload.toColumnId);
-    return;
-  }
-  if (tab.kind === "notes") {
-    await moveTaskToNote(app, tab, payload.cardId, payload.toColumnId);
+  if (tab.kind === "tag" || tab.kind === "notes") {
+    const targetUUID = String(payload.toColumnId).startsWith(NOTE_PREFIX) ? payload.toColumnId.slice(NOTE_PREFIX.length) : payload.toColumnId;
+    if (!targetUUID) return;
+    const task = await app.getTask(payload.cardId);
+    if (!task) return;
+    if (task.noteUUID !== targetUUID) {
+      await app.updateTask(payload.cardId, { noteUUID: targetUUID });
+    }
+    if (payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+      try {
+        await moveTaskToColumn(app, targetUUID, payload.cardId, { columnId: payload.toSectionId });
+      } catch (err) {
+        console.error("Failed to relocate task to section:", err);
+      }
+    }
+    await rerender(app);
     return;
   }
   const doneTarget = await isLastColumn(app, tab.noteUUID, payload.toColumnId);
@@ -1797,47 +2560,24 @@ async function handleMoveCard(app, payload) {
     await rerender(app);
   }
 }
-async function moveTaskToNote(app, tab, taskUuid, toColumnId) {
-  const targetUUID = String(toColumnId).startsWith(NOTE_PREFIX) ? toColumnId.slice(NOTE_PREFIX.length) : null;
-  if (!targetUUID) return;
-  const board = await buildNotesBoard(app, tab.tag);
-  const fromCol = board.columns.find((c) => c.cards.some((card) => card.id === taskUuid));
-  if (fromCol && fromCol.id === String(toColumnId)) return;
-  await app.updateTask(taskUuid, { noteUUID: targetUUID });
-  await rerender(app);
-}
-async function moveNoteCard(app, tab, noteUUID, toColumnId) {
-  const board = await buildTagBoard(app, tab.tag);
-  const fromCol = board.columns.find((c) => c.cards.some((card) => card.id === noteUUID));
-  const fromSub = fromCol && fromCol.id.startsWith(SUB_PREFIX) ? fromCol.id.slice(SUB_PREFIX.length) : null;
-  const toSub = toColumnId.startsWith(SUB_PREFIX) ? toColumnId.slice(SUB_PREFIX.length) : null;
-  const sameColumn = fromCol && fromCol.id === String(toColumnId) || !fromCol && toColumnId === NOSUB_ID;
-  if (sameColumn) return;
-  await retagNote(app, noteUUID, { fromSub, toSub });
-  await rerender(app);
-}
 async function handleCreateCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
   if (!tab || !payload.columnId) return;
-  if (tab.kind === "notes") {
-    const targetUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : null;
+  if (tab.kind === "tag" || tab.kind === "notes") {
+    const targetUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : payload.columnId;
     if (!targetUUID) return;
     const content2 = firstValue(await app.prompt("New task", {
       inputs: [{ label: "Task content (markdown):", type: "text" }]
     }));
     if (!content2) return;
-    await app.insertTask({ uuid: targetUUID }, { content: content2 });
-    await rerender(app);
-    return;
-  }
-  if (tab.kind === "tag") {
-    const result2 = await app.prompt("New note in column", {
-      inputs: [{ label: "Note name:", type: "text" }]
-    });
-    const name = firstValue(result2);
-    if (!name || !String(name).trim()) return;
-    const toSub = String(payload.columnId).startsWith(SUB_PREFIX) ? payload.columnId.slice(SUB_PREFIX.length) : null;
-    await createTaggedNote(app, name, toSub ? [toSub] : [tab.tag]);
+    const taskUuid = await app.insertTask({ uuid: targetUUID }, { content: content2 });
+    if (taskUuid && payload.sectionId && payload.sectionId !== "unsorted" && payload.sectionId !== "main") {
+      try {
+        await moveTaskToColumn(app, targetUUID, taskUuid, { columnId: payload.sectionId });
+      } catch (err) {
+        console.error("Failed to position new task under section:", err);
+      }
+    }
     await rerender(app);
     return;
   }
@@ -1850,22 +2590,96 @@ async function handleCreateCard(app, payload) {
   await rerender(app);
 }
 async function handleOpenCard(app, payload) {
-  const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
-  if (!cardId) return;
-  await openNote(app, cardId);
+  const noteUUID = payload?.noteUUID || payload?.cardId;
+  if (!noteUUID) return;
+  await openNote(app, noteUUID);
 }
-async function handleEditCard(app, payload) {
+async function handleEditTaskDetails(app, payload) {
   const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
-  const result = await app.prompt("Edit card (raw markdown)", {
-    inputs: [{ label: "Content:", type: "text", value: task.content || "" }]
+  let sections = [];
+  try {
+    sections = await app.getNoteSections({ uuid: task.noteUUID }) || [];
+  } catch {
+    sections = [];
+  }
+  const sectionOptions = [
+    { label: "Top / Unsorted", value: "__top__" },
+    ...sections.filter((s) => s?.heading?.text).map((s) => ({
+      label: s.heading.text,
+      value: s.heading.text
+    }))
+  ];
+  const result = await app.prompt("Edit Task Details", {
+    inputs: [
+      { label: "Task content (markdown):", type: "text", value: task.content || "" },
+      { label: "Important:", type: "checkbox", value: !!task.important },
+      { label: "Urgent:", type: "checkbox", value: !!task.urgent },
+      { label: "Move to Note (optional):", type: "note", value: task.noteUUID },
+      { label: "Move to Section / Heading:", type: "select", options: sectionOptions },
+      { label: "Score:", type: "string", value: task.score !== void 0 && task.score !== null ? String(task.score) : "" },
+      {
+        label: "Mark Status:",
+        type: "radio",
+        options: [
+          { label: "Keep current", value: "keep" },
+          { label: "Started (startAt now)", value: "started" },
+          { label: "Completed", value: "completed" },
+          { label: "Dismissed", value: "dismissed" },
+          { label: "Reopen / Active", value: "reopen" }
+        ]
+      }
+    ]
   });
-  const content = firstValue(result);
-  if (content === null || content === void 0 || content === task.content) return;
-  await updateCardContent(app, cardId, content);
+  if (!result) return;
+  const [content, important, urgent, targetNote, targetSection, scoreStr, statusChoice] = result;
+  const updates = {};
+  if (content !== void 0 && content !== task.content) {
+    updates.content = String(content);
+  }
+  if (typeof important === "boolean" && important !== !!task.important) {
+    updates.important = important;
+  }
+  if (typeof urgent === "boolean" && urgent !== !!task.urgent) {
+    updates.urgent = urgent;
+  }
+  const parsedScore = parseFloat(scoreStr);
+  if (!Number.isNaN(parsedScore) && parsedScore !== task.score) {
+    updates.score = parsedScore;
+  }
+  const now = Math.floor(Date.now() / 1e3);
+  if (statusChoice === "started") {
+    updates.startAt = now;
+  } else if (statusChoice === "completed") {
+    updates.completedAt = now;
+    updates.dismissedAt = null;
+  } else if (statusChoice === "dismissed") {
+    updates.dismissedAt = now;
+    updates.completedAt = null;
+  } else if (statusChoice === "reopen") {
+    updates.completedAt = null;
+    updates.dismissedAt = null;
+  }
+  const targetNoteUUID = targetNote?.uuid || task.noteUUID;
+  if (targetNoteUUID && targetNoteUUID !== task.noteUUID) {
+    updates.noteUUID = targetNoteUUID;
+  }
+  if (Object.keys(updates).length > 0) {
+    await app.updateTask(cardId, updates);
+  }
+  if (targetSection && targetSection !== "__top__") {
+    try {
+      await moveTaskToColumn(app, targetNoteUUID, cardId, { columnName: targetSection });
+    } catch (err) {
+      console.error("Failed to relocate task to heading section:", err);
+    }
+  }
   await rerender(app);
+}
+async function handleEditCard(app, payload) {
+  return handleEditTaskDetails(app, payload);
 }
 async function resolveNoteBoardTab(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -1970,13 +2784,20 @@ async function handleCardMenu(app, payload) {
       label: "What do you want to do?",
       type: "radio",
       options: [
+        { label: "Edit task details (full dialog)", value: "edit_details" },
         { label: "Add label (note link)", value: "label" },
-        { label: "Set start date", value: "date" },
+        { label: "Set start date / deadline", value: "date" },
+        { label: "Snooze / Hide Until (set date)", value: "snooze" },
+        { label: "Schedule Time Block (start & end time)", value: "timeblock" },
         { label: "Create note from card", value: "note" }
       ]
     }]
   }));
   if (!choice) return;
+  if (choice === "edit_details") {
+    await handleEditTaskDetails(app, { cardId });
+    return;
+  }
   if (choice === "label") {
     const handle = firstValue(await app.prompt("Add label", {
       inputs: [{ label: "Pick a note to use as label:", type: "note" }]
@@ -1998,11 +2819,66 @@ async function handleCardMenu(app, payload) {
     await rerender(app);
     return;
   }
+  if (choice === "snooze") {
+    const value = firstValue(await app.prompt("Snooze / Hide Until", {
+      inputs: [{ label: "Hide task until date (blank clears snooze):", type: "date" }]
+    }));
+    if (value === null || value === void 0) return;
+    const trimmed = String(value).trim();
+    const hideUntil = trimmed ? Math.floor(new Date(trimmed).getTime() / 1e3) : null;
+    await app.updateTask(cardId, { hideUntil });
+    await rerender(app);
+    return;
+  }
+  if (choice === "timeblock") {
+    const res = await app.prompt("Schedule Time Block", {
+      inputs: [
+        { label: "Start Date/Time:", type: "date" },
+        { label: "End Date/Time (must be after start):", type: "date" }
+      ]
+    });
+    if (!res) return;
+    const [startVal, endVal] = res;
+    const sTrim = String(startVal || "").trim();
+    const eTrim = String(endVal || "").trim();
+    const startAt = sTrim ? Math.floor(new Date(sTrim).getTime() / 1e3) : null;
+    const endAt = eTrim ? Math.floor(new Date(eTrim).getTime() / 1e3) : null;
+    await app.updateTask(cardId, { startAt, endAt });
+    await rerender(app);
+    return;
+  }
   if (choice === "note") {
     const title = String(task.content || "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
     const uuid = await createTaggedNote(app, title);
     if (!uuid) return;
     await addLabelToTask(app, cardId, title);
+    await rerender(app);
+  }
+}
+async function handleSaveSortToNote(app, payload) {
+  const tabId = payload && payload.tabId;
+  const sortMode = payload && payload.sortMode;
+  if (!tabId || !sortMode || sortMode === "none") {
+    await app.alert("Select a valid sort mode (Score, Date, Important, or Urgent) before saving to note.");
+    return;
+  }
+  const config = await loadTabsConfig(app);
+  const tab = tabById(config, tabId);
+  if (!tab || tab.kind !== "note" || !tab.noteUUID) {
+    await app.alert("Saving sort order to note markdown is only supported on Note boards.");
+    return;
+  }
+  const confirmed = firstValue(await app.prompt("Save Sort Order to Note", {
+    inputs: [{
+      label: `Re-order task items in the note markdown according to "${sortMode}"? (This modifies note content)`,
+      type: "checkbox",
+      value: true
+    }]
+  }));
+  if (!confirmed) return;
+  const ok = await sortTasksInNoteMarkdown(app, tab.noteUUID, sortMode);
+  if (ok) {
+    await app.alert(`Task order sorted by "${sortMode}" saved to note!`);
     await rerender(app);
   }
 }
@@ -2054,8 +2930,8 @@ async function handleMoveColumnToTab(app, payload) {
 }
 async function handleRenameNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  if (!tab || tab.kind !== "notes" || !payload.columnId) return;
-  const noteUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : null;
+  if (!tab || !payload.columnId) return;
+  const noteUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : payload.columnId;
   if (!noteUUID) return;
   const note = await app.notes.find(noteUUID);
   const current = note?.name || "";
@@ -2066,6 +2942,34 @@ async function handleRenameNote(app, payload) {
   await app.setNoteName({ uuid: noteUUID }, String(name).trim());
   await rerender(app);
 }
+async function handleReorderTabs(app, payload) {
+  const { fromIndex, toIndex } = payload || {};
+  if (typeof fromIndex !== "number" || typeof toIndex !== "number") return;
+  const config = await loadTabsConfig(app);
+  const updated = moveTab(config, fromIndex, toIndex);
+  await saveTabsConfig(app, updated);
+}
+async function handleSaveColumnsToNote(app, payload) {
+  const { tabId, columnIds } = payload || {};
+  if (!tabId || !Array.isArray(columnIds) || !columnIds.length) return;
+  const config = await loadTabsConfig(app);
+  const tab = tabById(config, tabId);
+  if (!tab || tab.kind !== "note" || !tab.noteUUID) return;
+  const confirmed = await app.prompt("Save new column order into note?", {
+    inputs: [
+      {
+        label: "Reorder headings and all content in the note markdown",
+        type: "checkbox",
+        value: true
+      }
+    ]
+  });
+  if (!confirmed || !confirmed[0]) return;
+  const ok = await reorderColumns(app, tab.noteUUID, columnIds);
+  if (ok) {
+    await rerender(app);
+  }
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
@@ -2075,17 +2979,21 @@ var ACTIONS = {
   moveCard: handleMoveCard,
   createCard: handleCreateCard,
   editCard: handleEditCard,
+  editTaskDetails: handleEditTaskDetails,
   openCard: handleOpenCard,
   addTab: handleAddTab,
   closeTab: handleCloseTab,
   moveTabDir: handleMoveTabDir,
+  reorderTabs: handleReorderTabs,
   setDateFormat: handleSetDateFormat,
   createColumn: handleCreateColumn,
   renameColumn: handleRenameColumn,
   deleteColumn: handleDeleteColumn,
   moveColumn: handleMoveColumn,
+  saveColumnsToNote: handleSaveColumnsToNote,
   setWipLimit: handleSetWipLimit,
   cardMenu: handleCardMenu,
+  saveSortToNote: handleSaveSortToNote,
   globalSearch: handleGlobalSearch,
   moveColumnToTab: handleMoveColumnToTab,
   renameNote: handleRenameNote
@@ -2098,6 +3006,49 @@ async function handleEmbedAction(app, args) {
     return void 0;
   }
   return handler(app, payload);
+}
+
+// anp-15-kanban/lib/api/notesBoard.js
+var NOTE_PREFIX2 = "note:";
+async function buildNotesBoard(app, tag) {
+  if (!tag) {
+    return { kind: "notes", tag, columns: [], hasHeadings: false };
+  }
+  const notes = await app.filterNotes({ tag }) || [];
+  let colorMap = {};
+  try {
+    const tags = await app.getTags() || [];
+    tags.forEach((t) => {
+      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
+    });
+  } catch {
+    colorMap = {};
+  }
+  const columns = [];
+  const allCards = [];
+  for (const note of notes) {
+    const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
+    const cards = tasks.map((t) => toCardModel(t));
+    allCards.push(...cards);
+    columns.push({
+      id: NOTE_PREFIX2 + note.uuid,
+      name: note.name || "Untitled note",
+      color: null,
+      wipLimit: null,
+      cards,
+      noteUUID: note.uuid
+    });
+  }
+  await renderCardHtml(app, allCards);
+  allCards.forEach((card) => {
+    card.labels = resolveLabels(card.content, colorMap);
+  });
+  return {
+    kind: "notes",
+    tag,
+    columns,
+    hasHeadings: true
+  };
 }
 
 // anp-15-kanban/kanban.js

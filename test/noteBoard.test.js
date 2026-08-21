@@ -115,9 +115,16 @@ describe("noteBoard", () => {
         completedAt: null,
         dismissedAt: null,
         startAt: 100,
+        endAt: null,
         deadline: 200,
+        hideUntil: null,
+        repeat: null,
+        isRepeating: false,
+        isParent: false,
         important: true,
         urgent: false,
+        score: null,
+        noteUUID: null,
       });
     });
 

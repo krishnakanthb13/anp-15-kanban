@@ -63,8 +63,7 @@ const NOTE_MD = [
       .every(a => html.includes(`"${a}"`)),
     themeSystem: html.includes('[data-theme="midnight"]'),
     dndWired: html.includes("dragstart") && html.includes("moveCard"),
-    tagBoardBuilt: html.includes('"kind":"tag"') && html.includes("No sub-tag"),
-    tagColorsMapped: html.includes("ff0000"),
+    tagBoardBuilt: html.includes('"kind":"tag"') && html.includes("Alpha doc"),
     openCardWired: html.includes("openCard"),
     tabMgmtWired: ["addTab", "closeTab", "moveTabDir"].every(a => html.includes(`"${a}"`))
       && html.includes("kb-tab-add"),

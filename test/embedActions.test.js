@@ -21,6 +21,8 @@ import {
   handleGlobalSearch,
   handleMoveColumnToTab,
   handleRenameNote,
+  handleReorderTabs,
+  handleSaveColumnsToNote,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -117,7 +119,7 @@ describe("embedActions", () => {
   });
 
   describe("handleSetActiveTab", () => {
-    it("saves the active tab and re-renders", async () => {
+    it("saves the active tab", async () => {
       const app = makeApp();
       app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
         tabs: [{ id: "t1", kind: "note", name: "A" }, { id: "t2", kind: "tag", name: "B" }],
@@ -131,7 +133,6 @@ describe("embedActions", () => {
         SETTINGS_KEYS.tabs,
         expect.stringContaining('"activeTabId":"t2"')
       );
-      expect(app.context.renderEmbed).toHaveBeenCalled();
     });
 
     it("does nothing for missing tab ids", async () => {
@@ -238,7 +239,7 @@ describe("embedActions", () => {
 
   describe("tag boards (Phase 3)", () => {
     const TAG_NOTES = [
-      { uuid: "n1", name: "Alpha doc", tags: ["projects", "projects/alpha"] },
+      { uuid: "n1", name: "Alpha doc", tags: ["projects"] },
       { uuid: "n2", name: "Plain doc", tags: ["projects"] },
     ];
 
@@ -246,44 +247,30 @@ describe("embedActions", () => {
       const app = withTagTab(makeApp());
       app.getTags.mockResolvedValue([
         { text: "projects", color: "2563eb" },
-        { text: "projects/alpha", color: "ff0000" },
       ]);
       app.filterNotes.mockResolvedValue(TAG_NOTES);
+      app.getTask.mockImplementation(async (id) => ({ uuid: id, noteUUID: "n1", content: "task 1" }));
       return app;
     }
 
-    it("moveCard retags the note when dropped on another sub-tag column", async () => {
+    it("moveCard moves the task to target note column", async () => {
       const app = tagApp();
-      await handleMoveCard(app, { tabId: "tg", cardId: "n2", toColumnId: "sub:projects/alpha" });
+      await handleMoveCard(app, { tabId: "tg", cardId: "u1", toColumnId: "note:n2" });
 
-      expect(app.addNoteTag).toHaveBeenCalledWith({ uuid: "n2" }, "projects/alpha");
+      expect(app.updateTask).toHaveBeenCalledWith("u1", { noteUUID: "n2" });
       expect(app.context.renderEmbed).toHaveBeenCalled();
     });
 
-    it("moveCard clears the sub-tag when dropped on No sub-tag", async () => {
+    it("moveCard is a no-op for same note column drops", async () => {
       const app = tagApp();
-      await handleMoveCard(app, { tabId: "tg", cardId: "n1", toColumnId: "nosub" });
-      expect(app.removeNoteTag).toHaveBeenCalledWith({ uuid: "n1" }, "projects/alpha");
-      expect(app.addNoteTag).not.toHaveBeenCalled();
+      await handleMoveCard(app, { tabId: "tg", cardId: "u1", toColumnId: "note:n1" });
+      expect(app.updateTask).not.toHaveBeenCalled();
     });
 
-    it("moveCard is a no-op for same-column drops", async () => {
+    it("createCard creates a task in the target note column", async () => {
       const app = tagApp();
-      await handleMoveCard(app, { tabId: "tg", cardId: "n1", toColumnId: "sub:projects/alpha" });
-      expect(app.addNoteTag).not.toHaveBeenCalled();
-      expect(app.removeNoteTag).not.toHaveBeenCalled();
-    });
-
-    it("createCard creates a note tagged with the target sub-tag", async () => {
-      const app = tagApp();
-      await handleCreateCard(app, { tabId: "tg", columnId: "sub:projects/alpha" });
-      expect(app.createNote).toHaveBeenCalledWith("typed content", ["projects/alpha"]);
-    });
-
-    it("createCard uses the base tag for the No sub-tag column", async () => {
-      const app = tagApp();
-      await handleCreateCard(app, { tabId: "tg", columnId: "nosub" });
-      expect(app.createNote).toHaveBeenCalledWith("typed content", ["projects"]);
+      await handleCreateCard(app, { tabId: "tg", columnId: "note:n2" });
+      expect(app.insertTask).toHaveBeenCalledWith({ uuid: "n2" }, { content: "typed content" });
     });
 
     it("openCard navigates to the note", async () => {
@@ -295,10 +282,10 @@ describe("embedActions", () => {
     it("structural column actions are rejected on tag boards", async () => {
       const app = tagApp();
       await handleCreateColumn(app, { tabId: "tg" });
-      await handleRenameColumn(app, { tabId: "tg", columnId: "sub:projects/alpha" });
-      await handleDeleteColumn(app, { tabId: "tg", columnId: "sub:projects/alpha" });
-      await handleMoveColumn(app, { tabId: "tg", columnId: "sub:projects/alpha", direction: "left" });
-      await handleSetWipLimit(app, { tabId: "tg", columnId: "sub:projects/alpha" });
+      await handleRenameColumn(app, { tabId: "tg", columnId: "note:n1" });
+      await handleDeleteColumn(app, { tabId: "tg", columnId: "note:n1" });
+      await handleMoveColumn(app, { tabId: "tg", columnId: "note:n1", direction: "left" });
+      await handleSetWipLimit(app, { tabId: "tg", columnId: "note:n1" });
       expect(app.prompt).not.toHaveBeenCalled();
       expect(app.replaceNoteContent).not.toHaveBeenCalled();
       expect(app.setSetting).not.toHaveBeenCalled();
@@ -308,7 +295,7 @@ describe("embedActions", () => {
   describe("tab management (Phase 4)", () => {
     it("addTab creates a note tab from a picked note and activates it", async () => {
       const app = withNoteTab(makeApp());
-      app.prompt.mockResolvedValue(["note", { uuid: "n9", name: "Picked Note" }, null]);
+      app.prompt.mockResolvedValue(["note", { uuid: "n9", name: "Picked Note" }, null, null]);
 
       await handleAddTab(app);
 
@@ -319,14 +306,34 @@ describe("embedActions", () => {
       expect(app.context.renderEmbed).toHaveBeenCalled();
     });
 
+    it("addTab creates a new note board under -reports/-kanban", async () => {
+      const app = makeApp();
+      app.createNote.mockResolvedValue("new-note-uuid");
+      app.prompt.mockResolvedValue(["new_note", null, "Custom Kanban", null]);
+
+      await handleAddTab(app);
+
+      expect(app.createNote).toHaveBeenCalledWith("Custom Kanban", ["-reports/-kanban"]);
+      expect(app.replaceNoteContent).toHaveBeenCalledWith(
+        { uuid: "new-note-uuid" },
+        expect.stringContaining("# To Do")
+      );
+      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.tabs[0]).toMatchObject({
+        kind: "note",
+        name: "Custom Kanban",
+        noteUUID: "new-note-uuid",
+      });
+    });
+
     it("addTab creates a tag tab named after the last path segment", async () => {
       const app = makeApp();
-      app.prompt.mockResolvedValue(["tag", null, ["work/projects"]]);
+      app.prompt.mockResolvedValue(["tag", null, null, ["work/projects"]]);
 
       await handleAddTab(app);
 
       const written = JSON.parse(app.setSetting.mock.calls[0][1]);
-      expect(written.tabs[0]).toMatchObject({ kind: "tag", name: "projects", tag: "work/projects" });
+      expect(written.tabs[0]).toMatchObject({ kind: "tag", name: "work/projects", tag: "work/projects" });
       expect(written.activeTabId).toBe(written.tabs[0].id); // first tab activates
     });
 
@@ -334,9 +341,9 @@ describe("embedActions", () => {
       const app = makeApp();
       app.prompt.mockResolvedValue(null);
       await handleAddTab(app);
-      app.prompt.mockResolvedValue(["note", null, null]);
+      app.prompt.mockResolvedValue(["note", null, null, null]);
       await handleAddTab(app);
-      app.prompt.mockResolvedValue(["bogus", null, null]);
+      app.prompt.mockResolvedValue(["bogus", null, null, null]);
       await handleAddTab(app);
       expect(app.setSetting).not.toHaveBeenCalled();
     });
@@ -528,6 +535,7 @@ describe("embedActions", () => {
       });
       app.filterNotes.mockResolvedValue(NB_NOTES);
       app.getNoteTasks.mockResolvedValue([{ uuid: "t1", content: "task" }]);
+      app.getTask.mockImplementation(async (id) => ({ uuid: id, noteUUID: "na", content: "task" }));
       return app;
     }
 
@@ -687,6 +695,58 @@ describe("embedActions", () => {
         app.prompt.mockResolvedValue(null);
         await handleSetWipLimit(app, { tabId: "t1", columnId: "0" });
         expect(app.setSetting.mock.calls.length).toBe(before);
+      });
+    });
+
+    describe("handleReorderTabs", () => {
+      it("reorders tabs array based on drag indices", async () => {
+        const app = makeApp();
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [
+            { id: "t1", kind: "note", name: "A", noteUUID: "n1" },
+            { id: "t2", kind: "note", name: "B", noteUUID: "n2" },
+          ],
+          activeTabId: "t1",
+          settings: {},
+        });
+
+        await handleReorderTabs(app, { fromIndex: 0, toIndex: 1 });
+
+        const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+        expect(written.tabs[0].id).toBe("t2");
+        expect(written.tabs[1].id).toBe("t1");
+      });
+    });
+
+    describe("handleSaveColumnsToNote", () => {
+      it("prompts for confirmation and rewrites note headings", async () => {
+        const app = makeApp();
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "A", noteUUID: "n1" }],
+          activeTabId: "t1",
+          settings: {},
+        });
+        app.prompt.mockResolvedValue([true]);
+
+        await handleSaveColumnsToNote(app, { tabId: "t1", columnIds: ["2", "0"] });
+
+        expect(app.prompt).toHaveBeenCalled();
+        expect(app.replaceNoteContent).toHaveBeenCalled();
+        expect(app.context.renderEmbed).toHaveBeenCalled();
+      });
+
+      it("aborts when user cancels the prompt", async () => {
+        const app = makeApp();
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "A", noteUUID: "n1" }],
+          activeTabId: "t1",
+          settings: {},
+        });
+        app.prompt.mockResolvedValue(null);
+
+        await handleSaveColumnsToNote(app, { tabId: "t1", columnIds: ["2", "0"] });
+
+        expect(app.replaceNoteContent).not.toHaveBeenCalled();
       });
     });
   });

@@ -1,0 +1,26 @@
+(node:17052) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS anp-15-kanban/test/embedActions.test.js
+PASS anp-15-kanban/test/noteBoard.test.js
+PASS anp-15-kanban/test/taskOps.test.js
+PASS anp-15-kanban/test/tagBoard.test.js
+PASS anp-15-kanban/test/boardTemplate.test.js
+PASS anp-15-kanban/test/themes.test.js
+PASS anp-15-kanban/test/markdownIndex.test.js
+PASS anp-15-kanban/test/tabsConfig.test.js
+PASS anp-15-kanban/test/kanban.test.js
+PASS anp-15-kanban/test/demoBoard.test.js
+PASS anp-15-kanban/test/sessionState.test.js
+PASS anp-15-kanban/test/columnOps.test.js
+PASS anp-15-kanban/test/clientScript.test.js
+PASS anp-15-kanban/test/constants.test.js
+PASS anp-15-kanban/test/noteOps.test.js
+PASS anp-15-kanban/test/notesBoard.test.js
+PASS anp-15-kanban/test/prompt.test.js
+PASS anp-15-kanban/test/html.test.js
+
+Test Suites: 18 passed, 18 total
+Tests:       190 passed, 190 total
+Snapshots:   0 total
+Time:        5.224 s
+Ran all test suites matching /anp-15-kanban/i.

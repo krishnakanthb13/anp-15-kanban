@@ -2,7 +2,7 @@
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
-> **Sync note:** reflects plugin v0.0.13 (rebuild complete, Phases 0-5).
+> **Sync note:** reflects the completed rebuild (all phases). Future ideas live in the README roadmap.
 
 ---
 
@@ -21,7 +21,7 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 ### Description
 
-COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.13 REBUILD)
+COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (2026 REBUILD)
 
 A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board - headings become columns, tasks become draggable cards - and every move you make writes straight back to your note. We also cover tag boards, where sub-tags become columns and notes become cards.
 

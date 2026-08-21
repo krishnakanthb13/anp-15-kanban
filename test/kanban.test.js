@@ -82,16 +82,17 @@ describe("kanban plugin entry", () => {
           settings: {},
         }),
       });
-      app.getTags = jest.fn().mockResolvedValue([{ text: "projects/alpha", color: "ff0000" }]);
+      app.getTags = jest.fn().mockResolvedValue([{ text: "projects", color: "ff0000" }]);
       app.filterNotes = jest.fn().mockResolvedValue([
-        { uuid: "n1", name: "Alpha doc", tags: ["projects/alpha"] },
+        { uuid: "n1", name: "Alpha doc", tags: ["projects"] },
       ]);
+      app.getNoteContent = jest.fn().mockResolvedValue("# Heading\n- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->");
+      app.getNoteTasks = jest.fn().mockResolvedValue([{ uuid: "t1", content: "Task 1" }]);
 
       const html = await plugin.renderEmbed(app);
       expect(html).toContain('"kind":"tag"');
       expect(html).toContain('"tag":"projects"');
-      expect(html).toContain("No sub-tag");
-      expect(html).toContain("ff0000");
+      expect(html).toContain("Alpha doc");
       expect(html).toContain("n1");
     });
 

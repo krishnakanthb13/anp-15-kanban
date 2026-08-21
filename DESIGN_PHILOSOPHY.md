@@ -1,49 +1,67 @@
 # Design Philosophy — Kanban Plugin
 
-Why the board is built the way it is. Companion to [CODE_DOCUMENTATION.md](CODE_DOCUMENTATION.md) (the *how*) and [ds.md](ds.md) (the plan).
+Why the board is built the way it is. Companion to [CODE_DOCUMENTATION.md](CODE_DOCUMENTATION.md) (the *how*) and [README.md](README.md) (the *usage & configuration*).
+
+---
 
 ## 1. The Note Is the Source of Truth
 
-The board is a **view**, never a store. Columns are headings, cards are tasks — there is no shadow copy of board data anywhere. Every render re-derives everything from notes and settings.
+The board is a **view**, never a separate database or shadow store. Columns are headings (or notes), and cards are tasks. Every render re-derives state fresh from notes and settings.
 
-**Why:** Amplenote plugins are pull-based; nothing tells a plugin when a note changed. Any cached board state would silently diverce from what the user sees in their editor. Deriving fresh on every render makes divergence structurally impossible, at the cost of a few API calls per interaction — the right trade for data integrity.
+**Why:** Amplenote plugins are pull-based; nothing pushes background note mutations to a plugin embed. Any cached board representation would silently drift from what the user sees when editing their notes. Deriving state fresh on every render guarantees consistency and data integrity.
+
+---
 
 ## 2. Respect the Sandbox Boundary
 
-The embed iframe cannot call `app.*`. Rather than fighting this, the architecture embraces it: the client speaks a small explicit command protocol (`moveCard`, `createCard`, `editCard`, …) and the plugin host does the privileged work.
+The embed iframe cannot and should not call `app.*` directly. The client speaks an explicit, strictly typed command protocol (`moveCard`, `createCard`, `editTaskDetails`, `saveSortToNote`, …), while the plugin host performs the privileged work.
 
-**Why:** A single choke point for mutations means one place to validate input, one place to trigger re-renders, and an auditable list of everything the UI can do. Optimistic client updates keep drags feeling instant; authority always returns with the next server-derived render.
+**Why:** A unified choke point for mutations ensures clean validation, error boundaries, predictable state derivation, and security isolation. Optimistic client DOM updates provide immediate responsiveness without sacrificing server authority.
 
-## 3. Destructive Writes Earn Confirmation
+---
 
-Simple field edits and card moves stay frictionless. Structural rewrites of user content — column delete requires an explicit confirmation checkbox; cross-tab column moves confirm the target too — and every operation re-reads the note immediately before writing so it acts on current reality, not a stale snapshot.
+## 3. Visual Exploration is Free; Note Modifications Earn Explicit Triggers
 
-**Why:** There is no optimistic locking on `replaceNoteContent`. The cost of a confirmation dialog is trivial next to the cost of silently clobbering a user's concurrent edits.
+Visual actions on the board (such as client-side sorting by Score, Date, or Priority) operate completely in-memory and non-destructively. When the user wishes to rewrite the physical order of tasks in their note, they do so through an explicit, intentional action (**`💾 Save to Note`**).
 
-## 4. Minimal-Diff Writes Over Clever Section Surgery
+**Why:** Users frequently want to inspect or triage tasks in different dimensions (e.g. "What is most urgent right now?") without permanently altering their note's curated layout. Making note rewrites an opt-in trigger protects user formatting while providing flexible view analytics.
 
-Task relocation rewrites the whole note from a freshly-read, single-line diff instead of using section-scoped `replaceNoteContent`.
+---
 
-**Why:** API section boundaries split at *every* heading. With nested sub-headings, rewriting "a section" would truncate everything below a sub-heading boundary. A minimal diff computed by our own parser is strictly safer — we only ever change the lines we intend to change.
+## 4. Conditional Display Over Visual Clutter
 
-## 5. Native Semantics Beat Conventions
+Metadata indicators (Eisenhower badges, task scores, subtask counters, time-block ranges, snooze chips, recurrence badges) only render **when that data is actually present on the task**.
 
-"Done" is Amplenote's native task completion (`completedAt`), not a strikethrough convention or a parallel status field. Dates are native `startAt`/`deadline` fields, not `@date` text markers.
+**Why:** Kanban cards must remain scannable and readable. Populating every card with placeholder values or empty tags creates visual noise. Showing only meaningful, defined attributes keeps cards focused and information-dense.
 
-**Why:** Anything modeled outside the task object forks the truth: two places to update, two places to be wrong. Native fields sync with the rest of Amplenote (task views, notifications) for free.
+---
 
-## 6. Light/Dark Parity Is Not Optional
+## 5. Destructive Writes Earn Confirmation
 
-Eight themes ship in balanced light/dark pairs. Every color flows through `[data-theme]` CSS custom properties (`--kb-*`) — no hardcoded hex in layout CSS.
+Simple task moves and field edits remain frictionless. Structural changes to user content — such as deleting a column heading or transferring a column to another note — prompt for explicit confirmation before writing.
 
-**Why:** Tuning one palette table beats auditing every element for contrast. Instant attribute-based switching keeps theme cycling at 0ms even though persistence round-trips through settings.
+**Why:** Because Amplenote note operations do not use optimistic locking, the small cost of a confirmation step prevents accidental loss of complex heading structures.
 
-## 7. Honest Sync
+---
 
-Amplenote plugins cannot observe changes. Refresh is therefore explicitly manual (Tab / All buttons), and the docs say so rather than implying live sync.
+## 6. Minimal-Diff Writes Over Clever Section Surgery
 
-**Why:** A progress bar that pretends to be real-time sync is a lie users eventually discover. Predictable manual refresh builds more trust than flaky magic.
+Task relocation and sorting rewrite the note from a minimal line diff rather than using section-scoped `replaceNoteContent`.
 
-## 8. Isolation & Readability
+**Why:** API section boundaries split at *every* heading. In notes with nested sub-headings, section-scoped writes risk truncating text below deeper sub-headings. A minimal diff computed by the plugin parser is strictly safer.
 
-Same values as the parent staging repo: each plugin is self-contained, bundles via esbuild into readable output, and keeps pure logic (parsing, config ops) separated from I/O so it tests without mocks.
+---
+
+## 7. Native Semantics Beat Conventions
+
+"Done" uses Amplenote's native task completion (`completedAt`), not a markdown comment flag or parallel status field. Dates use native `startAt`, `endAt`, `deadline`, and `hideUntil` timestamps. Recurrence uses native RRULE strings.
+
+**Why:** Maintaining state outside native task properties creates duplicate sources of truth that fail to synchronize with Amplenote's native task views, Jots calendar, and reminders.
+
+---
+
+## 8. Light/Dark Parity Is Not Optional
+
+Eight curated themes ship in balanced light/dark pairs using pure CSS custom properties (`--kb-*`).
+
+**Why:** Theming should never require auditing dozens of layout components for contrast bugs. Standardized CSS tokens enable instant 0ms client-side theme cycling while synchronizing theme preferences cross-device.
