@@ -35,6 +35,13 @@ describe("clientScript", () => {
     });
   });
 
+  it("wires the phase-4 tab management and date format controls", () => {
+    ["addTab", "closeTab", "moveTabDir", "setDateFormat",
+      "kb-tab-add", "kb-tab-tool", "kb-datefmt-btn"].forEach(id => {
+      expect(script).toContain(id);
+    });
+  });
+
   it("contains no template literal interpolation that could leak server data", () => {
     expect(script).not.toContain("${");
   });

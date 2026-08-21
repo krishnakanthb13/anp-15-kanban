@@ -3,7 +3,7 @@
 A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards.
 Icon: `view_kanban`
 
-> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–3 are implemented — the persistent embed shell, theming, the note board MVP, rich card rendering, WIP limits, column management, and tag boards. Tab-management UI lands in Phase 4 (see [Roadmap](#roadmap)).
+> **Status:** Major rebuild in progress (plan: `ds.md`). Phases 0–4 are implemented — the persistent embed shell, theming, note boards, rich card rendering, WIP limits, column management, tag boards, and full tab management. Phase 5 extras remain (see [Roadmap](#roadmap)).
 
 ## Installation
 
@@ -39,7 +39,15 @@ Settings are stored via `app.settings` / `app.setSetting` and sync across device
 
 Run the **Open Kanban Board** app option (the plugin's launch button). This opens the plugin's persistent sidebar section and navigates to the board URL (`https://www.amplenote.com/notes/plugins/{pluginUUID}`), where it stays available like an app.
 
-Until tabs are configured, the board shows a **Demo Board** so you can explore the UI. Tab management UI arrives in Phase 4; today tabs live in the `Kanban Tabs` setting.
+Until tabs are configured, the board shows a **Demo Board** so you can explore the UI.
+
+### Managing tabs
+
+The tab bar sits above the board:
+
+- **+ New tab** adds a board: pick *note board* (then a note) or *tag board* (then a tag).
+- **Click** a tab to switch boards; data is re-derived fresh on every switch.
+- **Hover a tab** for its tools: ← / → reorder tabs, ✕ closes it (the underlying note/tag is never deleted).
 
 ### Board interactions (note boards)
 
@@ -84,7 +92,11 @@ A tab can also be a **tag board**: columns are the tag's immediate sub-tags (plu
 The board is pull-based (Amplenote plugins have no push notifications):
 
 - **⟳ Tab** re-pulls the active tab's board data.
-- **⇉ All** re-pulls every tab (progress bar shown; full behavior lands in Phase 4).
+- **⇉ All** re-pulls every tab; a progress bar runs while syncing.
+
+### Date format
+
+Click the **📅** button in the header to set the format used for card date chips, using `YYYY` / `MM` / `DD` / `MMM` tokens (e.g. `DD MMM YYYY` → *21 Aug 2026*). The choice persists with your tab configuration.
 
 ### Themes
 
@@ -139,5 +151,4 @@ Build with `node esbuild.js 15` from the repository root (or `npm run build -- 1
 
 ## Roadmap
 
-- **Phase 4** — Multi-tab management UI, per-tab vs refresh-all progress, date-format setting UI
 - **Phase 5** — Labels with tag-color coding, start-date picker, create-note-from-card, search, cross-tab column drag

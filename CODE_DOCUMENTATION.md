@@ -1,6 +1,6 @@
 # Code Documentation — Kanban Plugin
 
-Technical reference for contributors. Scope: v0.0.10 (rebuild Phases 0–3).
+Technical reference for contributors. Scope: v0.0.11 (rebuild Phases 0–4).
 
 ## Entry Point (`kanban.js`)
 
@@ -35,7 +35,8 @@ lib/
   features/
     embedActions.js    # Command dispatch table: ping, saveTheme, setActiveTab, refreshTab,
                        # refreshAll, moveCard, createCard, editCard, openCard,
-                       # createColumn, renameColumn, deleteColumn, moveColumn, setWipLimit
+                       # createColumn, renameColumn, deleteColumn, moveColumn, setWipLimit,
+                       # addTab, closeTab, moveTabDir, setDateFormat
   ui/
     themes.js          # 8-theme registry, palette tokens, CSS builder, isValidThemeId guard
     boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + script injection)
@@ -94,6 +95,15 @@ The second board kind inverts the mapping: columns are the board tag's **immedia
 - **Drag = retag**: `handleMoveCard` branches by tab kind. For tag boards it derives the source column from fresh board data, then swaps sub-tags via `removeNoteTag`/`addNoteTag` (base tag untouched). Same-column drops are no-ops.
 - **Click = open** (`openCard` → `app.navigate`); `+` creates a note tagged with the target column's sub-tag.
 - Structural column tools are note-board-only by design — tag columns *are* tags, so renaming/deleting them is out of scope. The client hides those tools and renders each column's tag color as a dot.
+
+## Tab Management (`features/embedActions.js`)
+
+Tabs are pure configuration — closing or reordering a tab never touches notes/tags:
+
+- **addTab** runs one prompt (kind radio + note picker + tag picker), builds the descriptor via `createTab`, appends with `addTab` (first tab auto-activates), saves, re-renders.
+- **closeTab** / **moveTabDir** reuse the pure `removeTab`/`moveTab` primitives; `normalizeConfig` repairs `activeTabId` on load if it ever points at a removed tab.
+- **setDateFormat** writes `config.settings.dateFormat`; the client formats card chips from tokens (`YYYY MM DD MMM`) via `formatStamp`.
+- The client renders tabs as hoverable chips with per-tab tools and a trailing "+ New tab" button; switching tabs is just `setActiveTab` + full re-render (boards are always freshly derived).
 
 ## Column Management & Confirm-Before-Write
 

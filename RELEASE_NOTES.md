@@ -1,3 +1,12 @@
+## v0.0.11 (2026-08-21) — Multi-Tab Management
+
+### 🚀 New Features
+- **Tab Management UI**: A **+ New tab** button adds any board — pick *note board* (then a note) or *tag board* (then a tag). Hover tabs to reorder (← / →) or close them (✕); closing only removes the board entry, never the underlying note or tag.
+- **Date Format Setting**: Click the 📅 header button to set the card date-chip format using `YYYY` / `MM` / `DD` / `MMM` tokens (e.g. `DD MMM YYYY`); the choice persists with your tab configuration.
+- **Sync Progress Bar**: The ⇉ All refresh now shows a progress bar while boards are being re-pulled.
+
+---
+
 ## v0.0.10 (2026-08-21) — Tag Boards
 
 ### 🚀 New Features

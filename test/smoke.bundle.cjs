@@ -65,9 +65,13 @@ const NOTE_MD = [
     tagBoardBuilt: html.includes('"kind":"tag"') && html.includes("No sub-tag"),
     tagColorsMapped: html.includes("ff0000"),
     openCardWired: html.includes("openCard"),
+    tabMgmtWired: ["addTab", "closeTab", "moveTabDir"].every(a => html.includes(`"${a}"`))
+      && html.includes("kb-tab-add"),
+    dateFormatWired: html.includes("setDateFormat") && html.includes("kb-datefmt-btn")
+      && html.includes("YYYY-MM-DD"),
   };
   console.log(checks);
   const allPass = Object.values(checks).every(Boolean);
-  console.log(allPass ? "PHASE 3 SMOKE PASS" : "PHASE 3 SMOKE FAIL");
+  console.log(allPass ? "PHASE 4 SMOKE PASS" : "PHASE 4 SMOKE FAIL");
   process.exit(allPass ? 0 : 1);
 })().catch(e => { console.error("SMOKE ERROR", e); process.exit(1); });

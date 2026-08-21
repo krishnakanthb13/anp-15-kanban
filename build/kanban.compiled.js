@@ -15,6 +15,9 @@ function emptyTabsConfig() {
   };
 }
 var TAB_KINDS = /* @__PURE__ */ new Set(["note", "tag"]);
+function newId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
 function isValidTab(tab) {
   return !!tab && typeof tab === "object" && typeof tab.id === "string" && tab.id.length > 0 && TAB_KINDS.has(tab.kind);
 }
@@ -257,16 +260,48 @@ function buildClientScript() {
     var tabs = STATE.tabs || [];
     var act = activeTab();
     tabs.forEach(function (tab) {
-      var chip = el("button", "kb-tab" + (act && tab.id === act.id ? " kb-tab-active" : ""));
-      chip.type = "button";
+      var chip = el("div", "kb-tab" + (act && tab.id === act.id ? " kb-tab-active" : ""));
       chip.title = tab.name + " (" + tab.kind + " board)";
       chip.appendChild(el("span", "kb-tab-icon", KIND_ICONS[tab.kind] || "?"));
       chip.appendChild(el("span", "kb-tab-name", tab.name));
-      chip.addEventListener("click", function () {
+
+      var activate = function () {
         callPlugin("setActiveTab", { tabId: tab.id });
+      };
+      chip.addEventListener("click", activate);
+
+      var tools = el("span", "kb-tab-tools");
+      addTabTool(tools, "\\u2190", "Move tab left", function (e) {
+        e.stopPropagation();
+        callPlugin("moveTabDir", { tabId: tab.id, direction: "left" });
       });
+      addTabTool(tools, "\\u2192", "Move tab right", function (e) {
+        e.stopPropagation();
+        callPlugin("moveTabDir", { tabId: tab.id, direction: "right" });
+      });
+      addTabTool(tools, "\\u2715", "Close tab", function (e) {
+        e.stopPropagation();
+        callPlugin("closeTab", { tabId: tab.id });
+      });
+      chip.appendChild(tools);
       host.appendChild(chip);
     });
+
+    var addBtn = el("button", "kb-tab-add", "+ New tab");
+    addBtn.type = "button";
+    addBtn.title = "Add a note or tag board";
+    addBtn.addEventListener("click", function () {
+      callPlugin("addTab");
+    });
+    host.appendChild(addBtn);
+  }
+
+  function addTabTool(host, glyph, title, onClick) {
+    var btn = el("button", "kb-tab-tool", glyph);
+    btn.type = "button";
+    btn.title = title;
+    btn.addEventListener("click", onClick);
+    host.appendChild(btn);
   }
 
   function renderBoard() {
@@ -475,9 +510,15 @@ function buildClientScript() {
 
   function formatStamp(unixSeconds) {
     var d = new Date(unixSeconds * 1000);
-    var m = d.getMonth() + 1;
-    var day = d.getDate();
-    return m + "/" + day;
+    var fmt = (STATE.settings && STATE.settings.dateFormat) || "YYYY-MM-DD";
+    var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    return fmt
+      .replace(/YYYY/g, String(d.getFullYear()))
+      .replace(/MMM/g, months[d.getMonth()])
+      .replace(/MM/g, pad(d.getMonth() + 1))
+      .replace(/DD/g, pad(d.getDate()));
   }
 
   function renderMeta() {
@@ -532,6 +573,15 @@ function buildClientScript() {
         setProgress(0.15);
         callPlugin("refreshAll");
       });
+    }
+
+    var fmtBtn = document.getElementById("kb-datefmt-btn");
+    if (fmtBtn) {
+      fmtBtn.addEventListener("click", function () {
+        callPlugin("setDateFormat");
+      });
+      var fmtLabel = document.getElementById("kb-datefmt-label");
+      if (fmtLabel && STATE.settings) fmtLabel.textContent = STATE.settings.dateFormat || "";
     }
 
     var pingBtn = document.getElementById("kb-ping");
@@ -661,6 +711,42 @@ function buildBaseCss() {
         background: var(--kb-bg-column);
         color: var(--kb-text-muted);
         font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .kb-tab-tools {
+        display: flex;
+        gap: 1px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+    .kb-tab:hover .kb-tab-tools { opacity: 1; }
+    .kb-tab-tool {
+        background: transparent;
+        border: none;
+        color: inherit;
+        font-size: 10px;
+        line-height: 1;
+        padding: 2px 3px;
+        border-radius: 3px;
+    }
+    .kb-tab-tool:hover {
+        background: var(--kb-bg-card);
+        color: var(--kb-accent);
+    }
+    .kb-tab-add {
+        flex: 0 0 auto;
+        padding: 6px 12px;
+        border: 1px dashed var(--kb-border);
+        border-radius: 8px 8px 0 0;
+        background: transparent;
+        color: var(--kb-text-muted);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .kb-tab-add:hover {
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
     }
     .kb-tab-active {
         background: var(--kb-bg-card);
@@ -871,6 +957,9 @@ ${buildBaseCss()}
         <button id="kb-ping" class="kb-btn" type="button">Ping</button>
         <button id="kb-refresh-tab" class="kb-btn" type="button" title="Re-pull the active tab">\u27F3 Tab</button>
         <button id="kb-refresh-all" class="kb-btn" type="button" title="Re-pull every tab">\u21C9 All</button>
+        <button id="kb-datefmt-btn" class="kb-btn" type="button" title="Date format for card chips">
+            \u{1F4C5} <span id="kb-datefmt-label"></span>
+        </button>
         <button id="kb-theme-btn" class="kb-btn" type="button" title="Cycle themes (or press T)">
             <span id="kb-theme-icon">\u{1F3A8}</span> <span id="kb-theme-name">Theme</span>
         </button>
@@ -927,9 +1016,37 @@ async function saveTabsConfig(app, config) {
   await app.setSetting(SETTINGS_KEYS.tabs, JSON.stringify(normalizeConfig(config)));
   return config;
 }
+function createTab({ kind, name, noteUUID = null, tag = null }) {
+  if (kind !== "note" && kind !== "tag") {
+    throw new Error(`Invalid tab kind: ${kind}`);
+  }
+  return { id: newId("tab"), kind, name: String(name || "Untitled"), noteUUID, tag };
+}
+function addTab(config, tab) {
+  const tabs = [...config.tabs, tab];
+  return {
+    ...config,
+    tabs,
+    activeTabId: config.activeTabId || tab.id
+  };
+}
+function removeTab(config, tabId) {
+  const tabs = config.tabs.filter((t) => t.id !== tabId);
+  const activeTabId = config.activeTabId === tabId ? tabs[0] ? tabs[0].id : null : config.activeTabId;
+  return { ...config, tabs, activeTabId };
+}
 function setActiveTab(config, tabId) {
   if (!config.tabs.some((t) => t.id === tabId)) return config;
   return { ...config, activeTabId: tabId };
+}
+function moveTab(config, fromIndex, toIndex) {
+  const tabs = [...config.tabs];
+  if (fromIndex < 0 || fromIndex >= tabs.length || toIndex < 0 || toIndex >= tabs.length || fromIndex === toIndex) {
+    return config;
+  }
+  const [moved] = tabs.splice(fromIndex, 1);
+  tabs.splice(toIndex, 0, moved);
+  return { ...config, tabs };
 }
 function tabById(config, tabId) {
   return config.tabs.find((t) => t.id === tabId) || null;
@@ -1282,6 +1399,76 @@ async function handleRefreshTab(app) {
 async function handleRefreshAll(app) {
   await rerender(app);
 }
+async function handleAddTab(app) {
+  const result = await app.prompt("Add board tab", {
+    inputs: [
+      {
+        label: "Board type:",
+        type: "radio",
+        options: [
+          { label: "Note board (headings as columns)", value: "note" },
+          { label: "Tag board (sub-tags as columns)", value: "tag" }
+        ]
+      },
+      { label: "Note to board (for note boards):", type: "note" },
+      { label: "Tag to board (for tag boards):", type: "tags", limit: 1 }
+    ]
+  });
+  if (!result) return;
+  const [kind, noteHandle, tagValue] = result;
+  const tagText = Array.isArray(tagValue) ? tagValue[0] : tagValue;
+  let tab = null;
+  if (kind === "note") {
+    if (!noteHandle || !noteHandle.uuid) return;
+    tab = createTab({
+      kind: "note",
+      name: noteHandle.name || "Note board",
+      noteUUID: noteHandle.uuid
+    });
+  } else if (kind === "tag") {
+    if (!tagText || !String(tagText).trim()) return;
+    const clean = String(tagText).trim();
+    tab = createTab({ kind: "tag", name: clean.split("/").pop(), tag: clean });
+  } else {
+    return;
+  }
+  const config = addTab(await loadTabsConfig(app), tab);
+  await saveTabsConfig(app, config);
+  await rerender(app);
+}
+async function handleCloseTab(app, payload) {
+  const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
+  if (!tabId) return;
+  const config = removeTab(await loadTabsConfig(app), tabId);
+  await saveTabsConfig(app, config);
+  await rerender(app);
+}
+async function handleMoveTabDir(app, payload) {
+  const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
+  if (!tabId) return;
+  const direction = payload.direction === "left" ? "left" : "right";
+  const config = await loadTabsConfig(app);
+  const index = config.tabs.findIndex((t) => t.id === tabId);
+  if (index === -1) return;
+  const target = direction === "left" ? index - 1 : index + 1;
+  if (target < 0 || target >= config.tabs.length) return;
+  await saveTabsConfig(app, moveTab(config, index, target));
+  await rerender(app);
+}
+async function handleSetDateFormat(app) {
+  const config = await loadTabsConfig(app);
+  const result = await app.prompt("Date format for card chips", {
+    inputs: [{
+      label: "Format tokens: YYYY MM DD MMM (e.g. DD MMM YYYY):",
+      type: "text",
+      value: config.settings.dateFormat
+    }]
+  });
+  if (!result || !String(result[0] || "").trim()) return;
+  config.settings.dateFormat = String(result[0]).trim();
+  await saveTabsConfig(app, config);
+  await rerender(app);
+}
 async function resolveNoteTab(app, payload) {
   const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
   if (!tabId) return null;
@@ -1459,6 +1646,10 @@ var ACTIONS = {
   createCard: handleCreateCard,
   editCard: handleEditCard,
   openCard: handleOpenCard,
+  addTab: handleAddTab,
+  closeTab: handleCloseTab,
+  moveTabDir: handleMoveTabDir,
+  setDateFormat: handleSetDateFormat,
   createColumn: handleCreateColumn,
   renameColumn: handleRenameColumn,
   deleteColumn: handleDeleteColumn,

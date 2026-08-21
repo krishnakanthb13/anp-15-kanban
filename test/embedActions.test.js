@@ -13,15 +13,19 @@ import {
   handleMoveColumn,
   handleSetWipLimit,
   handleOpenCard,
+  handleAddTab,
+  handleCloseTab,
+  handleMoveTabDir,
+  handleSetDateFormat,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
 const NOTE_MD = ["# Alpha", "- [ ] one <!-- {\"uuid\":\"u1\"} -->", "# Beta"].join("\n");
 
 function makeApp(markdown = NOTE_MD) {
-  return {
+  const app = {
     settings: {},
-    setSetting: jest.fn().mockResolvedValue(),
+    setSetting: jest.fn(async (key, value) => { app.settings[key] = value; }),
     getNoteContent: jest.fn().mockResolvedValue(markdown),
     replaceNoteContent: jest.fn().mockResolvedValue(true),
     insertNoteContent: jest.fn().mockResolvedValue(),
@@ -37,6 +41,7 @@ function makeApp(markdown = NOTE_MD) {
     filterNotes: jest.fn().mockResolvedValue([]),
     context: { renderEmbed: jest.fn().mockResolvedValue() },
   };
+  return app;
 }
 
 function withTagTab(app) {
@@ -290,6 +295,91 @@ describe("embedActions", () => {
       expect(app.prompt).not.toHaveBeenCalled();
       expect(app.replaceNoteContent).not.toHaveBeenCalled();
       expect(app.setSetting).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("tab management (Phase 4)", () => {
+    it("addTab creates a note tab from a picked note and activates it", async () => {
+      const app = withNoteTab(makeApp());
+      app.prompt.mockResolvedValue(["note", { uuid: "n9", name: "Picked Note" }, null]);
+
+      await handleAddTab(app);
+
+      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.tabs).toHaveLength(2);
+      expect(written.tabs[1]).toMatchObject({ kind: "note", name: "Picked Note", noteUUID: "n9" });
+      expect(written.activeTabId).toBe("t1"); // existing active stays
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("addTab creates a tag tab named after the last path segment", async () => {
+      const app = makeApp();
+      app.prompt.mockResolvedValue(["tag", null, ["work/projects"]]);
+
+      await handleAddTab(app);
+
+      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.tabs[0]).toMatchObject({ kind: "tag", name: "projects", tag: "work/projects" });
+      expect(written.activeTabId).toBe(written.tabs[0].id); // first tab activates
+    });
+
+    it("addTab aborts on cancel or missing selection", async () => {
+      const app = makeApp();
+      app.prompt.mockResolvedValue(null);
+      await handleAddTab(app);
+      app.prompt.mockResolvedValue(["note", null, null]);
+      await handleAddTab(app);
+      app.prompt.mockResolvedValue(["bogus", null, null]);
+      await handleAddTab(app);
+      expect(app.setSetting).not.toHaveBeenCalled();
+    });
+
+    it("closeTab removes the tab and repairs the active id", async () => {
+      const app = makeApp();
+      app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+        tabs: [{ id: "a", kind: "note", name: "A", noteUUID: "n1" },
+               { id: "b", kind: "tag", name: "B", tag: "b" }],
+        activeTabId: "a",
+        settings: {},
+      });
+
+      await handleCloseTab(app, { tabId: "a" });
+
+      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.tabs.map(t => t.id)).toEqual(["b"]);
+      expect(written.activeTabId).toBe("b");
+    });
+
+    it("moveTabDir swaps adjacent tabs without touching data", async () => {
+      const app = makeApp();
+      app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+        tabs: [{ id: "a", kind: "note", name: "A", noteUUID: "n1" },
+               { id: "b", kind: "tag", name: "B", tag: "b" }],
+        activeTabId: "a",
+        settings: {},
+      });
+
+      await handleMoveTabDir(app, { tabId: "b", direction: "left" });
+      let written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.tabs.map(t => t.id)).toEqual(["b", "a"]);
+
+      await handleMoveTabDir(app, { tabId: "a", direction: "right" }); // already last
+      expect(app.setSetting.mock.calls.length).toBe(1); // no second write
+    });
+
+    it("setDateFormat persists a non-empty format and re-renders", async () => {
+      const app = withNoteTab(makeApp());
+      app.prompt.mockResolvedValue(["DD MMM YYYY"]);
+      await handleSetDateFormat(app);
+
+      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.settings.dateFormat).toBe("DD MMM YYYY");
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+
+      app.prompt.mockResolvedValue(["   "]);
+      const before = app.setSetting.mock.calls.length;
+      await handleSetDateFormat(app);
+      expect(app.setSetting.mock.calls.length).toBe(before);
     });
   });
 

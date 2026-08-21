@@ -1,8 +1,8 @@
-# YouTube Video Preparation (PREP.md)
+﻿# YouTube Video Preparation (PREP.md)
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
-> **Sync note:** reflects plugin v0.0.10 (rebuild Phases 0–3). Tab management UI is on the roadmap and should be added to this script when it ships.
+> **Sync note:** reflects plugin v0.0.11 (rebuild Phases 0-4). Phase 5 extras (labels, search, cross-tab drag) remain on the roadmap.
 
 ---
 
@@ -21,13 +21,13 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 ### Description
 
-📋 COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.10 REBUILD)
+COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.11 REBUILD)
 
-A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board — headings become columns, tasks become draggable cards — and every move you make writes straight back to your note.
+A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board - headings become columns, tasks become draggable cards - and every move you make writes straight back to your note. We also cover tag boards, where sub-tags become columns and notes become cards.
 
 If you manage complex projects or want a bird's-eye view of your tasks, this is for you.
 
-🔗 ESSENTIAL LINKS & RESOURCES
+ESSENTIAL LINKS & RESOURCES
 * GitHub Repo: https://github.com/krishnakanthb13/anp-15-kanban
 * Try Amplenote (Sign Up): https://www.amplenote.com/signup?ref=7JGSMI4H0
 * Explore My Amplenote Plugins: https://krishnakanthb13.github.io/A/
@@ -35,7 +35,7 @@ If you manage complex projects or want a bird's-eye view of your tasks, this is 
 * Browse Official Amplenote Plugins: https://www.amplenote.com/plugins
 * Support My Work & Development: https://krishnakanthb13.github.io/S/
 
-🕒 VIDEO TIMESTAMPS
+VIDEO TIMESTAMPS
 
 0:00 - Introduction & Installation
 0:45 - Launching the Board (Open Kanban Board)
@@ -45,18 +45,22 @@ If you manage complex projects or want a bird's-eye view of your tasks, this is 
 3:10 - Creating Cards with the + Button
 3:35 - Editing Card Markdown
 4:00 - Unsorted Column & Completed Cards
-4:20 - Refresh Tab / Refresh All
-4:45 - Cycling Themes (Press T)
+4:20 - Rich Cards & Card Images
+4:45 - Column Tools & WIP Limits
+5:10 - Tag Boards (Sub-Tags as Columns)
+5:45 - Managing Tabs (+ New tab, Reorder, Close)
+6:10 - Refresh Tab / Refresh All & Date Format
+6:35 - Cycling Themes (Press T)
 
-📋 FEATURE BREAKDOWN
+FEATURE BREAKDOWN
 
 LAUNCHING THE BOARD
-* Open Kanban Board: One app option opens the board as a persistent full-screen section — it stays docked like an app and has its own addressable URL.
+* Open Kanban Board: One app option opens the board as a persistent full-screen section - it stays docked like an app and has its own addressable URL.
 * Demo Board: Before any tabs are configured, a demo board shows you the ropes.
 
 NOTE BOARDS
 * Headings as Columns: The note's top-level headings become columns; deeper sub-headings stay inside their parent column.
-* Tasks as Cards: Every task under a heading appears as a card, in document order. Completed tasks render struck-through with a ✓ chip.
+* Tasks as Cards: Every task under a heading appears as a card, in document order. Completed tasks render struck-through with a check chip.
 * Unsorted Column: Tasks sitting above the first heading appear in their own column so nothing gets lost.
 
 DRAG & DROP
@@ -68,18 +72,20 @@ CREATE & EDIT
 * Click to Edit: Clicking a card opens its raw markdown for editing; changes write back to the task instantly.
 
 RICH CARDS & COLUMN TOOLS
-* Native Rendering: Card bodies use Amplenote's own editor markup — Rich Footnotes, links, and formatting look exactly like they do in notes. The first image in a task shows at the bottom of its card.
-* Column Tools: Hover a header to move (←/→), rename (✎), or delete (✕) a column — with confirmation — and the note's headings follow along.
+* Native Rendering: Card bodies use Amplenote's own editor markup - Rich Footnotes, links, and formatting look exactly like they do in notes. The first image in a task shows at the bottom of its card.
+* Column Tools: Hover a header to move (left/right arrows), rename (pencil), or delete (X) a column - with confirmation - and the note's headings follow along.
 * WIP Limits: Click a column's count chip to set a limit; the chip turns red when the column is over.
 
 TAG BOARDS
 * Sub-Tags as Columns: A tag board lists each immediate sub-tag as its own column (plus "No sub-tag"), colored by the tag's color.
-* Notes as Cards: Cards come live from the tag query — notes tagged anywhere show up automatically.
+* Notes as Cards: Cards come live from the tag query - notes tagged anywhere show up automatically.
 * Retag by Drag: Drag a note between columns to change its sub-tag; click a card to open the note; + creates a new note in that column.
 
-REFRESH & THEMES
-* Refresh Tab / Refresh All: Manually re-pull board data for the active tab or every tab, with a progress indicator.
-* 8 Cycling Themes: Curated light/dark palettes with instant switching — click the 🎨 button or press T. Your choice syncs across devices.
+TABS, REFRESH & THEMES
+* Tab Management: "+ New tab" adds a note or tag board; hover tabs to reorder or close them (the underlying notes/tags are never deleted).
+* Refresh Tab / Refresh All: Manually re-pull board data for the active tab or every tab, with a progress bar.
+* Date Format: Set the card date-chip format (YYYY / MM / DD / MMM tokens) from the header button.
+* 8 Cycling Themes: Curated light/dark palettes with instant switching - click the palette button or press T. Your theme choice syncs across devices.
 
 #Amplenote #PKM #ProductivityTools #Kanban #ProjectManagement #TaskManagement #NoteTaking
 
@@ -88,44 +94,60 @@ REFRESH & THEMES
 ## 2. Walkthrough Script (Fact-Based)
 
 ### **Introduction**
-> **Speaker**: "Hello everyone! In this video, we're walking through the rebuilt Kanban Plugin for Amplenote. The idea is simple: any note can become a Kanban board. Its headings become columns, its tasks become cards, and everything you do on the board writes straight back to the note. Let's dive in."
+> **Speaker**: "Hello everyone! In this video, we're walking through the rebuilt Kanban Plugin for Amplenote. The idea is simple: any note can become a Kanban board - and so can any tag. Headings or sub-tags become columns, tasks or notes become cards, and everything you do on the board writes straight back to your workspace. Let's dive in."
 
 ---
 
 ### **Section 1: Installation & Launch**
-> **Speaker**: "After installing the plugin from the compiled build file, you'll find a new app option: Open Kanban Board. Clicking it opens the board as a persistent, full-screen section — think of it as an app panel inside Amplenote, with its own URL you can bookmark.
+> **Speaker**: "After installing the plugin from the compiled build file, you'll find a new app option: Open Kanban Board. Clicking it opens the board as a persistent, full-screen section - think of it as an app panel inside Amplenote, with its own URL you can bookmark.
 >
 > Until you configure tabs, you'll see a demo board so you can try everything out safely."
 
 ---
 
 ### **Section 2: How Notes Become Boards**
-> **Speaker**: "Here's my project note. Notice the mapping: each top-level heading becomes a column — Backlog, In Progress, Done. Every task under a heading becomes a card in that column, in the same order as the note.
+> **Speaker**: "Here's my project note. Notice the mapping: each top-level heading becomes a column - Backlog, In Progress, Done. Every task under a heading becomes a card in that column, in the same order as the note.
 >
 > Two nice details: tasks sitting above the first heading show up in an 'Unsorted' column instead of disappearing, and completed tasks render struck-through with a little checkmark."
 
 ---
 
 ### **Section 3: Drag & Drop That Writes Back**
-> **Speaker**: "Let's drag this task from Backlog to In Progress. Watch the note behind the board — the task physically moved under the right heading. This isn't a visual trick; the board and the note are always the same data.
+> **Speaker**: "Let's drag this task from Backlog to In Progress. Watch the note behind the board - the task physically moved under the right heading. This isn't a visual trick; the board and the note are always the same data.
 >
-> Now watch what happens when I drop a card into the last column: it gets completed — the real Amplenote strikethrough. And if I drag it back out of the done column, it reopens. Dropping a card back into its own column? Safe no-op."
+> Now watch what happens when I drop a card into the last column: it gets completed - the real Amplenote strikethrough. And if I drag it back out of the done column, it reopens. Dropping a card back into its own column? Safe no-op."
 
 ---
 
 ### **Section 4: Creating and Editing Cards**
-> **Speaker**: "The plus button on each column creates a task right at the top of that column — just type the content in markdown.
+> **Speaker**: "The plus button on each column creates a task right at the top of that column - just type the content in markdown.
 >
-> To edit an existing card, simply click it. You get the raw markdown, change what you need, save, and the board updates immediately."
+> To edit an existing card, simply click it. You get the raw markdown, change what you need, save, and the board updates immediately. Rich Footnotes and images inside tasks render right on the card, exactly like they do in the note."
 
 ---
 
-### **Section 5: Refresh & Themes**
-> **Speaker**: "If you edited the note elsewhere, hit Refresh Tab to re-pull the active board, or Refresh All for every tab — you'll see the progress bar up top.
+### **Section 5: Column Tools & WIP Limits**
+> **Speaker**: "Hover over a column header and you get tools: move it left or right, rename it, or delete it - deletion asks for confirmation first, and its tasks move safely to the top of your note rather than being lost.
 >
-> And because everyone has aesthetic preferences, there are eight curated themes covering both light and dark moods. Click the palette button or just press T anywhere on the board. Your theme choice follows you across devices."
+> Click the count chip on any column to set a Work-In-Progress limit. Go past it and the chip turns red - a gentle warning, never a hard block."
+
+---
+
+### **Section 6: Tag Boards**
+> **Speaker**: "Now the second board kind: tag boards. Pick a tag, and every immediate sub-tag becomes a column - colored to match - while the notes carrying those tags become cards.
+>
+> This board is live: tag a note anywhere in Amplenote and it appears here automatically. Even better, dragging a note between columns retags it. Clicking a card opens the note; the plus button creates a new note right in that column."
+
+---
+
+### **Section 7: Tabs, Refresh & Themes**
+> **Speaker**: "All your boards live as tabs. Plus adds one, hovering gives you reorder and close controls - closing a tab never touches the underlying note or tag.
+>
+> If you edited things elsewhere, hit Refresh Tab or Refresh All and watch the progress bar. There's also a date-format setting for the chips on cards.
+>
+> And because everyone has aesthetic preferences, there are eight curated themes covering both light and dark moods. Click the palette button or just press T anywhere on the board. Your choices follow you across devices."
 
 ---
 
 ### **Conclusion**
-> **Speaker**: "That's the rebuilt Kanban Plugin! Everything stays native — your notes remain plain notes, your tasks remain real tasks. Tag-based boards, tab management, WIP limits, and rich footnote rendering are coming in the next milestones. Links are in the description. Thanks for watching!"
+> **Speaker**: "That's the rebuilt Kanban Plugin! Everything stays native - your notes remain plain notes, your tasks remain real tasks, your tags remain tags. Labels, search, and cross-tab organization are coming in the next milestone. Links are in the description. Thanks for watching!"
