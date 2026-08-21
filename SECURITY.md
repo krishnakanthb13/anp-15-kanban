@@ -1,24 +1,32 @@
 # Security Audit — Kanban Plugin
-**Date**: 2026-07-11
+**Date**: 2026-08-21 (re-audit after v0.0.8 rebuild, Phases 0–1)
 **Auditor**: Agent
+**Scope**: `kanban.js`, `lib/**`, embed client script, build artifact
 
 ## Summary
 | Severity  | Count |
 |-----------|-------|
-| 🔴 Critical | 0 (1 fixed) |
+| 🔴 Critical | 0 |
 | 🟡 Warning  | 0 |
-| 🟢 Passed   | 3 |
+| 🟢 Passed   | 6 |
 
 ## Findings
-
-### 🔴 Critical (Fixed)
-- **XSS Vulnerability in UI Template**: Found user-controlled data (`note.name`, `note.tags`) injected unescaped into HTML via `infoDiv.innerHTML = task.taskInfo;`. Fixed by implementing an `escapeHTML` helper in `kanban.js` and sanitizing note names and tags before insertion.
-- **Vulnerable NPM Dependencies**: Run `npm audit` which revealed 10 vulnerabilities (5 High, 3 Moderate) in packages like `flatted`, `minimatch`, `form-data`. Fixed by running `npm audit fix` which brought vulnerabilities down to 0.
 
 ### 🟡 Warning
 - None.
 
 ### 🟢 Passed
-- **Secrets Detection**: No hardcoded secrets, API keys, or passwords were found in the codebase.
-- **Dangerous Eval**: No usage of `eval()` or `document.write` found.
-- **Dependencies**: `npm audit` now reports 0 vulnerabilities.
+- **Script-Breakout Prevention (state embedding)**: All dynamic state is serialized into the embed document via `toJsonForScript` (`lib/utils/html.js`), which escapes `<` to `\u003c` and JS line separators — preventing `</script>` breakout from note-derived content (task text, heading names). Covered by unit tests (`html.test.js`, `boardTemplate.test.js`).
+- **No innerHTML with dynamic data**: The embed client builds all DOM with `createElement`/`textContent`; `innerHTML` is only ever assigned empty strings for clearing containers. Note/task content can therefore not inject markup.
+- **Attribute-selector escaping**: Client-side queries interpolating ids use a `cssEscape` helper (delegates to `CSS.escape`) before building selector strings.
+- **Input validation on persisted settings**: Theme ids are validated against the registry (`isValidThemeId`) before `setSetting`; tab config is normalized (`normalizeConfig`) on every load — corrupt or hostile JSON degrades to defaults instead of executing or crashing.
+- **Secrets & dangerous APIs**: No hardcoded secrets; no `eval()` / `new Function()` / `document.write` in plugin code.
+- **Dependencies**: `npm audit --omit=dev` reports **0 vulnerabilities**.
+
+## Historical (v0.0.1 audit, 2026-07-11)
+- Fixed: XSS via unescaped note names/tags in the legacy template's `innerHTML` (the legacy template has since been removed entirely in the rewrite).
+- Fixed: transitive npm dependency vulnerabilities resolved via `npm audit fix`.
+
+## Notes for reviewers
+- The embed iframe is sandboxed by Amplenote; all privileged operations round-trip through `onEmbedCall`. The client cannot call `app.*` directly.
+- Structural note writes are minimal-diff line rewrites of freshly-read markdown; confirm-before-write patterns for destructive column operations are planned for Phase 2 (see `ds.md` §7–§8).

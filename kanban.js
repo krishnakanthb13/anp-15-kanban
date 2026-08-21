@@ -3,6 +3,7 @@ import { loadTabsConfig } from "./lib/core/tabsConfig.js";
 import { getSessionSnapshot, bumpRoundTrips } from "./lib/core/sessionState.js";
 import { withDemoContent } from "./lib/core/demoBoard.js";
 import { handleEmbedAction } from "./lib/features/embedActions.js";
+import { buildNoteBoard } from "./lib/api/noteBoard.js";
 import { SETTINGS_KEYS, DEFAULT_THEME_ID, DEFAULT_DATE_FORMAT } from "./lib/core/constants.js";
 
 /* ----------------------------------- */
@@ -15,6 +16,12 @@ import { SETTINGS_KEYS, DEFAULT_THEME_ID, DEFAULT_DATE_FORMAT } from "./lib/core
 const plugin = {
   appOption: {
     /* ----------------------------------- */
+    /**
+     * Launcher: opens the plugin's persistent embed section and navigates
+     * to its addressable URL (https://www.amplenote.com/notes/plugins/{pluginUUID}).
+     * @param {Object} app - The Amplenote App instance.
+     * @returns {Promise<void>}
+     */
     "Open Kanban Board": async (app) => {
       await app.openEmbed();
       await app.navigate(`https://www.amplenote.com/notes/plugins/${app.context.pluginUUID}`);
@@ -36,11 +43,26 @@ const plugin = {
     } catch {
       themeId = DEFAULT_THEME_ID;
     }
+
+    // Derive board snapshots fresh from source of truth. Note boards are
+    // built from their note; tag boards arrive in Phase 3.
+    const boards = {};
+    for (const tab of config.tabs) {
+      if (tab.kind === "note" && tab.noteUUID) {
+        try {
+          boards[tab.id] = await buildNoteBoard(app, tab.noteUUID);
+        } catch (error) {
+          console.error(`Failed to build board for tab ${tab.id}:`, error);
+          boards[tab.id] = { kind: "note", noteUUID: tab.noteUUID, columns: [], hasHeadings: false };
+        }
+      }
+    }
+
     return {
       version: 1,
       activeTabId: config.activeTabId,
       tabs: config.tabs,
-      boards: {},
+      boards,
       settings: {
         theme: themeId,
         dateFormat: config.settings.dateFormat || DEFAULT_DATE_FORMAT,

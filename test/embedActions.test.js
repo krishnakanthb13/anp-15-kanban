@@ -4,15 +4,35 @@ import {
   handlePing,
   handleSaveTheme,
   handleSetActiveTab,
+  handleMoveCard,
+  handleCreateCard,
+  handleEditCard,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
-function makeApp() {
+const NOTE_MD = ["# Alpha", "- [ ] one <!-- {\"uuid\":\"u1\"} -->", "# Beta"].join("\n");
+
+function makeApp(markdown = NOTE_MD) {
   return {
     settings: {},
     setSetting: jest.fn().mockResolvedValue(),
+    getNoteContent: jest.fn().mockResolvedValue(markdown),
+    replaceNoteContent: jest.fn().mockResolvedValue(true),
+    insertTask: jest.fn().mockResolvedValue("new-task"),
+    updateTask: jest.fn().mockResolvedValue(true),
+    getTask: jest.fn().mockResolvedValue({ uuid: "u1", content: "one" }),
+    prompt: jest.fn().mockResolvedValue(["typed content"]),
     context: { renderEmbed: jest.fn().mockResolvedValue() },
   };
+}
+
+function withNoteTab(app) {
+  app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+    tabs: [{ id: "t1", kind: "note", name: "Board", noteUUID: "n1" }],
+    activeTabId: "t1",
+    settings: {},
+  });
+  return app;
 }
 
 describe("embedActions", () => {
@@ -85,6 +105,100 @@ describe("embedActions", () => {
       await handleSetActiveTab(app, {});
       expect(app.setSetting).not.toHaveBeenCalled();
       expect(app.context.renderEmbed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleMoveCard", () => {
+    it("moves to the last column and completes the task", async () => {
+      const app = withNoteTab(makeApp());
+      // NOTE_MD columns: Alpha id "0", Beta id "2" (last)
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "2" });
+
+      const [, updates] = app.updateTask.mock.calls[0];
+      expect(typeof updates.completedAt).toBe("number");
+      expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("moves to a non-last column and reopens the task", async () => {
+      // Task sits in Beta (last); moving it to Alpha must reopen it.
+      const md = ["# Alpha", "# Beta", "- [ ] one <!-- {\"uuid\":\"u1\"} -->"].join("\n");
+      const app = withNoteTab(makeApp(md));
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "0" });
+      expect(app.updateTask).toHaveBeenCalledWith("u1", { completedAt: null });
+    });
+
+    it("does nothing when the drop is a same-column no-op", async () => {
+      const md = ["# Alpha", "- [ ] one <!-- {\"uuid\":\"u1\"} -->", "# Beta"].join("\n");
+      const app = withNoteTab(makeApp(md));
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "0" });
+      expect(app.replaceNoteContent).not.toHaveBeenCalled();
+      expect(app.updateTask).not.toHaveBeenCalled();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
+    });
+
+    it("ignores invalid payloads and non-note tabs", async () => {
+      const app = makeApp();
+      app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+        tabs: [{ id: "tg", kind: "tag", name: "x", tag: "x" }],
+        activeTabId: "tg",
+        settings: {},
+      });
+      await handleMoveCard(app, { tabId: "tg", cardId: "u1", toColumnId: "0" });
+      await handleMoveCard(app, {});
+      await handleMoveCard();
+      expect(app.getNoteContent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleCreateCard", () => {
+    it("prompts, creates, relocates and re-renders", async () => {
+      // Simulate insertTask having placed the new task at the top of the note.
+      const mdWithNew = [
+        "- [ ] typed content <!-- {\"uuid\":\"new-task\"} -->",
+        "# Alpha",
+        "# Beta",
+      ].join("\n");
+      const app = withNoteTab(makeApp(mdWithNew));
+      await handleCreateCard(app, { tabId: "t1", columnId: "2" });
+
+      expect(app.prompt).toHaveBeenCalled();
+      expect(app.insertTask).toHaveBeenCalledWith({ uuid: "n1" }, { content: "typed content" });
+      expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("does nothing when the prompt is cancelled or empty", async () => {
+      const app = withNoteTab(makeApp());
+      app.prompt.mockResolvedValue(null);
+      await handleCreateCard(app, { tabId: "t1", columnId: "2" });
+      app.prompt.mockResolvedValue([""]);
+      await handleCreateCard(app, { tabId: "t1", columnId: "2" });
+      expect(app.insertTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleEditCard", () => {
+    it("saves edited markdown and re-renders", async () => {
+      const app = makeApp();
+      app.prompt.mockResolvedValue(["**edited**"]);
+      await handleEditCard(app, { cardId: "u1" });
+      expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "**edited**" });
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("skips writes when unchanged, cancelled, or task missing", async () => {
+      const app = makeApp();
+      app.prompt.mockResolvedValue(["one"]); // unchanged
+      await handleEditCard(app, { cardId: "u1" });
+      app.prompt.mockResolvedValue(null);
+      await handleEditCard(app, { cardId: "u1" });
+      expect(app.updateTask).not.toHaveBeenCalled();
+
+      app.prompt.mockResolvedValue(["changed"]);
+      app.getTask.mockResolvedValue(null);
+      await handleEditCard(app, { cardId: "ghost" });
+      expect(app.updateTask).not.toHaveBeenCalled();
     });
   });
 });

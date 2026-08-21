@@ -2,13 +2,15 @@
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
+> **Sync note:** reflects plugin v0.0.8 (rebuild Phases 0–1). Tag boards, tab management UI, WIP limits, and rich card rendering are on the roadmap and should be added to this script when they ship.
+
 ---
 
 ## 1. Packaging Metadata
 
 ### Title Options
-*   **Option A (Clear & Direct):** How to Use the Kanban Plugin in Amplenote
-*   **Option B (Benefit-driven):** Boost Your Productivity with Amplenote's Kanban Plugin
+*   **Option A (Clear & Direct):** How to Use the Kanban Plugin in Amplenote (2026 Rebuild)
+*   **Option B (Benefit-driven):** Turn Any Amplenote Note Into a Kanban Board
 
 ### Thumbnail Plan
 - **Background:** Use Amplenote's dark mode color (#1E1E1E) as the solid background color.
@@ -19,11 +21,11 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 ### Description
 
-📋 COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE
+📋 COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.8 REBUILD)
 
-A straightforward, fact-based walkthrough of the Kanban plugin for Amplenote. In this video, we cover every feature this powerful visual board provides—from pulling tasks based on tags and sorting by scores/urgency, to directly creating and editing tasks across multiple notes and headers without leaving the board.
+A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board — headings become columns, tasks become draggable cards — and every move you make writes straight back to your note.
 
-If you manage complex projects or want a bird's-eye view of your tasks, this plugin turns your Amplenote workspace into a fully interactive Kanban board.
+If you manage complex projects or want a bird's-eye view of your tasks, this is for you.
 
 🔗 ESSENTIAL LINKS & RESOURCES
 * GitHub Repo: https://github.com/krishnakanthb13/anp-15-kanban
@@ -35,37 +37,39 @@ If you manage complex projects or want a bird's-eye view of your tasks, this plu
 
 🕒 VIDEO TIMESTAMPS
 
-0:00 - Introduction & Setup
-0:45 - The Kanban Board View & Filtering by Tag
-1:30 - Creating New Notes & Columns
-2:00 - Creating Tasks & Section Assignment
-2:45 - Editing Tasks & Updating Status
-3:30 - Sorting Tasks by Score & Urgency
+0:00 - Introduction & Installation
+0:45 - Launching the Board (Open Kanban Board)
+1:15 - How Notes Map to Boards (Headings = Columns)
+2:00 - Dragging Cards Between Columns
+2:40 - Drop-to-Done & Reopening Tasks
+3:10 - Creating Cards with the + Button
+3:35 - Editing Card Markdown
+4:00 - Unsorted Column & Completed Cards
+4:20 - Refresh Tab / Refresh All
+4:45 - Cycling Themes (Press T)
 
 📋 FEATURE BREAKDOWN
 
-THE KANBAN BOARD VIEW
-* Tag-Based Filtering: The board automatically pulls tasks from any notes that match your chosen filter tag. Each matching note acts as a column on the board.
-* Automatic Categorization: Tasks are split into Pending, Completed, and Dismissed categories out-of-the-box.
-* Task Info: Hover over the info button on any task to see its start date, hide until date, end date, repeat rules, score, and urgency.
+LAUNCHING THE BOARD
+* Open Kanban Board: One app option opens the board as a persistent full-screen section — it stays docked like an app and has its own addressable URL.
+* Demo Board: Before any tabs are configured, a demo board shows you the ropes.
 
-CREATE NEW NOTE
-* Add Columns: Create a new note directly from the board. It will automatically be assigned your Kanban filter tag, turning it into a new column on your board immediately.
-* Templating: Optionally clone an existing note to use as a template for your new column.
+NOTE BOARDS
+* Headings as Columns: The note's top-level headings become columns; deeper sub-headings stay inside their parent column.
+* Tasks as Cards: Every task under a heading appears as a card, in document order. Completed tasks render struck-through with a ✓ chip.
+* Unsorted Column: Tasks sitting above the first heading appear in their own column so nothing gets lost.
 
-CREATE TASK
-* Seamless Task Entry: Add a new task to any note/column directly from the board.
-* Section Assignment: Choose exactly which header or section within the note the task should be placed under.
+DRAG & DROP
+* Move Between Columns: Drag a card onto another column and the task physically moves under that heading in the underlying note.
+* Drop-to-Done: Dropping into the last column completes the task. Drag it back out to reopen it. Same-column drops are safe no-ops.
 
-TASK EDIT
-* In-Place Editing: Click the gear icon on any pending task to update its properties.
-* Update Status: Mark tasks as Started, Completed, or Dismissed.
-* Change Priority: Modify the task's score, urgency, and importance.
-* Move Tasks: Reassign the task to a different note or a different section within its current note.
+CREATE & EDIT
+* + Button: Adds a new task directly at the top of the chosen column via a markdown prompt.
+* Click to Edit: Clicking a card opens its raw markdown for editing; changes write back to the task instantly.
 
-TOGGLE SORT & REFRESH
-* Dynamic Sorting: Cycle through sorting methods (Start Date, Score, Important, Urgent) to reorder tasks in all columns instantly.
-* Refresh Page: Force a manual re-render of the board to pull in external updates.
+REFRESH & THEMES
+* Refresh Tab / Refresh All: Manually re-pull board data for the active tab or every tab, with a progress indicator.
+* 8 Cycling Themes: Curated light/dark palettes with instant switching — click the 🎨 button or press T. Your choice syncs across devices.
 
 #Amplenote #PKM #ProductivityTools #Kanban #ProjectManagement #TaskManagement #NoteTaking
 
@@ -74,42 +78,44 @@ TOGGLE SORT & REFRESH
 ## 2. Walkthrough Script (Fact-Based)
 
 ### **Introduction**
-> **Speaker**: "Hello everyone! In this video, we're doing a complete walkthrough of the Kanban Plugin for Amplenote. If you juggle multiple projects and want a visual, bird's-eye view of your tasks, this plugin turns your notes into a fully interactive Kanban board. Let's look at how to set it up and how each feature works."
+> **Speaker**: "Hello everyone! In this video, we're walking through the rebuilt Kanban Plugin for Amplenote. The idea is simple: any note can become a Kanban board. Its headings become columns, its tasks become cards, and everything you do on the board writes straight back to the note. Let's dive in."
 
 ---
 
-### **Section 1: Setup and The Board View**
-> **Speaker**: "Once installed, you launch the board by running the `Tagged!` App Option from your Amplenote menu. This generates a dedicated Kanban note and renders the board inside it.
-> 
-> The board uses notes as columns. By default, it pulls in all notes that have the `-reports/-kanban` tag. You can change this tag at any time by clicking the 'Update Tag' button at the top of the board. Every note with that tag becomes a column, and the tasks inside those notes are neatly categorized into Pending, Completed, and Dismissed."
+### **Section 1: Installation & Launch**
+> **Speaker**: "After installing the plugin from the compiled build file, you'll find a new app option: Open Kanban Board. Clicking it opens the board as a persistent, full-screen section — think of it as an app panel inside Amplenote, with its own URL you can bookmark.
+>
+> Until you configure tabs, you'll see a demo board so you can try everything out safely."
 
 ---
 
-### **Section 2: Creating Notes (Columns)**
-> **Speaker**: "If you need a new column, just click 'Create New Note' at the top of the board. It prompts you for a note name and an optional template. Once created, the plugin automatically applies your Kanban tag to it, so it instantly appears as a brand-new column on your board."
+### **Section 2: How Notes Become Boards**
+> **Speaker**: "Here's my project note. Notice the mapping: each top-level heading becomes a column — Backlog, In Progress, Done. Every task under a heading becomes a card in that column, in the same order as the note.
+>
+> Two nice details: tasks sitting above the first heading show up in an 'Unsorted' column instead of disappearing, and completed tasks render struck-through with a little checkmark."
 
 ---
 
-### **Section 3: Creating and Assigning Tasks**
-> **Speaker**: "To add a task to a specific column, click the plus icon next to the column's header. 
-> 
-> This opens a detailed prompt where you can write the task content, set its urgency and importance, and assign a score. The best part? You can select exactly which section or header within the target note the task should be placed under. The plugin handles moving the text into the correct section behind the scenes."
+### **Section 3: Drag & Drop That Writes Back**
+> **Speaker**: "Let's drag this task from Backlog to In Progress. Watch the note behind the board — the task physically moved under the right heading. This isn't a visual trick; the board and the note are always the same data.
+>
+> Now watch what happens when I drop a card into the last column: it gets completed — the real Amplenote strikethrough. And if I drag it back out of the done column, it reopens. Dropping a card back into its own column? Safe no-op."
 
 ---
 
-### **Section 4: Editing Tasks**
-> **Speaker**: "If you want to modify a task that's already on the board, click the small gear icon on the task card. 
-> 
-> Here, you can edit the text, update its status to Completed or Dismissed, or change its priority metrics. You can also move the task to entirely different notes or different headers within the same note directly from this menu."
+### **Section 4: Creating and Editing Cards**
+> **Speaker**: "The plus button on each column creates a task right at the top of that column — just type the content in markdown.
+>
+> To edit an existing card, simply click it. You get the raw markdown, change what you need, save, and the board updates immediately."
 
 ---
 
-### **Section 5: Task Info and Sorting**
-> **Speaker**: "For quick context, clicking the info icon on any task displays a popup with its start dates, repeat rules, and priority scores.
-> 
-> Finally, to organize your view, use the 'Toggle Sort' button at the top. Clicking this button cycles your sorting method between Start Date, Task Score, Importance, and Urgency, reordering the tasks within all columns dynamically."
+### **Section 5: Refresh & Themes**
+> **Speaker**: "If you edited the note elsewhere, hit Refresh Tab to re-pull the active board, or Refresh All for every tab — you'll see the progress bar up top.
+>
+> And because everyone has aesthetic preferences, there are eight curated themes covering both light and dark moods. Click the palette button or just press T anywhere on the board. Your theme choice follows you across devices."
 
 ---
 
 ### **Conclusion**
-> **Speaker**: "That covers all the capabilities of the Kanban Plugin. It gives you a powerful visual overview of your tasks without sacrificing Amplenote's native task properties. The link to download the plugin is in the description below. Thanks for watching!"
+> **Speaker**: "That's the rebuilt Kanban Plugin! Everything stays native — your notes remain plain notes, your tasks remain real tasks. Tag-based boards, tab management, WIP limits, and rich footnote rendering are coming in the next milestones. Links are in the description. Thanks for watching!"

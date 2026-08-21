@@ -282,24 +282,117 @@ function buildClientScript() {
       return;
     }
 
-    columns.forEach(function (col) {
-      var colEl = el("section", "kb-column");
+    columns.forEach(function (col, colIndex) {
+      var isLast = colIndex === columns.length - 1;
+      var colEl = el("section", "kb-column" + (isLast ? " kb-column-last" : ""));
+      colEl.setAttribute("data-column-id", col.id);
+
       var head = el("header", "kb-column-head");
       head.appendChild(el("h3", "kb-column-title", col.name));
       head.appendChild(el("span", "kb-count", String(col.cards ? col.cards.length : 0)));
       colEl.appendChild(head);
 
+      var addBtn = el("button", "kb-add-card", "+");
+      addBtn.type = "button";
+      addBtn.title = "Add card to " + col.name;
+      addBtn.addEventListener("click", function () {
+        callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id });
+      });
+      head.appendChild(addBtn);
+
       var list = el("div", "kb-cards");
+      wireDropZone(list, col);
       (col.cards || []).forEach(function (card) {
-        var cardEl = el("article", "kb-card" + (card.completedAt ? " kb-card-done" : ""));
-        cardEl.setAttribute("data-card-id", card.id);
-        cardEl.appendChild(el("div", "kb-card-title", card.title));
-        cardEl.appendChild(el("div", "kb-card-meta", card.meta || ""));
-        list.appendChild(cardEl);
+        list.appendChild(buildCardEl(card));
       });
       colEl.appendChild(list);
       board.appendChild(colEl);
     });
+  }
+
+  /* ---------------- drag & drop ---------------- */
+
+  var dragCardId = null;
+
+  function buildCardEl(card) {
+    var cardEl = el("article", "kb-card" + (card.completedAt ? " kb-card-done" : ""));
+    cardEl.setAttribute("data-card-id", card.id);
+    cardEl.setAttribute("draggable", "true");
+
+    var title = el("div", "kb-card-title", card.title);
+    cardEl.appendChild(title);
+    if (card.completedAt || card.startAt || card.deadline) {
+      var bits = [];
+      if (card.completedAt) bits.push("\\u2713 done");
+      if (card.startAt) bits.push("\\u25B6 " + formatStamp(card.startAt));
+      if (card.deadline) bits.push("\\u23F0 " + formatStamp(card.deadline));
+      cardEl.appendChild(el("div", "kb-card-meta", bits.join("  \\u00B7  ")));
+    }
+
+    cardEl.addEventListener("dragstart", function (e) {
+      dragCardId = card.id;
+      e.dataTransfer.setData("text/plain", card.id);
+      e.dataTransfer.effectAllowed = "move";
+      cardEl.classList.add("kb-dragging");
+    });
+    cardEl.addEventListener("dragend", function () {
+      dragCardId = null;
+      cardEl.classList.remove("kb-dragging");
+    });
+
+    // Click (without drag) opens the raw-markdown editor.
+    cardEl.addEventListener("click", function () {
+      if (dragCardId) return;
+      callPlugin("editCard", { cardId: card.id });
+    });
+
+    return cardEl;
+  }
+
+  function wireDropZone(listEl, col) {
+    listEl.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      listEl.classList.add("kb-drop-hover");
+    });
+    listEl.addEventListener("dragleave", function () {
+      listEl.classList.remove("kb-drop-hover");
+    });
+    listEl.addEventListener("drop", function (e) {
+      e.preventDefault();
+      listEl.classList.remove("kb-drop-hover");
+      var cardId = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || dragCardId;
+      if (!cardId) return;
+
+      // Optimistic UI: move the DOM node immediately; server re-render reconciles.
+      var cardEl = board.querySelector('[data-card-id="' + cssEscape(cardId) + '"]');
+      if (cardEl && cardEl.parentElement !== listEl) {
+        listEl.insertBefore(cardEl, listEl.firstChild);
+        bumpCount(col.id);
+        if (listEl.closest(".kb-column-last")) cardEl.classList.add("kb-card-done");
+        else cardEl.classList.remove("kb-card-done");
+      }
+      callPlugin("moveCard", { tabId: STATE.activeTabId, cardId: cardId, toColumnId: col.id });
+    });
+  }
+
+  function bumpCount(columnId) {
+    var colEl = board.querySelector('[data-column-id="' + cssEscape(String(columnId)) + '"]');
+    if (!colEl) return;
+    var count = colEl.querySelector(".kb-count");
+    if (count) count.textContent = String(colEl.querySelectorAll(".kb-card").length);
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && CSS.escape) return CSS.escape(value);
+    return String(value).replace(/["\\]/g, "\\$&");
+  }
+
+  function formatStamp(unixSeconds) {
+    var d = new Date(unixSeconds * 1000);
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return m + "/" + day;
   }
 
   function renderMeta() {
@@ -557,7 +650,29 @@ function buildBaseCss() {
         border-radius: 8px;
         padding: 10px;
         box-shadow: 0 1px 3px var(--kb-shadow);
+        cursor: grab;
     }
+    .kb-card:hover { border-color: var(--kb-accent); }
+    .kb-card.kb-dragging { opacity: 0.45; }
+    .kb-cards.kb-drop-hover {
+        outline: 2px dashed var(--kb-accent);
+        outline-offset: -2px;
+        background: color-mix(in srgb, var(--kb-accent) 8%, transparent);
+    }
+    .kb-add-card {
+        background: transparent;
+        border: none;
+        color: var(--kb-text-muted);
+        font-size: 15px;
+        line-height: 1;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    .kb-add-card:hover {
+        background: var(--kb-accent);
+        color: var(--kb-accent-text);
+    }
+    .kb-column-last .kb-column-title { color: var(--kb-accent); }
     .kb-card-title { font-size: 13px; }
     .kb-card-meta {
         margin-top: 4px;
@@ -650,6 +765,9 @@ function setActiveTab(config, tabId) {
   if (!config.tabs.some((t) => t.id === tabId)) return config;
   return { ...config, activeTabId: tabId };
 }
+function tabById(config, tabId) {
+  return config.tabs.find((t) => t.id === tabId) || null;
+}
 
 // anp-15-kanban/lib/core/sessionState.js
 var session = {
@@ -672,23 +790,23 @@ function withDemoContent(viewState) {
       id: "col_todo",
       name: "To Do",
       cards: [
-        { id: "card_1", title: "Welcome to Kanban \u{1F44B}", meta: "Demo card" },
-        { id: "card_2", title: "Drag & drop arrives in Phase 1", meta: "Roadmap" },
-        { id: "card_3", title: "Press T to cycle themes", meta: "Tip" }
+        { id: "card_1", title: "Welcome to Kanban \u{1F44B}", content: "", completedAt: null, startAt: null, deadline: null, important: false, urgent: false },
+        { id: "card_2", title: "Drag me between columns", content: "", completedAt: null, startAt: null, deadline: null, important: false, urgent: false },
+        { id: "card_3", title: "Press T to cycle themes", content: "", completedAt: null, startAt: null, deadline: null, important: false, urgent: false }
       ]
     },
     {
       id: "col_doing",
       name: "In Progress",
       cards: [
-        { id: "card_4", title: "Scaffold embed round trip", meta: "Phase 0" }
+        { id: "card_4", title: "Scaffold embed round trip", content: "", completedAt: null, startAt: null, deadline: null, important: false, urgent: false }
       ]
     },
     {
       id: "col_done",
       name: "Done",
       cards: [
-        { id: "card_5", title: "Plugin plan approved", meta: "ds.md" }
+        { id: "card_5", title: "Plugin plan approved", content: "", completedAt: 1755e6, startAt: null, deadline: null, important: false, urgent: false }
       ]
     }
   ];
@@ -698,6 +816,129 @@ function withDemoContent(viewState) {
     tabs: [{ id: DEMO_TAB_ID, kind: "note", name: "Demo Board", noteUUID: null, tag: null }],
     boards: { [DEMO_TAB_ID]: { columns } }
   };
+}
+
+// anp-15-kanban/lib/api/markdownIndex.js
+var HEADING_RE = /^(#{1,6})\s+(.*)$/;
+var UUID_IN_LINE_RE = (uuid) => new RegExp(`["']uuid["']\\s*:\\s*["']${uuid}["']`);
+function parseHeadings(markdown) {
+  const headings = [];
+  const lines = markdown.split("\n");
+  lines.forEach((line, i) => {
+    const m = line.match(HEADING_RE);
+    if (m) headings.push({ lineIndex: i, level: m[1].length, text: m[2].trim() });
+  });
+  return headings;
+}
+function findColumnLevel(headings) {
+  if (!headings.length) return null;
+  return Math.min(...headings.map((h) => h.level));
+}
+function buildColumnSpans(markdown, columnLevel) {
+  const headings = parseHeadings(markdown);
+  const level = columnLevel ?? findColumnLevel(headings);
+  if (level === null) return { columns: [], preambleEnd: 0 };
+  const columnHeadings = headings.filter((h) => h.level === level);
+  const columns = columnHeadings.map((h, i) => {
+    const next = columnHeadings[i + 1];
+    const contentEnd = next ? next.lineIndex : markdown.split("\n").length;
+    return {
+      id: String(h.lineIndex),
+      name: h.text,
+      startLine: h.lineIndex,
+      contentStart: h.lineIndex + 1,
+      contentEnd
+    };
+  });
+  const preambleEnd = columns.length ? columns[0].contentStart : 0;
+  return { columns, preambleEnd };
+}
+function findTaskLines(lines, tasks) {
+  const result = /* @__PURE__ */ new Map();
+  for (const task of tasks) {
+    const re = UUID_IN_LINE_RE(task.uuid);
+    let found = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (re.test(lines[i])) {
+        found = i;
+        break;
+      }
+    }
+    result.set(task.uuid, found);
+  }
+  return result;
+}
+function assignTasksToColumns(columns, lines, tasks) {
+  const taskLines = findTaskLines(lines, tasks);
+  const columnCards = new Map(columns.map((c) => [c.id, []]));
+  const unsorted = [];
+  for (const task of tasks) {
+    const lineIndex = taskLines.get(task.uuid);
+    if (lineIndex === void 0 || lineIndex < 0) continue;
+    const owner = columns.find((c) => lineIndex >= c.contentStart && lineIndex < c.contentEnd);
+    if (owner) columnCards.get(owner.id).push(task);
+    else unsorted.push(task);
+  }
+  return { columnCards, unsorted };
+}
+function removeLine(lines, taskLineIndex) {
+  return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
+}
+function insertUnderHeading(lines, span, taskLine) {
+  return [...lines.slice(0, span.startLine + 1), taskLine, ...lines.slice(span.startLine + 1)];
+}
+function resolveSpan(spans, columnId, columnName) {
+  const byId = spans.find((s) => s.id === String(columnId));
+  if (byId) return byId;
+  if (columnName) return spans.find((s) => s.name === columnName) || null;
+  return null;
+}
+
+// anp-15-kanban/lib/api/taskOps.js
+function nowSeconds() {
+  return Math.floor(Date.now() / 1e3);
+}
+async function readNote(app, noteUUID) {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  return { markdown, lines: markdown.split("\n") };
+}
+async function moveTaskToColumn(app, noteUUID, taskUuid, target) {
+  const { markdown, lines } = await readNote(app, noteUUID);
+  const { columns } = buildColumnSpans(markdown);
+  if (!columns.length) return "no-columns";
+  const destSpan = resolveSpan(columns, target.columnId, target.columnName);
+  if (!destSpan) return "no-target";
+  const [taskLineIndex] = findTaskLines(lines, [{ uuid: taskUuid }]).values();
+  if (taskLineIndex < 0) return "no-task";
+  const sourceSpan = columns.find(
+    (s) => taskLineIndex >= s.contentStart && taskLineIndex < s.contentEnd
+  );
+  if (sourceSpan && sourceSpan.id === destSpan.id) return "same-column";
+  const taskLine = lines[taskLineIndex];
+  let next = removeLine(lines, taskLineIndex);
+  const shiftedDest = {
+    ...destSpan,
+    startLine: destSpan.startLine > taskLineIndex ? destSpan.startLine - 1 : destSpan.startLine
+  };
+  next = insertUnderHeading(next, shiftedDest, taskLine);
+  await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
+  return "moved";
+}
+async function createTaskInColumn(app, noteUUID, target, content) {
+  const taskUuid = await app.insertTask({ uuid: noteUUID }, { content: String(content || "") });
+  if (!taskUuid) return null;
+  try {
+    await moveTaskToColumn(app, noteUUID, taskUuid, target);
+  } catch (error) {
+    console.error("createTaskInColumn relocate failed:", error);
+  }
+  return taskUuid;
+}
+async function setTaskCompleted(app, taskUuid, done = true) {
+  await app.updateTask(taskUuid, { completedAt: done ? nowSeconds() : null });
+}
+async function updateCardContent(app, taskUuid, content) {
+  await app.updateTask(taskUuid, { content });
 }
 
 // anp-15-kanban/lib/features/embedActions.js
@@ -728,12 +969,61 @@ async function handleRefreshTab(app) {
 async function handleRefreshAll(app) {
   await rerender(app);
 }
+async function resolveNoteTab(app, payload) {
+  const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
+  if (!tabId) return null;
+  const tab = tabById(await loadTabsConfig(app), tabId);
+  if (!tab || tab.kind !== "note" || !tab.noteUUID) return null;
+  return tab;
+}
+async function isLastColumn(app, noteUUID, columnId) {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  const { columns } = buildColumnSpans(markdown);
+  return columns.length > 0 && columns[columns.length - 1].id === String(columnId);
+}
+async function handleMoveCard(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || !payload.cardId || !payload.toColumnId) return;
+  const doneTarget = await isLastColumn(app, tab.noteUUID, payload.toColumnId);
+  const status = await moveTaskToColumn(app, tab.noteUUID, payload.cardId, {
+    columnId: payload.toColumnId
+  });
+  if (status === "moved") {
+    await setTaskCompleted(app, payload.cardId, doneTarget);
+    await rerender(app);
+  }
+}
+async function handleCreateCard(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || !payload.columnId) return;
+  const result = await app.prompt("New card", {
+    inputs: [{ label: "Card content (markdown):", type: "text" }]
+  });
+  if (!result || !result[0]) return;
+  await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId }, result[0]);
+  await rerender(app);
+}
+async function handleEditCard(app, payload) {
+  const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
+  if (!cardId) return;
+  const task = await app.getTask(cardId);
+  if (!task) return;
+  const result = await app.prompt("Edit card (raw markdown)", {
+    inputs: [{ label: "Content:", type: "text", value: task.content || "" }]
+  });
+  if (!result || result[0] === void 0 || result[0] === task.content) return;
+  await updateCardContent(app, cardId, result[0]);
+  await rerender(app);
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
   setActiveTab: handleSetActiveTab,
   refreshTab: handleRefreshTab,
-  refreshAll: handleRefreshAll
+  refreshAll: handleRefreshAll,
+  moveCard: handleMoveCard,
+  createCard: handleCreateCard,
+  editCard: handleEditCard
 };
 async function handleEmbedAction(app, args) {
   const [action, payload] = args || [];
@@ -745,10 +1035,62 @@ async function handleEmbedAction(app, args) {
   return handler(app, payload);
 }
 
+// anp-15-kanban/lib/api/noteBoard.js
+async function buildNoteBoard(app, noteUUID) {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  if (typeof markdown !== "string") {
+    return { kind: "note", noteUUID, columns: [], hasHeadings: false };
+  }
+  const tasks = await app.getNoteTasks({ uuid: noteUUID }, { includeDone: true }) || [];
+  const { columns } = buildColumnSpans(markdown);
+  const lines = markdown.split("\n");
+  const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
+  const boardColumns = columns.map((span) => ({
+    id: span.id,
+    name: span.name,
+    cards: (columnCards.get(span.id) || []).map(toCardModel)
+  }));
+  if (unsorted.length > 0) {
+    boardColumns.unshift({
+      id: "unsorted",
+      name: "Unsorted",
+      cards: unsorted.map(toCardModel)
+    });
+  }
+  return {
+    kind: "note",
+    noteUUID,
+    columns: boardColumns,
+    hasHeadings: columns.length > 0
+  };
+}
+function toCardModel(task) {
+  return {
+    id: task.uuid,
+    title: plainPreview(task.content || ""),
+    content: task.content || "",
+    completedAt: task.completedAt ?? null,
+    dismissedAt: task.dismissedAt ?? null,
+    startAt: task.startAt ?? null,
+    deadline: task.deadline ?? null,
+    important: !!task.important,
+    urgent: !!task.urgent
+  };
+}
+function plainPreview(markdown) {
+  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
+}
+
 // anp-15-kanban/kanban.js
 var plugin = {
   appOption: {
     /* ----------------------------------- */
+    /**
+     * Launcher: opens the plugin's persistent embed section and navigates
+     * to its addressable URL (https://www.amplenote.com/notes/plugins/{pluginUUID}).
+     * @param {Object} app - The Amplenote App instance.
+     * @returns {Promise<void>}
+     */
     "Open Kanban Board": async (app) => {
       await app.openEmbed();
       await app.navigate(`https://www.amplenote.com/notes/plugins/${app.context.pluginUUID}`);
@@ -770,11 +1112,22 @@ var plugin = {
     } catch {
       themeId = DEFAULT_THEME_ID;
     }
+    const boards = {};
+    for (const tab of config.tabs) {
+      if (tab.kind === "note" && tab.noteUUID) {
+        try {
+          boards[tab.id] = await buildNoteBoard(app, tab.noteUUID);
+        } catch (error) {
+          console.error(`Failed to build board for tab ${tab.id}:`, error);
+          boards[tab.id] = { kind: "note", noteUUID: tab.noteUUID, columns: [], hasHeadings: false };
+        }
+      }
+    }
     return {
       version: 1,
       activeTabId: config.activeTabId,
       tabs: config.tabs,
-      boards: {},
+      boards,
       settings: {
         theme: themeId,
         dateFormat: config.settings.dateFormat || DEFAULT_DATE_FORMAT

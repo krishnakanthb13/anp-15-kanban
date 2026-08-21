@@ -52,6 +52,42 @@ describe("kanban plugin entry", () => {
       expect(html).not.toContain("tab_demo");
     });
 
+    it("builds real boards for note tabs", async () => {
+      const app = makeApp({
+        [SETTINGS_KEYS.tabs]: JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "Board", noteUUID: "n1" }],
+          activeTabId: "t1",
+          settings: {},
+        }),
+      });
+      app.getNoteContent = jest.fn().mockResolvedValue(
+        ["# Alpha", "- [ ] one <!-- {\"uuid\":\"u1\"} -->"].join("\n")
+      );
+      app.getNoteTasks = jest.fn().mockResolvedValue([{ uuid: "u1", content: "one" }]);
+
+      const html = await plugin.renderEmbed(app);
+      expect(html).toContain('"hasHeadings":true');
+      expect(html).toContain("Alpha");
+      expect(html).toContain("u1");
+    });
+
+    it("keeps rendering when a note tab's board fails to build", async () => {
+      const app = makeApp({
+        [SETTINGS_KEYS.tabs]: JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "Board", noteUUID: "n1" }],
+          activeTabId: "t1",
+          settings: {},
+        }),
+      });
+      app.getNoteContent = jest.fn().mockRejectedValue(new Error("note gone"));
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const html = await plugin.renderEmbed(app);
+      expect(html).toContain("<!DOCTYPE html>");
+      expect(html).toContain('"columns":[]');
+      consoleSpy.mockRestore();
+    });
+
     it("falls back to the default theme for unset/invalid theme settings", async () => {
       const html = await plugin.renderEmbed(makeApp({ [SETTINGS_KEYS.theme]: "bogus" }));
       // state carries the raw value; client + resolveTheme handle fallback
