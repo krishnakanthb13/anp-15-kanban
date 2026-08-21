@@ -5,7 +5,6 @@ import {
   buildTagBoard,
   toNoteCard,
   NOSUB_ID,
-  SUB_PREFIX,
 } from '../lib/api/tagBoard.js';
 
 const TAGS = [

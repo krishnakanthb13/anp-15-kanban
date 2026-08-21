@@ -1,7 +1,7 @@
-# Released: Kanban Plugin v0.0.12 — The Big Rebuild Begins
+# Released: Kanban Plugin v0.0.13 — The Big Rebuild Begins
 
 ## LinkedIn
-🚀 The Kanban Plugin for Amplenote just got its biggest upgrade yet (v0.0.12)!
+🚀 The Kanban Plugin for Amplenote just got its biggest upgrade yet (v0.0.13)!
 
 I rebuilt the plugin from the ground up. The board is no longer an inline note embed — it's now a persistent, full-screen app surface inside Amplenote. Your notes become Kanban boards: headings turn into columns, tasks turn into cards.
 
@@ -18,14 +18,14 @@ GitHub: https://github.com/krishnakanthb13/anp-15-kanban
 #OpenSource #Dev #Update #Amplenote #Productivity #ProjectManagement #Kanban
 
 ## Twitter/X
-🚀 v0.0.12 of the Kanban Plugin for Amplenote is here — a full rebuild!
+🚀 v0.0.13 of the Kanban Plugin for Amplenote is here — a full rebuild!
 
 Your notes ARE the board now: headings = columns, tasks = draggable cards. Drop into the last column to complete, edit markdown in place, 8 cycling themes (press T).
 
 Check it out: https://github.com/krishnakanthb13/anp-15-kanban
 
 ## Bluesky
-🚀 v0.0.12 of the Kanban Plugin for Amplenote is here — a full rebuild!
+🚀 v0.0.13 of the Kanban Plugin for Amplenote is here — a full rebuild!
 
 Your notes ARE the board now: headings = columns, tasks = draggable cards. Drop into the last column to complete, edit markdown in place, 8 cycling themes (press T).
 
@@ -33,7 +33,7 @@ Check it out: https://github.com/krishnakanthb13/anp-15-kanban
 #Amplenote #Productivity #Kanban
 
 ## Mastodon
-🚀 Excited to share v0.0.12 of the Kanban Plugin for Amplenote — rebuilt from scratch!
+🚀 Excited to share v0.0.13 of the Kanban Plugin for Amplenote — rebuilt from scratch!
 
 The board now runs as a persistent full-screen embed. Note headings become columns, tasks become draggable cards, and every move writes straight back to your note. Includes drop-to-complete, raw-markdown card editing, and 8 light/dark themes. Fully open-source.
 
@@ -50,7 +50,7 @@ Check out the repo here: https://github.com/krishnakanthb13/anp-15-kanban
 **Body:**
 Hey everyone!
 
-A while back I shared a Kanban plugin for Amplenote. Since then I've rebuilt it from the ground up (v0.0.12), and the core idea changed: instead of filtering tagged notes into columns, **a single note becomes the board** — its headings are the columns, its tasks are the cards.
+A while back I shared a Kanban plugin for Amplenote. Since then I've rebuilt it from the ground up (v0.0.13), and the core idea changed: instead of filtering tagged notes into columns, **a single note becomes the board** — its headings are the columns, its tasks are the cards.
 
 **How it works:**
 The board runs as a persistent full-screen plugin section inside Amplenote. Cards map 1:1 to real tasks, so everything stays native — no shadow copies of your data.

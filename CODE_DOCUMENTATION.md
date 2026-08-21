@@ -1,6 +1,6 @@
 # Code Documentation — Kanban Plugin
 
-Technical reference for contributors. Scope: v0.0.12 (rebuild Phases 0–5, complete).
+Technical reference for contributors. Scope: v0.0.13 (rebuild Phases 0–5 + notes boards, complete).
 
 ## Entry Point (`kanban.js`)
 
@@ -28,6 +28,7 @@ lib/
     markdownIndex.js   # Pure parsing layer: markdown text → column spans → task placement
     noteBoard.js       # buildNoteBoard(): assembles a note board snapshot via app.* calls
     tagBoard.js        # buildTagBoard(): sub-tag columns + live filterNotes cards
+    notesBoard.js      # buildNotesBoard(): tagged notes as columns, their tasks as cards
     taskOps.js         # Mutations: moveTaskToColumn, createTaskInColumn, setTaskCompleted,
                        # updateCardContent
     columnOps.js       # Structural heading ops: create/rename/delete/reorder
@@ -91,12 +92,19 @@ Index-shift handling: when the removed task line sits before the destination hea
 ## Tag Boards (`api/tagBoard.js` + `api/noteOps.js`)
 
 The second board kind inverts the mapping: columns are the board tag's **immediate sub-tags** (grandchildren excluded, keeping the board 2-D) plus a synthetic "No sub-tag" column; cards are notes from a live `filterNotes({tag})` query.
-
 - **Live queries** mean externally-tagged notes appear automatically — there is no sync code because tags are the source of truth.
 - A note carrying several sub-tags lands in the first match; none → No sub-tag.
 - **Drag = retag**: `handleMoveCard` branches by tab kind. For tag boards it derives the source column from fresh board data, then swaps sub-tags via `removeNoteTag`/`addNoteTag` (base tag untouched). Same-column drops are no-ops.
 - **Click = open** (`openCard` → `app.navigate`); `+` creates a note tagged with the target column's sub-tag.
 - Structural column tools are note-board-only by design — tag columns *are* tags, so renaming/deleting them is out of scope. The client hides those tools and renders each column's tag color as a dot.
+
+## Notes Boards (`api/notesBoard.js`)
+
+The third kind: a tag's **notes** become columns (`note:<uuid>` ids) and the tasks inside each note become cards. Built for "one note per project" workflows.
+
+- **Drag = native move**: `handleMoveCard` branches again — for notes boards it derives the source column from fresh board data, then calls `updateTask(taskUuid, { noteUUID: target })`. No markdown rewriting needed; same-column drops are no-ops.
+- `+` inserts a task directly into the target note; card click opens the raw-markdown editor; the ⋯ menu (labels / start date / create note) works here.
+- Column tools are limited to rename (`renameNote` → `app.setNoteName`). No done-column rule, no structural heading ops, no WIP limits on this kind.
 
 ## Tab Management (`features/embedActions.js`)
 

@@ -2,7 +2,7 @@
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
-> **Sync note:** reflects plugin v0.0.12 (rebuild complete, Phases 0-5).
+> **Sync note:** reflects plugin v0.0.13 (rebuild complete, Phases 0-5).
 
 ---
 
@@ -21,7 +21,7 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 ### Description
 
-COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.12 REBUILD)
+COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE (v0.0.13 REBUILD)
 
 A straightforward, fact-based walkthrough of the rebuilt Kanban plugin for Amplenote. In this video, we turn a regular note into a living Kanban board - headings become columns, tasks become draggable cards - and every move you make writes straight back to your note. We also cover tag boards, where sub-tags become columns and notes become cards.
 
@@ -80,6 +80,11 @@ TAG BOARDS
 * Sub-Tags as Columns: A tag board lists each immediate sub-tag as its own column (plus "No sub-tag"), colored by the tag's color.
 * Notes as Cards: Cards come live from the tag query - notes tagged anywhere show up automatically.
 * Retag by Drag: Drag a note between columns to change its sub-tag; click a card to open the note; + creates a new note in that column.
+
+NOTES BOARDS
+* Notes as Columns: The third kind - a tag's notes each become a column, and their tasks become cards. Great for "one note per project".
+* Native Moves: Dragging a task to another column moves it into that note directly.
+* Rename in Place: Hover tools rename the note behind the column.
 
 CARD EXTRAS & SEARCH
 * Card Menu: Hover a card and click the dots to add a label (color-coded note link), set a start date, or create a note from the card.

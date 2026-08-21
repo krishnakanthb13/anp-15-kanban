@@ -49,6 +49,11 @@ describe("clientScript", () => {
     });
   });
 
+  it("supports the third board kind (notes boards)", () => {
+    expect(script).toContain('"notes"');
+    expect(script).toContain("renameNote");
+  });
+
   it("contains no template literal interpolation that could leak server data", () => {
     expect(script).not.toContain("${");
   });

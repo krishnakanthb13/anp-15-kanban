@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { bumpRoundTrips, getSessionSnapshot } from '../lib/core/sessionState.js';
 
 describe("sessionState", () => {

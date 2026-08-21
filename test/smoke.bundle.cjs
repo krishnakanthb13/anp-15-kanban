@@ -1,3 +1,4 @@
+/* global process */
 const fs = require("fs");
 const code = fs.readFileSync("anp-15-kanban/build/kanban.compiled.js", "utf8");
 const plugin = eval(code);

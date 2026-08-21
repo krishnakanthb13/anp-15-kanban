@@ -20,6 +20,7 @@ import {
   handleCardMenu,
   handleGlobalSearch,
   handleMoveColumnToTab,
+  handleRenameNote,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -42,6 +43,7 @@ function makeApp(markdown = NOTE_MD) {
     removeNoteTag: jest.fn().mockResolvedValue(true),
     getTags: jest.fn().mockResolvedValue([]),
     filterNotes: jest.fn().mockResolvedValue([]),
+    getNoteTasks: jest.fn().mockResolvedValue([]),
     searchNotes: jest.fn().mockResolvedValue([]),
     alert: jest.fn().mockResolvedValue(),
     context: { renderEmbed: jest.fn().mockResolvedValue() },
@@ -508,6 +510,66 @@ describe("embedActions", () => {
         await handleMoveColumnToTab(lonely, { tabId: "t1", columnId: "0" });
         expect(lonely.alert).toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("notes boards (third kind)", () => {
+    const NB_NOTES = [
+      { uuid: "na", name: "Project A", tags: ["kanban"] },
+      { uuid: "nb", name: "Project B", tags: ["kanban"] },
+    ];
+
+    function notesApp() {
+      const app = makeApp();
+      app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+        tabs: [{ id: "tn", kind: "notes", name: "Kanban", tag: "kanban" }],
+        activeTabId: "tn",
+        settings: {},
+      });
+      app.filterNotes.mockResolvedValue(NB_NOTES);
+      app.getNoteTasks.mockResolvedValue([{ uuid: "t1", content: "task" }]);
+      return app;
+    }
+
+    it("moveCard moves the task to the target note natively", async () => {
+      const app = notesApp();
+      await handleMoveCard(app, { tabId: "tn", cardId: "t1", toColumnId: "note:nb" });
+      expect(app.updateTask).toHaveBeenCalledWith("t1", { noteUUID: "nb" });
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("moveCard is a no-op for same-column drops", async () => {
+      const app = notesApp();
+      await handleMoveCard(app, { tabId: "tn", cardId: "t1", toColumnId: "note:na" });
+      expect(app.updateTask).not.toHaveBeenCalled();
+    });
+
+    it("createCard inserts a task directly into the target note", async () => {
+      const app = notesApp();
+      await handleCreateCard(app, { tabId: "tn", columnId: "note:nb" });
+      expect(app.insertTask).toHaveBeenCalledWith({ uuid: "nb" }, { content: "typed content" });
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("renameNote renames the column's note", async () => {
+      const app = notesApp();
+      app.notes = { find: jest.fn().mockResolvedValue({ uuid: "nb", name: "Project B" }) };
+      app.setNoteName = jest.fn().mockResolvedValue(true);
+      app.prompt.mockResolvedValue(["Project B v2"]);
+
+      await handleRenameNote(app, { tabId: "tn", columnId: "note:nb" });
+
+      expect(app.setNoteName).toHaveBeenCalledWith({ uuid: "nb" }, "Project B v2");
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("structural heading actions are rejected on notes boards", async () => {
+      const app = notesApp();
+      await handleCreateColumn(app, { tabId: "tn" });
+      await handleDeleteColumn(app, { tabId: "tn", columnId: "note:nb" });
+      await handleMoveColumnToTab(app, { tabId: "tn", columnId: "note:nb" });
+      expect(app.prompt).not.toHaveBeenCalled();
+      expect(app.replaceNoteContent).not.toHaveBeenCalled();
     });
   });
 

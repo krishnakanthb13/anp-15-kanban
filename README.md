@@ -3,7 +3,7 @@
 A multi-tab visual Kanban board for Amplenote, rendered as a full-screen plugin embed. Note boards turn a note's headings into columns and its tasks into draggable cards.
 Icon: `view_kanban`
 
-> **Status:** Rebuild complete (plan: `ds.md`). All phases implemented — persistent embed shell, theming, note boards, rich cards, WIP limits, column management, tag boards, tab management, and the Phase 5 extras (labels, start dates, create-note-from-card, two-tier search, cross-tab column move).
+> **Status:** Rebuild complete (plan: `ds.md`) plus a third board kind. Implemented: persistent embed shell, theming, note boards, rich cards, WIP limits, column management, tag boards, notes boards, tab management, and the extras (labels, start dates, create-note-from-card, two-tier search, cross-tab column move).
 
 ## Installation
 
@@ -97,6 +97,14 @@ The board is pull-based (Amplenote plugins have no push notifications):
 ### Date format
 
 Click the **📅** button in the header to set the format used for card date chips, using `YYYY` / `MM` / `DD` / `MMM` tokens (e.g. `DD MMM YYYY` → *21 Aug 2026*). The choice persists with your tab configuration.
+
+### Notes boards
+
+The third kind inverts again: a tag's **notes** become columns and the tasks inside each note become cards — ideal for "one note per project" workflows.
+
+- Dragging a card between columns moves the task to that note natively (`updateTask`), no markdown rewriting involved.
+- `+` inserts a task directly into the target note; clicking a card opens its raw-markdown editor; the ⋯ menu (labels / start date / create note) works here too.
+- Hover tools let you rename the column's note. There's no "last column = done" rule on this kind.
 
 ### Labels & card extras
 

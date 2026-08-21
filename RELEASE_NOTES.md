@@ -1,3 +1,10 @@
+## v0.0.13 (2026-08-21) — Notes Boards
+
+### 🚀 New Features
+- **Notes Boards (third board kind)**: A tag's notes become columns and the tasks inside each note become cards — perfect for "one note per project" workflows. Dragging a card between columns moves the task to that note natively; `+` inserts a task into the note; hover tools rename it.
+
+---
+
 ## v0.0.12 (2026-08-21) — Labels, Search & Card Extras
 
 ### 🚀 New Features

@@ -34,6 +34,7 @@ describe("constants", () => {
     it("accepts note and tag tabs with ids", () => {
       expect(isValidTab({ id: "tab_1", kind: "note" })).toBe(true);
       expect(isValidTab({ id: "tab_2", kind: "tag" })).toBe(true);
+      expect(isValidTab({ id: "tab_3", kind: "notes" })).toBe(true);
     });
 
     it("rejects malformed tabs", () => {

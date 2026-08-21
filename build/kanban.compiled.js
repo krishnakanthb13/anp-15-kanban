@@ -14,7 +14,7 @@ function emptyTabsConfig() {
     settings: { dateFormat: DEFAULT_DATE_FORMAT }
   };
 }
-var TAB_KINDS = /* @__PURE__ */ new Set(["note", "tag"]);
+var TAB_KINDS = /* @__PURE__ */ new Set(["note", "tag", "notes"]);
 function newId(prefix) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -251,7 +251,7 @@ function buildClientScript() {
     return tabs[0] || null;
   }
 
-  var KIND_ICONS = { note: "\\uD83D\\uDFE4", tag: "\\uD83C\\uDFF7" };
+  var KIND_ICONS = { note: "\\uD83D\\uDFE4", tag: "\\uD83C\\uDFF7", notes: "\\uD83D\\uDCDD" };
 
   function renderTabs() {
     var host = document.getElementById("kb-tabs");
@@ -323,6 +323,7 @@ function buildClientScript() {
     columns.forEach(function (col, colIndex) {
       var isLast = colIndex === columns.length - 1;
       var isTagBoard = data.kind === "tag";
+      var isNotesBoard = data.kind === "notes";
 
       // Client-side search filter: hide non-matching cards and emptied columns.
       var visibleCards = (col.cards || []).filter(function (card) {
@@ -335,7 +336,7 @@ function buildClientScript() {
       if (searchQuery && !visibleCards.length) return; // skip emptied column
       anyVisible = anyVisible || visibleCards.length > 0;
 
-      var colEl = el("section", "kb-column" + (isLast && !isTagBoard ? " kb-column-last" : ""));
+      var colEl = el("section", "kb-column" + (isLast && data.kind === "note" ? " kb-column-last" : ""));
       colEl.setAttribute("data-column-id", col.id);
 
       var head = el("header", "kb-column-head");
@@ -354,10 +355,10 @@ function buildClientScript() {
       head.appendChild(titleWrap);
 
       // Count chip doubles as the WIP-limit control on note boards; turns red past the limit.
-      var over = !isTagBoard && col.wipLimit && col.cards && col.cards.length > col.wipLimit;
+      var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
       var count = el("span", "kb-count" + (over ? " kb-over" : ""),
         over ? visibleCards.length + " / " + col.wipLimit : String(visibleCards.length));
-      if (!isTagBoard) {
+      if (data.kind === "note") {
         count.title = "Set WIP limit";
         count.addEventListener("click", function () {
           callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id });
@@ -366,7 +367,7 @@ function buildClientScript() {
       head.appendChild(count);
       colEl.appendChild(head);
 
-      if (!isTagBoard) {
+      if (data.kind === "note") {
         var tools = el("div", "kb-col-tools");
         addTool(tools, "\\u2190", "Move column left", function () {
           callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "left" });
@@ -384,6 +385,12 @@ function buildClientScript() {
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
         head.appendChild(tools);
+      } else if (isNotesBoard) {
+        var ntools = el("div", "kb-col-tools");
+        addTool(ntools, "\\u270E", "Rename note", function () {
+          callPlugin("renameNote", { tabId: STATE.activeTabId, columnId: col.id });
+        });
+        head.appendChild(ntools);
       }
 
       var addBtn = el("button", "kb-add-card", "+");
@@ -1493,6 +1500,141 @@ function toNoteCard(note) {
   };
 }
 
+// anp-15-kanban/lib/api/noteBoard.js
+async function buildNoteBoard(app, noteUUID, options = {}) {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  if (typeof markdown !== "string") {
+    return { kind: "note", noteUUID, columns: [], hasHeadings: false };
+  }
+  const tasks = await app.getNoteTasks({ uuid: noteUUID }, { includeDone: true }) || [];
+  let colorMap = {};
+  try {
+    const tags = await app.getTags() || [];
+    tags.forEach((t) => {
+      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
+    });
+  } catch {
+    colorMap = {};
+  }
+  const { columns } = buildColumnSpans(markdown);
+  const lines = markdown.split("\n");
+  const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
+  const limits = options.columnLimits || {};
+  const makeColumn = (span, cards) => ({
+    id: span.id,
+    name: span.name,
+    wipLimit: Number.isInteger(limits[span.name]) && limits[span.name] > 0 ? limits[span.name] : null,
+    cards
+  });
+  const boardColumns = columns.map(
+    (span) => makeColumn(span, (columnCards.get(span.id) || []).map(toCardModel))
+  );
+  if (unsorted.length > 0) {
+    boardColumns.unshift({
+      id: "unsorted",
+      name: "Unsorted",
+      wipLimit: null,
+      cards: unsorted.map(toCardModel)
+    });
+  }
+  const allCards = boardColumns.flatMap((c) => c.cards);
+  await renderCardHtml(app, allCards);
+  allCards.forEach((card) => {
+    card.labels = resolveLabels(card.content, colorMap);
+  });
+  return {
+    kind: "note",
+    noteUUID,
+    columns: boardColumns,
+    hasHeadings: columns.length > 0
+  };
+}
+function toCardModel(task) {
+  return {
+    id: task.uuid,
+    title: plainPreview(task.content || ""),
+    content: task.content || "",
+    imageUrl: firstImageUrl(task.content || ""),
+    completedAt: task.completedAt ?? null,
+    dismissedAt: task.dismissedAt ?? null,
+    startAt: task.startAt ?? null,
+    deadline: task.deadline ?? null,
+    important: !!task.important,
+    urgent: !!task.urgent
+  };
+}
+async function renderCardHtml(app, cards) {
+  for (const card of cards) {
+    try {
+      card.html = await app.htmlFromContent(card.content);
+    } catch (error) {
+      console.error("htmlFromContent failed for card:", error);
+      card.html = null;
+    }
+  }
+  return cards;
+}
+function firstImageUrl(markdown) {
+  const m = String(markdown).match(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/);
+  return m ? m[1] : null;
+}
+function resolveLabels(markdown, colorMap = {}) {
+  const names = [];
+  const re = /\[\[([^\]]+)\]\]/g;
+  let m;
+  while ((m = re.exec(String(markdown))) !== null) {
+    const name = m[1].trim();
+    if (name && !names.includes(name)) names.push(name);
+  }
+  return names.map((name) => ({ name, color: colorMap[name.toLowerCase()] ?? null }));
+}
+function plainPreview(markdown) {
+  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
+}
+
+// anp-15-kanban/lib/api/notesBoard.js
+var NOTE_PREFIX = "note:";
+async function buildNotesBoard(app, tag) {
+  if (!tag) {
+    return { kind: "notes", tag, columns: [], hasHeadings: false };
+  }
+  const notes = await app.filterNotes({ tag }) || [];
+  let colorMap = {};
+  try {
+    const tags = await app.getTags() || [];
+    tags.forEach((t) => {
+      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
+    });
+  } catch {
+    colorMap = {};
+  }
+  const columns = [];
+  const allCards = [];
+  for (const note of notes) {
+    const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
+    const cards = tasks.map((t) => toCardModel(t));
+    allCards.push(...cards);
+    columns.push({
+      id: NOTE_PREFIX + note.uuid,
+      name: note.name || "Untitled note",
+      color: null,
+      wipLimit: null,
+      cards,
+      noteUUID: note.uuid
+    });
+  }
+  await renderCardHtml(app, allCards);
+  allCards.forEach((card) => {
+    card.labels = resolveLabels(card.content, colorMap);
+  });
+  return {
+    kind: "notes",
+    tag,
+    columns,
+    hasHeadings: true
+  };
+}
+
 // anp-15-kanban/lib/api/noteOps.js
 async function retagNote(app, noteUUID, { fromSub, toSub }) {
   const handle = { uuid: noteUUID };
@@ -1627,7 +1769,7 @@ async function resolveNoteTab(app, payload) {
   const tab = tabById(await loadTabsConfig(app), tabId);
   if (!tab) return null;
   if (tab.kind === "note" && !tab.noteUUID) return null;
-  if (tab.kind === "tag" && !tab.tag) return null;
+  if ((tab.kind === "tag" || tab.kind === "notes") && !tab.tag) return null;
   return tab;
 }
 async function isLastColumn(app, noteUUID, columnId) {
@@ -1642,6 +1784,10 @@ async function handleMoveCard(app, payload) {
     await moveNoteCard(app, tab, payload.cardId, payload.toColumnId);
     return;
   }
+  if (tab.kind === "notes") {
+    await moveTaskToNote(app, tab, payload.cardId, payload.toColumnId);
+    return;
+  }
   const doneTarget = await isLastColumn(app, tab.noteUUID, payload.toColumnId);
   const status = await moveTaskToColumn(app, tab.noteUUID, payload.cardId, {
     columnId: payload.toColumnId
@@ -1650,6 +1796,15 @@ async function handleMoveCard(app, payload) {
     await setTaskCompleted(app, payload.cardId, doneTarget);
     await rerender(app);
   }
+}
+async function moveTaskToNote(app, tab, taskUuid, toColumnId) {
+  const targetUUID = String(toColumnId).startsWith(NOTE_PREFIX) ? toColumnId.slice(NOTE_PREFIX.length) : null;
+  if (!targetUUID) return;
+  const board = await buildNotesBoard(app, tab.tag);
+  const fromCol = board.columns.find((c) => c.cards.some((card) => card.id === taskUuid));
+  if (fromCol && fromCol.id === String(toColumnId)) return;
+  await app.updateTask(taskUuid, { noteUUID: targetUUID });
+  await rerender(app);
 }
 async function moveNoteCard(app, tab, noteUUID, toColumnId) {
   const board = await buildTagBoard(app, tab.tag);
@@ -1664,6 +1819,17 @@ async function moveNoteCard(app, tab, noteUUID, toColumnId) {
 async function handleCreateCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
   if (!tab || !payload.columnId) return;
+  if (tab.kind === "notes") {
+    const targetUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : null;
+    if (!targetUUID) return;
+    const content2 = firstValue(await app.prompt("New task", {
+      inputs: [{ label: "Task content (markdown):", type: "text" }]
+    }));
+    if (!content2) return;
+    await app.insertTask({ uuid: targetUUID }, { content: content2 });
+    await rerender(app);
+    return;
+  }
   if (tab.kind === "tag") {
     const result2 = await app.prompt("New note in column", {
       inputs: [{ label: "Note name:", type: "text" }]
@@ -1886,6 +2052,20 @@ async function handleMoveColumnToTab(app, payload) {
   const status = await transferColumn(app, tab.noteUUID, payload.columnId, target.noteUUID);
   if (status === "moved") await rerender(app);
 }
+async function handleRenameNote(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || tab.kind !== "notes" || !payload.columnId) return;
+  const noteUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : null;
+  if (!noteUUID) return;
+  const note = await app.notes.find(noteUUID);
+  const current = note?.name || "";
+  const name = firstValue(await app.prompt("Rename note", {
+    inputs: [{ label: "Note name:", type: "text", value: current }]
+  }));
+  if (!name || !String(name).trim() || String(name) === current) return;
+  await app.setNoteName({ uuid: noteUUID }, String(name).trim());
+  await rerender(app);
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
@@ -1907,7 +2087,8 @@ var ACTIONS = {
   setWipLimit: handleSetWipLimit,
   cardMenu: handleCardMenu,
   globalSearch: handleGlobalSearch,
-  moveColumnToTab: handleMoveColumnToTab
+  moveColumnToTab: handleMoveColumnToTab,
+  renameNote: handleRenameNote
 };
 async function handleEmbedAction(app, args) {
   const [action, payload] = args || [];
@@ -1917,98 +2098,6 @@ async function handleEmbedAction(app, args) {
     return void 0;
   }
   return handler(app, payload);
-}
-
-// anp-15-kanban/lib/api/noteBoard.js
-async function buildNoteBoard(app, noteUUID, options = {}) {
-  const markdown = await app.getNoteContent({ uuid: noteUUID });
-  if (typeof markdown !== "string") {
-    return { kind: "note", noteUUID, columns: [], hasHeadings: false };
-  }
-  const tasks = await app.getNoteTasks({ uuid: noteUUID }, { includeDone: true }) || [];
-  let colorMap = {};
-  try {
-    const tags = await app.getTags() || [];
-    tags.forEach((t) => {
-      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
-    });
-  } catch {
-    colorMap = {};
-  }
-  const { columns } = buildColumnSpans(markdown);
-  const lines = markdown.split("\n");
-  const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
-  const limits = options.columnLimits || {};
-  const makeColumn = (span, cards) => ({
-    id: span.id,
-    name: span.name,
-    wipLimit: Number.isInteger(limits[span.name]) && limits[span.name] > 0 ? limits[span.name] : null,
-    cards
-  });
-  const boardColumns = columns.map(
-    (span) => makeColumn(span, (columnCards.get(span.id) || []).map(toCardModel))
-  );
-  if (unsorted.length > 0) {
-    boardColumns.unshift({
-      id: "unsorted",
-      name: "Unsorted",
-      wipLimit: null,
-      cards: unsorted.map(toCardModel)
-    });
-  }
-  const allCards = boardColumns.flatMap((c) => c.cards);
-  await renderCardHtml(app, allCards);
-  allCards.forEach((card) => {
-    card.labels = resolveLabels(card.content, colorMap);
-  });
-  return {
-    kind: "note",
-    noteUUID,
-    columns: boardColumns,
-    hasHeadings: columns.length > 0
-  };
-}
-function toCardModel(task) {
-  return {
-    id: task.uuid,
-    title: plainPreview(task.content || ""),
-    content: task.content || "",
-    imageUrl: firstImageUrl(task.content || ""),
-    completedAt: task.completedAt ?? null,
-    dismissedAt: task.dismissedAt ?? null,
-    startAt: task.startAt ?? null,
-    deadline: task.deadline ?? null,
-    important: !!task.important,
-    urgent: !!task.urgent
-  };
-}
-async function renderCardHtml(app, cards) {
-  for (const card of cards) {
-    try {
-      card.html = await app.htmlFromContent(card.content);
-    } catch (error) {
-      console.error("htmlFromContent failed for card:", error);
-      card.html = null;
-    }
-  }
-  return cards;
-}
-function firstImageUrl(markdown) {
-  const m = String(markdown).match(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/);
-  return m ? m[1] : null;
-}
-function resolveLabels(markdown, colorMap = {}) {
-  const names = [];
-  const re = /\[\[([^\]]+)\]\]/g;
-  let m;
-  while ((m = re.exec(String(markdown))) !== null) {
-    const name = m[1].trim();
-    if (name && !names.includes(name)) names.push(name);
-  }
-  return names.map((name) => ({ name, color: colorMap[name.toLowerCase()] ?? null }));
-}
-function plainPreview(markdown) {
-  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
 }
 
 // anp-15-kanban/kanban.js
@@ -2051,6 +2140,8 @@ var plugin = {
           });
         } else if (tab.kind === "tag" && tab.tag) {
           boards[tab.id] = await buildTagBoard(app, tab.tag);
+        } else if (tab.kind === "notes" && tab.tag) {
+          boards[tab.id] = await buildNotesBoard(app, tab.tag);
         }
       } catch (error) {
         console.error(`Failed to build board for tab ${tab.id}:`, error);

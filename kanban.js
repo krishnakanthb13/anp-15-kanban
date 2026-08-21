@@ -5,6 +5,7 @@ import { withDemoContent } from "./lib/core/demoBoard.js";
 import { handleEmbedAction } from "./lib/features/embedActions.js";
 import { buildNoteBoard } from "./lib/api/noteBoard.js";
 import { buildTagBoard } from "./lib/api/tagBoard.js";
+import { buildNotesBoard } from "./lib/api/notesBoard.js";
 import { SETTINGS_KEYS, DEFAULT_THEME_ID, DEFAULT_DATE_FORMAT } from "./lib/core/constants.js";
 
 /* ----------------------------------- */
@@ -56,6 +57,8 @@ const plugin = {
           });
         } else if (tab.kind === "tag" && tab.tag) {
           boards[tab.id] = await buildTagBoard(app, tab.tag);
+        } else if (tab.kind === "notes" && tab.tag) {
+          boards[tab.id] = await buildNotesBoard(app, tab.tag);
         }
       } catch (error) {
         console.error(`Failed to build board for tab ${tab.id}:`, error);
