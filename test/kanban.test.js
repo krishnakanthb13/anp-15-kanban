@@ -1,70 +1,85 @@
 import { jest } from '@jest/globals';
-import plugin from '../kanban.js';
-import * as tagged from '../lib/features/tagged.js';
-import * as taskEdit from '../lib/features/taskEdit.js';
-import * as createTask from '../lib/features/createTask.js';
-import * as createNewNote from '../lib/features/createNewNote.js';
-import * as updateTag from '../lib/features/updateTag.js';
-import * as toggleSort from '../lib/features/toggleSort.js';
-import * as refreshPage from '../lib/features/refreshPage.js';
-import * as kanbanTemplate from '../lib/ui/kanbanTemplate.js';
+import { SETTINGS_KEYS, DEFAULT_THEME_ID } from '../lib/core/constants.js';
 
 describe("kanban plugin entry", () => {
-  let appMock;
+  let plugin;
 
-  beforeEach(() => {
-    appMock = {
-      settings: {},
-      filterNotes: jest.fn(),
-      getNoteTasks: jest.fn(),
-      createNote: jest.fn(),
-      setSetting: jest.fn(),
-      alert: jest.fn(),
-      replaceNoteContent: jest.fn()
+  beforeAll(async () => {
+    const mod = await import('../kanban.js?entry');
+    plugin = mod.default;
+  });
+
+  function makeApp(settings = {}) {
+    return {
+      settings: settings,
+      setSetting: jest.fn().mockResolvedValue(),
+      openEmbed: jest.fn().mockResolvedValue(),
+      navigate: jest.fn().mockResolvedValue(),
+      context: { pluginUUID: "plugin-uuid-1", renderEmbed: jest.fn().mockResolvedValue() },
     };
-    jest.clearAllMocks();
-  });
+  }
 
-  describe("appOption", () => {
-    it("handles Tagged!", () => {
-      expect(plugin.appOption["Tagged!"]).toBe(tagged.handleTagged);
-    });
-  });
-
-  describe("onEmbedCall", () => {
-    it("calls underlying functions", async () => {
-      appMock.settings = { "Current_Note_UUID [Do not Edit!]": "kanban-note" };
-      appMock.replaceNoteContent.mockResolvedValue();
-      appMock.getTask = jest.fn().mockResolvedValue(null);
-      await plugin.onEmbedCall(appMock, "taskEdit", "uuid-1");
-      expect(appMock.getTask).toHaveBeenCalledWith("uuid-1");
+  describe("appOption launcher", () => {
+    it("opens the embed section and navigates to the plugin URL", async () => {
+      const app = makeApp();
+      await plugin.appOption["Open Kanban Board"](app);
+      expect(app.openEmbed).toHaveBeenCalledTimes(1);
+      expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes/plugins/plugin-uuid-1");
     });
   });
 
   describe("renderEmbed", () => {
-    it("fetches notes and tasks and builds template", async () => {
-      appMock.settings["Kanban Filter Tag"] = "-test";
-      appMock.settings["Toggle Sort"] = "startDate";
-      appMock.filterNotes.mockResolvedValue([
-        { uuid: "note-1", name: "Note 1", tags: ["tag1"] }
-      ]);
-      appMock.getNoteTasks.mockResolvedValue([
-        { uuid: "task-1", content: "T1", startAt: 100, score: 5, important: true, urgent: false }
-      ]);
-      const result = await plugin.renderEmbed(appMock);
-
-      expect(appMock.filterNotes).toHaveBeenCalledWith({ tag: "-test" });
-      expect(appMock.getNoteTasks).toHaveBeenCalledWith({ uuid: "note-1" }, { includeDone: true });
-      expect(result).toContain("T1");
+    it("returns an HTML document with demo content when no tabs are configured", async () => {
+      const app = makeApp();
+      const html = await plugin.renderEmbed(app);
+      expect(html).toContain("<!DOCTYPE html>");
+      expect(html).toContain('"tab_demo"');
+      expect(html).toContain("Demo Board");
     });
 
-    it("creates default notes if no notes found", async () => {
-      appMock.filterNotes.mockResolvedValue([]);
-      
-      await plugin.renderEmbed(appMock);
-      
-      expect(appMock.createNote).toHaveBeenCalledTimes(4);
-      expect(appMock.alert).toHaveBeenCalled();
+    it("uses configured tabs and persisted theme when available", async () => {
+      const app = makeApp({
+        [SETTINGS_KEYS.tabs]: JSON.stringify({
+          tabs: [{ id: "t1", kind: "tag", name: "work" }],
+          activeTabId: "t1",
+          settings: { dateFormat: "DD MMM" },
+        }),
+        [SETTINGS_KEYS.theme]: "nord",
+      });
+      const html = await plugin.renderEmbed(app);
+      expect(html).toContain('"kind":"tag"');
+      expect(html).toContain("nord");
+      expect(html).not.toContain("tab_demo");
+    });
+
+    it("falls back to the default theme for unset/invalid theme settings", async () => {
+      const html = await plugin.renderEmbed(makeApp({ [SETTINGS_KEYS.theme]: "bogus" }));
+      // state carries the raw value; client + resolveTheme handle fallback
+      expect(html).toContain("bogus");
+      const noTheme = await plugin.renderEmbed(makeApp({}));
+      expect(noTheme).toContain(DEFAULT_THEME_ID);
+    });
+  });
+
+  describe("onEmbedCall", () => {
+    it("dispatches actions and bumps the round-trip counter", async () => {
+      const app = makeApp();
+      await plugin.onEmbedCall(app, "ping");
+      expect(app.context.renderEmbed).toHaveBeenCalledTimes(1);
+
+      const html = await plugin.renderEmbed(app);
+      const match = html.match(/"roundTrips":(\d+)/);
+      expect(match).toBeTruthy();
+      expect(Number(match[1])).toBeGreaterThan(0);
+    });
+
+    it("swallows handler errors so the embed never breaks", async () => {
+      const app = makeApp();
+      app.context.renderEmbed.mockRejectedValue(new Error("render boom"));
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const result = await plugin.onEmbedCall(app, "ping");
+      expect(result).toBeUndefined();
+      consoleSpy.mockRestore();
     });
   });
 });

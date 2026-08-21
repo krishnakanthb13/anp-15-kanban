@@ -1,752 +1,811 @@
 (() => {
-// anp-15-kanban/lib/api/noteManager.js
-async function refreshKanbanPage(app) {
-  try {
-    const destNoteUUID = await app.settings["Current_Note_UUID [Do not Edit!]"];
-    if (!destNoteUUID) return;
-    await app.replaceNoteContent({ uuid: destNoteUUID }, `Refreshing the Page!`);
-    await new Promise((r) => setTimeout(r, 100));
-    await app.replaceNoteContent(
-      { uuid: destNoteUUID },
-      `<object data="plugin://${app.context.pluginUUID}" data-aspect-ratio="1" />`
-    );
-    app.navigate(`https://www.amplenote.com/notes/${destNoteUUID}`);
-  } catch (error) {
-    console.error("Error refreshing Kanban page:", error);
-  }
+// anp-15-kanban/lib/core/constants.js
+var SETTINGS_KEYS = {
+  tabs: "Kanban Tabs",
+  theme: "Kanban Theme",
+  dateFormat: "Kanban Date Format"
+};
+var DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
+var DEFAULT_THEME_ID = "light";
+function emptyTabsConfig() {
+  return {
+    tabs: [],
+    activeTabId: null,
+    settings: { dateFormat: DEFAULT_DATE_FORMAT }
+  };
 }
-async function getOrCreateKanbanNote(app) {
-  try {
-    const existingUUID = await app.settings["Current_Note_UUID [Do not Edit!]"];
-    if (existingUUID) return existingUUID;
-    const newUUID = await app.createNote("Kanban Board", ["-reports/-kanban"]);
-    await app.setSetting("Current_Note_UUID [Do not Edit!]", newUUID);
-    return newUUID;
-  } catch (error) {
-    console.error("Error getting or creating Kanban note:", error);
+var TAB_KINDS = /* @__PURE__ */ new Set(["note", "tag"]);
+function isValidTab(tab) {
+  return !!tab && typeof tab === "object" && typeof tab.id === "string" && tab.id.length > 0 && TAB_KINDS.has(tab.kind);
+}
+
+// anp-15-kanban/lib/ui/themes.js
+var THEMES = [
+  { id: "light", name: "Clean Daylight", icon: "\u2600\uFE0F", type: "light" },
+  { id: "sepia", name: "Sepia Parchment", icon: "\u{1F4DC}", type: "light" },
+  { id: "matcha", name: "Matcha Latte", icon: "\u{1F375}", type: "light" },
+  { id: "nord-light", name: "Nord Frost", icon: "\u{1F9CA}", type: "light" },
+  { id: "midnight", name: "Midnight Slate", icon: "\u{1F30C}", type: "dark" },
+  { id: "nord", name: "Nord Arctic", icon: "\u2744\uFE0F", type: "dark" },
+  { id: "dracula", name: "Dracula Neo", icon: "\u{1F9DB}", type: "dark" },
+  { id: "emerald", name: "Emerald Forest", icon: "\u{1F332}", type: "dark" }
+];
+var PALETTES = {
+  light: {
+    bg: "#f8fafc",
+    bgHeader: "#ffffff",
+    bgColumn: "#f1f5f9",
+    bgCard: "#ffffff",
+    text: "#0f172a",
+    textMuted: "#64748b",
+    border: "#e2e8f0",
+    accent: "#2563eb",
+    accentText: "#ffffff",
+    danger: "#dc2626",
+    shadow: "rgba(15, 23, 42, 0.08)"
+  },
+  sepia: {
+    bg: "#fbf7ee",
+    bgHeader: "#f4ede0",
+    bgColumn: "#f0e7d8",
+    bgCard: "#fffdf8",
+    text: "#44403c",
+    textMuted: "#78716c",
+    border: "#e7dcc8",
+    accent: "#b45309",
+    accentText: "#ffffff",
+    danger: "#b91c1c",
+    shadow: "rgba(68, 64, 60, 0.10)"
+  },
+  matcha: {
+    bg: "#f6f8f5",
+    bgHeader: "#edf2eb",
+    bgColumn: "#e6ede3",
+    bgCard: "#ffffff",
+    text: "#1a2e22",
+    textMuted: "#5f7268",
+    border: "#d8e4d4",
+    accent: "#15803d",
+    accentText: "#ffffff",
+    danger: "#b91c1c",
+    shadow: "rgba(26, 46, 34, 0.10)"
+  },
+  "nord-light": {
+    bg: "#f4f6f9",
+    bgHeader: "#e9edf2",
+    bgColumn: "#e5ebf2",
+    bgCard: "#ffffff",
+    text: "#2e3440",
+    textMuted: "#616e7c",
+    border: "#d8dee9",
+    accent: "#0284c7",
+    accentText: "#ffffff",
+    danger: "#c2410c",
+    shadow: "rgba(46, 52, 64, 0.10)"
+  },
+  midnight: {
+    bg: "#0b0f19",
+    bgHeader: "#131b2e",
+    bgColumn: "#111a2c",
+    bgCard: "#182238",
+    text: "#f1f5f9",
+    textMuted: "#94a3b8",
+    border: "#24304a",
+    accent: "#3b82f6",
+    accentText: "#ffffff",
+    danger: "#f87171",
+    shadow: "rgba(0, 0, 0, 0.40)"
+  },
+  nord: {
+    bg: "#242933",
+    bgHeader: "#2e3440",
+    bgColumn: "#333a46",
+    bgCard: "#3b4252",
+    text: "#eceff4",
+    textMuted: "#9aa5b1",
+    border: "#434c5e",
+    accent: "#88c0d0",
+    accentText: "#212733",
+    danger: "#bf616a",
+    shadow: "rgba(0, 0, 0, 0.35)"
+  },
+  dracula: {
+    bg: "#1e1f29",
+    bgHeader: "#282a36",
+    bgColumn: "#2b2d3a",
+    bgCard: "#343746",
+    text: "#f8f8f2",
+    textMuted: "#9ca0b0",
+    border: "#44475a",
+    accent: "#bd93f9",
+    accentText: "#1e1f29",
+    danger: "#ff5555",
+    shadow: "rgba(0, 0, 0, 0.40)"
+  },
+  emerald: {
+    bg: "#061e16",
+    bgHeader: "#0b2e23",
+    bgColumn: "#0d2a20",
+    bgCard: "#124334",
+    text: "#e6f4ea",
+    textMuted: "#93b8a5",
+    border: "#1b4636",
+    accent: "#10b981",
+    accentText: "#06251b",
+    danger: "#f87171",
+    shadow: "rgba(0, 0, 0, 0.40)"
+  }
+};
+var TOKEN_VAR_NAMES = {
+  bg: "--kb-bg",
+  bgHeader: "--kb-bg-header",
+  bgColumn: "--kb-bg-column",
+  bgCard: "--kb-bg-card",
+  text: "--kb-text",
+  textMuted: "--kb-text-muted",
+  border: "--kb-border",
+  accent: "--kb-accent",
+  accentText: "--kb-accent-text",
+  danger: "--kb-danger",
+  shadow: "--kb-shadow"
+};
+function isValidThemeId(themeId) {
+  return THEMES.some((t) => t.id === themeId);
+}
+function buildThemeCss() {
+  const blocks = THEMES.map((theme) => {
+    const palette = PALETTES[theme.id];
+    if (!palette) return "";
+    const vars = Object.entries(TOKEN_VAR_NAMES).map(([token, varName]) => `        ${varName}: ${palette[token]};`).join("\n");
+    return `    [data-theme="${theme.id}"] {
+${vars}
+    }`;
+  });
+  return blocks.join("\n\n");
+}
+function themesJsonForClient() {
+  return JSON.stringify(THEMES.map(({ id, name, icon, type }) => ({ id, name, icon, type }))).replace(/</g, "\\u003c");
+}
+
+// anp-15-kanban/lib/ui/clientScript.js
+function buildClientScript() {
+  return `
+(function () {
+  "use strict";
+
+  var STATE = window.__KANBAN_STATE__ || {};
+  var THEMES = window.__KANBAN_THEMES__ || [];
+  var THEME_STORAGE_KEY = "ANP_ACTIVE_THEME";
+  var currentTheme = null;
+
+  /* ---------------- bridge ---------------- */
+
+  function callPlugin(action, payload) {
+    if (typeof window.callAmplenotePlugin === "function") {
+      try {
+        return window.callAmplenotePlugin(action, payload);
+      } catch (err) {
+        console.error("callAmplenotePlugin failed:", err);
+      }
+    }
     return null;
   }
-}
 
-// anp-15-kanban/lib/features/tagged.js
-async function handleTagged(app) {
-  const destNoteUUID = await getOrCreateKanbanNote(app);
-  await app.replaceNoteContent(
-    { uuid: destNoteUUID },
-    `<object data="plugin://${app.context.pluginUUID}" data-aspect-ratio="1" />`
-  );
-  await app.navigate(`https://www.amplenote.com/notes/${destNoteUUID}`);
-  return null;
-}
+  /* ---------------- theming ---------------- */
 
-// anp-15-kanban/lib/api/taskMover.js
-async function moveTaskToHeader(app, noteUUID, uuidToMove, headerNumber) {
-  try {
-    const markdown = await app.getNoteContent({ uuid: noteUUID });
-    if (!markdown) return "";
-    const lines = markdown.split("\n");
-    const updatedLines = [];
-    let taskLine = null;
-    const headers = [];
-    for (let line of lines) {
-      if (line.includes(`"uuid":"${uuidToMove}"`)) {
-        taskLine = line;
-      } else {
-        updatedLines.push(line);
-      }
-      const headerMatch = line.match(/^(#+)\s*(.*)/);
-      if (headerMatch) {
-        headers.push(headerMatch[0]);
-      }
+  function themeIndex(id) {
+    for (var i = 0; i < THEMES.length; i++) {
+      if (THEMES[i].id === id) return i;
     }
-    if (taskLine) {
-      const insertIndex = headerNumber === 0 ? 0 : updatedLines.indexOf(headers[headerNumber - 1]) + 1;
-      updatedLines.splice(insertIndex, 0, taskLine);
-    }
-    return updatedLines.join("\n");
-  } catch (error) {
-    console.error(`Error moving task ${uuidToMove} to header:`, error);
-    return "";
+    return -1;
   }
-}
 
-// anp-15-kanban/lib/features/taskEdit.js
-async function handleTaskEdit(app, taskUuid) {
-  try {
-    const task = await app.getTask(taskUuid);
-    if (!task) return;
-    const sections = await app.getNoteSections({ uuid: task.noteUUID });
-    const transformedSections = sections.map((item, index) => {
-      const headerValue = item.heading ? item.heading.text : "Main";
-      return { label: headerValue, value: index };
+  function applyTheme(themeId, persist) {
+    var idx = themeIndex(themeId);
+    if (idx === -1) idx = 0;
+    var theme = THEMES[idx];
+    if (!theme) return;
+    currentTheme = theme.id;
+    document.documentElement.setAttribute("data-theme", theme.id);
+    try {
+      if (persist) {
+        localStorage.setItem(THEME_STORAGE_KEY, theme.id);
+        callPlugin("saveTheme", theme.id);
+      }
+    } catch (e) { /* storage may be unavailable; theme still applies visually */ }
+    var iconEl = document.getElementById("kb-theme-icon");
+    var nameEl = document.getElementById("kb-theme-name");
+    if (iconEl) iconEl.textContent = theme.icon;
+    if (nameEl) nameEl.textContent = theme.name;
+  }
+
+  function cycleTheme() {
+    var idx = themeIndex(currentTheme);
+    var next = THEMES[(idx + 1) % THEMES.length];
+    applyTheme(next.id, true);
+  }
+
+  function bootTheme() {
+    var stored = null;
+    try { stored = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
+    applyTheme(stored || STATE.settings && STATE.settings.theme || (THEMES[0] && THEMES[0].id), false);
+  }
+
+  /* ---------------- rendering ---------------- */
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function activeTab() {
+    var tabs = STATE.tabs || [];
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].id === STATE.activeTabId) return tabs[i];
+    }
+    return tabs[0] || null;
+  }
+
+  var KIND_ICONS = { note: "\\uD83D\\uDFE4", tag: "\\uD83C\\uDFF7" };
+
+  function renderTabs() {
+    var host = document.getElementById("kb-tabs");
+    if (!host) return;
+    host.innerHTML = "";
+    var tabs = STATE.tabs || [];
+    var act = activeTab();
+    tabs.forEach(function (tab) {
+      var chip = el("button", "kb-tab" + (act && tab.id === act.id ? " kb-tab-active" : ""));
+      chip.type = "button";
+      chip.title = tab.name + " (" + tab.kind + " board)";
+      chip.appendChild(el("span", "kb-tab-icon", KIND_ICONS[tab.kind] || "?"));
+      chip.appendChild(el("span", "kb-tab-name", tab.name));
+      chip.addEventListener("click", function () {
+        callPlugin("setActiveTab", { tabId: tab.id });
+      });
+      host.appendChild(chip);
     });
-    const result = await app.prompt("Update Task Details", {
-      inputs: [
-        { label: "Update Task Content:", type: "text", value: `${task.content}` },
-        { label: "Update Important:", type: "checkbox", value: task.important },
-        { label: "Update Urgent:", type: "checkbox", value: task.urgent },
-        { label: "Move to a Note or Header. Select Note:", type: "note", value: `${task.noteUUID}` },
-        { label: "Select Section or Header (Caution: refrain from using --- in the note.):", type: "select", options: transformedSections },
-        { label: "Update Score:", type: "string", value: `${task.score}` },
-        { label: "Mark Task Status:", type: "radio", options: [
-          { label: "Started", value: 3 },
-          { label: "Completed", value: 1 },
-          { label: "Dismissed", value: 2 }
-        ] }
-      ]
+  }
+
+  function renderBoard() {
+    var board = document.getElementById("kb-board");
+    if (!board) return;
+    board.innerHTML = "";
+    var tab = activeTab();
+    var data = tab && STATE.boards ? STATE.boards[tab.id] : null;
+    var columns = data && data.columns ? data.columns : [];
+
+    if (!columns.length) {
+      board.appendChild(el("div", "kb-empty", "No board data yet. Use \\u201CRefresh\\u201D or add a tab."));
+      return;
+    }
+
+    columns.forEach(function (col) {
+      var colEl = el("section", "kb-column");
+      var head = el("header", "kb-column-head");
+      head.appendChild(el("h3", "kb-column-title", col.name));
+      head.appendChild(el("span", "kb-count", String(col.cards ? col.cards.length : 0)));
+      colEl.appendChild(head);
+
+      var list = el("div", "kb-cards");
+      (col.cards || []).forEach(function (card) {
+        var cardEl = el("article", "kb-card" + (card.completedAt ? " kb-card-done" : ""));
+        cardEl.setAttribute("data-card-id", card.id);
+        cardEl.appendChild(el("div", "kb-card-title", card.title));
+        cardEl.appendChild(el("div", "kb-card-meta", card.meta || ""));
+        list.appendChild(cardEl);
+      });
+      colEl.appendChild(list);
+      board.appendChild(colEl);
     });
-    if (!result) return;
-    let [taskContent, taskImportant, taskUrgent, taskNoteuuid, notesections, taskScore, taskStatus] = result;
-    notesections = parseFloat(notesections);
-    taskScore = parseFloat(taskScore);
-    const currentTimeUnix = Math.floor(Date.now() / 1e3);
-    const updatedFields = {};
-    if (taskContent !== task.content) updatedFields.content = taskContent;
-    if (taskImportant !== task.important) updatedFields.important = taskImportant;
-    if (taskUrgent !== task.urgent) updatedFields.urgent = taskUrgent;
-    if (taskNoteuuid && taskNoteuuid.uuid && taskNoteuuid.uuid !== task.noteUUID) {
-      updatedFields.noteUUID = taskNoteuuid.uuid;
-    }
-    if (taskScore !== task.score) updatedFields.score = taskScore;
-    if (taskStatus === 1) {
-      updatedFields.completedAt = currentTimeUnix;
-    } else if (taskStatus === 2) {
-      updatedFields.dismissedAt = currentTimeUnix;
-    } else if (taskStatus === 3) {
-      updatedFields.startAt = currentTimeUnix;
-    }
-    if (Object.keys(updatedFields).length > 0) {
-      await app.updateTask(taskUuid, updatedFields);
-    }
-    if (!isNaN(notesections) && notesections >= 0 && taskNoteuuid && taskNoteuuid.uuid == task.noteUUID) {
-      const updatedMarkdown = await moveTaskToHeader(app, task.noteUUID, task.uuid, notesections);
-      if (updatedMarkdown) {
-        await app.replaceNoteContent({ uuid: task.noteUUID }, updatedMarkdown);
-      }
-    }
-    await refreshKanbanPage(app);
-  } catch (error) {
-    console.error(`Error in handleTaskEdit for task ${taskUuid}:`, error);
   }
-}
 
-// anp-15-kanban/lib/features/createTask.js
-async function handleCreateTask(app, noteName) {
-  try {
-    const kanbanTagz = await app.settings["Kanban Filter Tag"];
-    const noteHandleCT = await app.findNote({ name: noteName, tag: kanbanTagz || "-reports/-kanban" });
-    if (!noteHandleCT) return;
-    const sections = await app.getNoteSections({ uuid: noteHandleCT.uuid });
-    const transformedSections = sections.map((item, index) => {
-      const headerValue = item.heading ? item.heading.text : "Main";
-      return { label: headerValue, value: index };
+  function renderMeta() {
+    var counter = document.getElementById("kb-roundtrips");
+    if (counter && STATE.meta) counter.textContent = String(STATE.meta.roundTrips || 0);
+  }
+
+  function renderAll() {
+    renderTabs();
+    renderBoard();
+    renderMeta();
+  }
+
+  /* ---------------- progress ---------------- */
+
+  function setProgress(ratio) {
+    var wrap = document.getElementById("kb-progress");
+    var bar = document.getElementById("kb-progress-bar");
+    if (!wrap || !bar) return;
+    if (ratio === null) {
+      wrap.classList.remove("kb-progress-visible");
+      bar.style.width = "0%";
+      return;
+    }
+    wrap.classList.add("kb-progress-visible");
+    bar.style.width = Math.max(0, Math.min(100, Math.round(ratio * 100))) + "%";
+  }
+
+  function setBusy(buttonId, busy) {
+    var btn = document.getElementById(buttonId);
+    if (btn) btn.classList.toggle("kb-busy", !!busy);
+  }
+
+  /* ---------------- actions ---------------- */
+
+  function wireControls() {
+    var themeBtn = document.getElementById("kb-theme-btn");
+    if (themeBtn) themeBtn.addEventListener("click", cycleTheme);
+
+    var refreshTabBtn = document.getElementById("kb-refresh-tab");
+    if (refreshTabBtn) {
+      refreshTabBtn.addEventListener("click", function () {
+        setBusy("kb-refresh-tab", true);
+        callPlugin("refreshTab", { tabId: STATE.activeTabId });
+      });
+    }
+
+    var refreshAllBtn = document.getElementById("kb-refresh-all");
+    if (refreshAllBtn) {
+      refreshAllBtn.addEventListener("click", function () {
+        setBusy("kb-refresh-all", true);
+        setProgress(0.15);
+        callPlugin("refreshAll");
+      });
+    }
+
+    var pingBtn = document.getElementById("kb-ping");
+    if (pingBtn) {
+      pingBtn.addEventListener("click", function () {
+        setBusy("kb-ping", true);
+        callPlugin("ping");
+      });
+    }
+
+    window.addEventListener("keydown", function (e) {
+      var tag = document.activeElement && document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "t" || e.key === "T") cycleTheme();
     });
-    const result = await app.prompt("Update Task Details", {
-      inputs: [
-        { label: "Update Task Content:", type: "text" },
-        { label: "Update Important:", type: "checkbox" },
-        { label: "Update Urgent:", type: "checkbox" },
-        { label: "Move to a Note or Header. Select Note:", type: "note", value: `${noteHandleCT.uuid}` },
-        { label: "Select Section or Header (Caution: refrain from using --- in the note.):", type: "select", options: transformedSections },
-        { label: "Update Score:", type: "string" },
-        { label: "Mark Task Status:", type: "radio", options: [
-          { label: "Started", value: 3 },
-          { label: "Completed", value: 1 },
-          { label: "Dismissed", value: 2 }
-        ] }
-      ]
-    });
-    if (!result) return;
-    let [taskContent, taskImportant, taskUrgent, taskNoteuuid, notesections, taskScore, taskStatus] = result;
-    notesections = parseFloat(notesections);
-    taskScore = parseFloat(taskScore);
-    const currentTimeUnix = Math.floor(Date.now() / 1e3);
-    const updatedFields = {};
-    let taskUUID;
-    if (taskNoteuuid && taskNoteuuid.uuid) {
-      taskUUID = await app.insertTask({ uuid: taskNoteuuid.uuid }, { text: "" });
-    } else {
-      taskUUID = await app.insertTask({ uuid: noteHandleCT.uuid }, { text: "" });
-      taskNoteuuid = { uuid: noteHandleCT.uuid };
+  }
+
+  /* ---------------- boot ---------------- */
+
+  bootTheme();
+  wireControls();
+  renderAll();
+})();
+`;
+}
+
+// anp-15-kanban/lib/utils/html.js
+function toJsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+}
+
+// anp-15-kanban/lib/ui/boardTemplate.js
+function buildBaseCss() {
+  return `
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
     }
-    if (taskContent) updatedFields.content = taskContent;
-    if (taskImportant) updatedFields.important = true;
-    if (taskUrgent) updatedFields.urgent = true;
-    if (taskScore) updatedFields.score = taskScore;
-    if (taskStatus === 1) {
-      updatedFields.completedAt = currentTimeUnix;
-    } else if (taskStatus === 2) {
-      updatedFields.dismissedAt = currentTimeUnix;
-    } else if (taskStatus === 3) {
-      updatedFields.startAt = currentTimeUnix;
+    body {
+        font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+        background: var(--kb-bg);
+        color: var(--kb-text);
+        display: flex;
+        flex-direction: column;
+        font-size: 14px;
     }
-    if (Object.keys(updatedFields).length > 0) {
-      await app.updateTask(taskUUID, updatedFields);
+    button {
+        font-family: inherit;
+        cursor: pointer;
     }
-    if (!isNaN(notesections) && notesections >= 0 && taskNoteuuid && taskNoteuuid.uuid) {
-      const updatedMarkdown = await moveTaskToHeader(app, taskNoteuuid.uuid, taskUUID, notesections);
-      if (updatedMarkdown) {
-        await app.replaceNoteContent({ uuid: taskNoteuuid.uuid }, updatedMarkdown);
-      }
+
+    /* ---------- header ---------- */
+    .kb-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: var(--kb-bg-header);
+        border-bottom: 1px solid var(--kb-border);
+        position: relative;
+        flex: 0 0 auto;
     }
-    await refreshKanbanPage(app);
-  } catch (error) {
-    console.error("Error creating task in kanban:", error);
-  }
-}
-
-// anp-15-kanban/lib/features/createNewNote.js
-async function handleCreateNewNote(app) {
-  const result = await app.prompt(`Details for New Note Creation`, {
-    inputs: [
-      { label: "Enter a Note Name:", type: "string" },
-      { label: "Select a Note as Template w/ Tasks: (Optional)", type: "note" }
-    ]
-  });
-  if (result) {
-    const [noteName, copyNote] = result;
-    const kanbanTagz = await app.settings["Kanban Filter Tag"];
-    const uuidz = await app.createNote(noteName, [kanbanTagz || "-reports/-kanban"]);
-    if (copyNote) {
-      const markdown = await app.getNoteContent({ uuid: copyNote.uuid });
-      await app.replaceNoteContent({ uuid: uuidz }, markdown);
-    } else {
-      const note = await app.notes.find(uuidz);
-      await note.insertTask({ content: "Temp: This Task is created by [Kanban Plugin](https://www.amplenote.com/plugins?sort_by=newest)" });
+    .kb-brand {
+        font-weight: 700;
+        font-size: 15px;
+        margin-right: auto;
+        white-space: nowrap;
     }
-  } else {
-    return;
-  }
-  refreshKanbanPage(app);
-}
+    .kb-btn {
+        background: var(--kb-bg-card);
+        color: var(--kb-text);
+        border: 1px solid var(--kb-border);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+        transition: background 0.15s ease, border-color 0.15s ease;
+        white-space: nowrap;
+    }
+    .kb-btn:hover { border-color: var(--kb-accent); }
+    .kb-btn.kb-busy { opacity: 0.55; pointer-events: none; }
+    .kb-roundtrips {
+        font-size: 11px;
+        color: var(--kb-text-muted);
+        border: 1px dashed var(--kb-border);
+        border-radius: 10px;
+        padding: 2px 8px;
+    }
 
-// anp-15-kanban/lib/features/updateTag.js
-async function handleUpdateTag(app) {
-  const tagSetting = await app.settings["Kanban Filter Tag"];
-  const result = await app.prompt(`Details for Tag Filtering in Kanban. Current Selection:[${tagSetting}]`, {
-    inputs: [
-      { label: "Select a Tag: (1)", type: "tags", limit: 1, value: tagSetting }
-    ]
-  });
-  if (result) {
-    await app.setSetting("Kanban Filter Tag", result);
-  } else {
-    return;
-  }
-  refreshKanbanPage(app);
-}
+    /* ---------- progress bar ---------- */
+    .kb-progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 3px;
+        background: transparent;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .kb-progress.kb-progress-visible { opacity: 1; }
+    .kb-progress-bar {
+        height: 100%;
+        width: 0%;
+        background: var(--kb-accent);
+        transition: width 0.25s ease;
+    }
 
-// anp-15-kanban/lib/features/toggleSort.js
-async function handleToggleSort(app) {
-  const sortSetting = await app.settings["Toggle Sort"];
-  const result = await app.prompt(`Sort Tasks. Current Setting: ${sortSetting}`, {
-    inputs: [
-      {
-        label: `Tasks Toggle Sort: [${sortSetting}]`,
-        type: "select",
-        options: [
-          { label: "startDate", value: "startDate" },
-          { label: "taskScore", value: "taskScore" },
-          { label: "important", value: "important" },
-          { label: "urgent", value: "urgent" }
-        ]
-      }
-    ]
-  });
-  if (result) {
-    await app.setSetting("Toggle Sort", result);
-  } else {
-    return;
-  }
-  refreshKanbanPage(app);
-}
+    /* ---------- tabs ---------- */
+    .kb-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 8px 14px 0 14px;
+        overflow-x: auto;
+        flex: 0 0 auto;
+    }
+    .kb-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 220px;
+        padding: 6px 12px;
+        border: 1px solid var(--kb-border);
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        background: var(--kb-bg-column);
+        color: var(--kb-text-muted);
+        font-size: 13px;
+    }
+    .kb-tab-active {
+        background: var(--kb-bg-card);
+        color: var(--kb-text);
+        border-color: var(--kb-accent);
+        box-shadow: inset 0 -2px 0 var(--kb-accent);
+    }
+    .kb-tab-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-// anp-15-kanban/lib/features/refreshPage.js
-async function handleRefreshPage(app) {
-  refreshKanbanPage(app);
-}
+    /* ---------- board ---------- */
+    .kb-board {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 14px 20px 14px;
+        overflow-x: auto;
+        flex: 1 1 auto;
+        border-top: 1px solid var(--kb-border);
+    }
+    .kb-empty {
+        margin: 40px auto;
+        color: var(--kb-text-muted);
+    }
+    .kb-column {
+        flex: 0 0 auto;
+        width: 300px;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: var(--kb-bg-column);
+        border: 1px solid var(--kb-border);
+        border-radius: 10px;
+        box-shadow: 0 2px 8px var(--kb-shadow);
+    }
+    .kb-column-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--kb-border);
+    }
+    .kb-column-title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .kb-count {
+        font-size: 11px;
+        color: var(--kb-text-muted);
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        border-radius: 10px;
+        padding: 1px 8px;
+    }
+    .kb-cards {
+        padding: 8px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .kb-card {
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: 0 1px 3px var(--kb-shadow);
+    }
+    .kb-card-title { font-size: 13px; }
+    .kb-card-meta {
+        margin-top: 4px;
+        font-size: 11px;
+        color: var(--kb-text-muted);
+    }
+    .kb-card-done .kb-card-title {
+        text-decoration: line-through;
+        color: var(--kb-text-muted);
+    }
 
-// anp-15-kanban/lib/utils/formatTimestamp.js
-function formatTimestamp(timestamp) {
-  if (!timestamp) {
-    return "Not Set!";
-  }
-  const date = new Date(timestamp * 1e3);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  const formattedDate = `${month}/${day}/${year}`;
-  const formattedTime = `${hours}:${minutes}:${seconds}`;
-  return `${formattedDate} at ${formattedTime}`;
+    /* ---------- scrollbars (theme-aware) ---------- */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb {
+        background: var(--kb-border);
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-track { background: transparent; }
+    * { scrollbar-width: thin; scrollbar-color: var(--kb-border) transparent; }
+  `;
 }
-
-// anp-15-kanban/lib/utils/formatRepeat.js
-function formatTaskRepeat(repeatInfo) {
-  if (!repeatInfo || typeof repeatInfo !== "string") {
-    return "Not Available";
-  }
-  const lines = repeatInfo.split("\n").map((line) => line.trim());
-  const dtstartLine = lines[0];
-  const rruleLine = lines[1];
-  const dtstart = dtstartLine.substring(8);
-  const year = dtstart.substring(0, 4);
-  const month = dtstart.substring(4, 6);
-  const day = dtstart.substring(6, 8);
-  const hours = dtstart.substring(8, 10);
-  const minutes = dtstart.substring(10, 12);
-  const seconds = dtstart.substring(12, 14);
-  const formattedDate = `${month}/${day}/${year}`;
-  const formattedTime = `${hours}:${minutes}:${seconds}`;
-  const rrule = rruleLine.substring(10);
-  const repeatFrequency = rrule.toUpperCase();
-  return `${repeatFrequency.charAt(0).toUpperCase() + repeatFrequency.slice(1).toLowerCase()} <b>Starts At:</b> ${formattedDate} at ${formattedTime}`;
-}
-
-// anp-15-kanban/lib/ui/kanbanTemplate.js
-function buildKanbanTemplate(allTasksText) {
-  return (
-    /* html */
-    `
-<!DOCTYPE html>
+function buildBoardHtml(viewState) {
+  const stateJson = toJsonForScript(viewState);
+  const themesJson = themesJsonForClient();
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kanban Board</title>
     <style>
-        :root {
-            --bg-gradient-start: #f5f7fa;
-            --bg-gradient-end: #c3cfe2;
-            --col-border: #ddd;
-            --btn-text: #fff;
-            --btn-hover-bg: #333;
-            --btn-hover-text: #eee;
-            --shadow: rgba(0, 0, 0, 0.1);
-        }
-        body {
-            font-family: 'Inter', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-            color: #333;
-        }
-        button.top-btn {
-            background-color: #fff;
-            border: 1px solid var(--col-border);
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin-right: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px var(--shadow);
-        }
-        button.top-btn:hover {
-            background-color: var(--btn-hover-bg);
-            color: var(--btn-hover-text);
-            border-color: var(--btn-hover-bg);
-        }
-        #kanban-board {
-            display: flex;
-            overflow-x: auto;
-            gap: 16px;
-            padding-bottom: 20px;
-        }
-        .column {
-            flex: 0 0 auto;
-            min-width: 320px;
-            border: 1px solid var(--col-border);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.5);
-            backdrop-filter: blur(4px);
-            box-shadow: 0 4px 12px var(--shadow);
-            padding: 12px;
-        }
-        .task-category {
-            margin-bottom: 12px;
-            cursor: pointer;
-        }
-        .task-category h3 {
-            margin: 0;
-            padding: 10px;
-            background: transparent;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-        .task {
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            color: #111;
-            font-size: 14px;
-            position: relative;
-            transition: transform 0.2s, box-shadow 0.2s;
-			max-width: 320px;
-            box-shadow: 0 2px 4px var(--shadow);
-        }
-        .task:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px var(--shadow);
-        }
-        .task-button {
-            background-color: transparent;
-			border-radius: 5px;
-            border: none;
-            color: var(--btn-text);
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 10px;
-			position: absolute;
-			right: 5px;
-            transition: all 0.2s;
-        }
-        .task-button:hover {
-			background-color: var(--btn-hover-bg);
-            color: var(--btn-hover-text);
-        }
-        .task-button2 {
-            background-color: transparent;
-			border-radius: 5px;
-            border: none;
-            color: var(--btn-text);
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 10px;
-			position: absolute;
-			right: 28px;
-            transition: all 0.2s;
-        }
-        .task-button2:hover {
-			background-color: var(--btn-hover-bg);			
-            color: var(--btn-hover-text);
-        }
-        .task-button3 {
-            background-color: transparent;
-			border-radius: 5px;
-            border: none;
-            color: #333;
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 10px;
-            transition: all 0.2s;
-        }
-        .task-button3:hover {
-			background-color: var(--btn-hover-bg);			
-            color: var(--btn-hover-text);
-        }
-.high-urgent.high-important {
-    background: radial-gradient(1023px at 3.1% 6.9%, rgb(255, 230, 230) 0%, rgb(165, 30, 63) 74.9%);
-}
-
-.high-urgent.low-important {
-    background: radial-gradient(1023px at 3.1% 6.9%, rgb(255, 235, 200) 0%, rgb(221, 98, 98) 74.9%);
-}
-
-.low-urgent.high-important {
-    background: radial-gradient(1023px at 3.1% 6.9%, rgb(230, 245, 255) 0%, rgb(82, 139, 215) 74.9%);
-}
-
-.low-urgent.low-important {
-    background: radial-gradient(1023px at 3.1% 6.9%, rgb(240, 240, 240) 0%, rgb(139, 139, 139) 74.9%);
-}
-        .task-info {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background-color: #fff;
-            color: #000;
-            border: 1px solid var(--col-border);
-            border-radius: 6px;
-            padding: 12px;
-            box-shadow: 0 4px 12px var(--shadow);
-            z-index: 1000;
-            width: 250px;
-        }
-        .section-title {
-            font-size: 13px;
-            color: #555;
-            margin: 12px 0 6px 0;
-            font-weight: 600;
-        }
+${buildThemeCss()}
+${buildBaseCss()}
     </style>
 </head>
 <body>
-    <button id="cycleButton" class="top-btn">Toggle Sort: <span id="valueDisplay">None</span></button>
-	<button id="createNewNote" class="top-btn">Create New Note</button>
-	<button id="updateTag" class="top-btn">Update Tag</button>
-	<button id="refreshPage" class="top-btn">Refresh Page</button>
-    <br><br>
-    <div id="kanban-board"></div>
-
+    <header class="kb-header">
+        <div class="kb-brand">\u{1F5C2} Kanban Board</div>
+        <span id="kb-roundtrips" class="kb-roundtrips" title="Embed round trips this session">0</span>
+        <button id="kb-ping" class="kb-btn" type="button">Ping</button>
+        <button id="kb-refresh-tab" class="kb-btn" type="button" title="Re-pull the active tab">\u27F3 Tab</button>
+        <button id="kb-refresh-all" class="kb-btn" type="button" title="Re-pull every tab">\u21C9 All</button>
+        <button id="kb-theme-btn" class="kb-btn" type="button" title="Cycle themes (or press T)">
+            <span id="kb-theme-icon">\u{1F3A8}</span> <span id="kb-theme-name">Theme</span>
+        </button>
+        <div class="kb-progress" id="kb-progress"><div class="kb-progress-bar" id="kb-progress-bar"></div></div>
+    </header>
+    <nav id="kb-tabs" class="kb-tabs"></nav>
+    <main id="kb-board" class="kb-board"></main>
+    <script>window.__KANBAN_THEMES__ = ${themesJson};</script>
+    <script>window.__KANBAN_STATE__ = ${stateJson};</script>
     <script>
-        
-  const tasks = ${allTasksText};
-
-try {
-    /**
-     * Determines the CSS class based on the task's urgency and importance.
-     */
-    function getColor(task) {
-        if (task.urgent && task.important) return 'high-urgent high-important';
-        if (task.urgent) return 'high-urgent low-important';
-        if (task.important) return 'low-urgent high-important';
-        return 'low-urgent low-important';
-    }
-
-    const values = ['Start Date', 'Score', 'Important', 'Urgent'];
-    let currentIndex = 0;
-    const valueDisplay = document.getElementById('valueDisplay');
-    const cycleButton = document.getElementById('cycleButton');
-    const createNewNote = document.getElementById('createNewNote');
-    const updateTag = document.getElementById('updateTag');
-    const refreshPage = document.getElementById('refreshPage');
-
-    function refreshPagecall() {
-		window.callAmplenotePlugin("refreshPage")
-    }
-
-    refreshPage.addEventListener('click', refreshPagecall);
-
-    function updateTagcall() {
-		window.callAmplenotePlugin("updateTag")
-    }
-
-    updateTag.addEventListener('click', updateTagcall);
-
-    function createNewNotecall() {
-		window.callAmplenotePlugin("createNewNote")
-    }
-
-    createNewNote.addEventListener('click', createNewNotecall);
-
-    function updateValue() {
-        valueDisplay.textContent = values[currentIndex];
-        currentIndex = (currentIndex + 1) % values.length;
-        renderKanbanBoard();
-        window.callAmplenotePlugin("togglesort");
-    }
-
-    cycleButton.addEventListener('click', updateValue);
-
-    function showTaskInfo(task, element) {
-        let infoDiv = element.querySelector('.task-info');
-        if (!infoDiv) {
-            infoDiv = document.createElement('div');
-            infoDiv.className = 'task-info' + (document.body.classList.contains('dark-mode') ? ' dark-mode' : '');
-            infoDiv.innerHTML = task.taskInfo;
-            element.appendChild(infoDiv);
-        }
-        infoDiv.style.display = 'block';
-    }
-
-    function hideTaskInfo(element) {
-        const infoDiv = element.querySelector('.task-info');
-        if (infoDiv) {
-            infoDiv.style.display = 'none';
-        }
-    }
-
-    function createButton(text, className, clickHandler) {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.className = className;
-        button.onclick = clickHandler;
-        return button;
-    }
-
-    function createTaskItem(task, container, isPending = true) {
-        const taskItem = document.createElement('div');
-        taskItem.className = 'task ' + getColor(task);
-        taskItem.textContent = task.content;
-
-        taskItem.appendChild(createButton('\u2139', 'task-button', () => showTaskInfo(task, taskItem)));
-
-        if (isPending) {
-            taskItem.appendChild(createButton('\u2699', 'task-button2', () => window.callAmplenotePlugin("taskEdit", task.uuid)));
-        }
-
-        taskItem.onmouseleave = () => hideTaskInfo(taskItem);
-
-        container.appendChild(taskItem);
-    }
-
-    function sortTasks(tasks, sortBy) {
-        switch (sortBy) {
-            case 'Start Date':
-                return tasks.sort((a, b) => (b.startAt || 0) - (a.startAt || 0));
-            case 'Score':
-                return tasks.sort((a, b) => (b.score || 0) - (a.score || 0));
-            case 'Important':
-                return tasks.sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
-            case 'Urgent':
-                return tasks.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-            default:
-                return tasks;
-        }
-    }
-
-    function renderKanbanBoard() {
-        const board = document.getElementById('kanban-board');
-        const columns = {};
-
-        tasks.forEach(task => {
-            const note = task.notename;
-            if (!columns[note]) {
-                columns[note] = { pending: [], completed: [], dismissed: [] };
-            }
-
-            if (task.completedAt) {
-                columns[note].completed.push(task);
-            } else if (task.dismissedAt) {
-                columns[note].dismissed.push(task);
-            } else {
-                columns[note].pending.push(task);
-            }
-        });
-
-        board.innerHTML = '';
-
-		Object.keys(columns).forEach(note => {
-			const column = document.createElement('div');
-			column.className = 'column';
-
-			const header = document.createElement('h3');
-			header.textContent = note;
-			header.className = 'task-category';
-			column.appendChild(header);
-			header.append(createButton('\u2795', 'task-button3', () => window.callAmplenotePlugin("createTask", note)));
-
-			const pendingList = document.createElement('div');
-			pendingList.append(document.createTextNode('Pending: '));
-			sortTasks(columns[note].pending, valueDisplay.textContent).forEach(task => createTaskItem(task, pendingList));
-
-			const completedList = document.createElement('div');
-			completedList.appendChild(document.createTextNode('Completed:'));
-			columns[note].completed.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
-				.forEach(task => createTaskItem(task, completedList, false));
-
-			const dismissedList = document.createElement('div');
-			dismissedList.appendChild(document.createTextNode('Dismissed:'));
-			columns[note].dismissed.sort((a, b) => (b.dismissedAt || 0) - (a.dismissedAt || 0))
-				.forEach(task => createTaskItem(task, dismissedList, false));
-
-			column.appendChild(pendingList);
-			column.appendChild(completedList);
-			column.appendChild(dismissedList);
-
-			board.appendChild(column);
-		});
-
-    }
-
-    renderKanbanBoard();
-
-} catch (error) {
-    console.error("Error processing scripts:", error);
-}
-
+${buildClientScript()}
     </script>
 </body>
-</html>
-`
-  );
+</html>`;
+}
+
+// anp-15-kanban/lib/core/tabsConfig.js
+function safeParse(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+function normalizeConfig(raw) {
+  const base = emptyTabsConfig();
+  if (!raw || typeof raw !== "object") return base;
+  const tabs = Array.isArray(raw.tabs) ? raw.tabs.filter(isValidTab) : [];
+  const activeTabId = typeof raw.activeTabId === "string" && tabs.some((t) => t.id === raw.activeTabId) ? raw.activeTabId : tabs[0] ? tabs[0].id : null;
+  const dateFormat = typeof raw.settings?.dateFormat === "string" && raw.settings.dateFormat.trim() ? raw.settings.dateFormat : base.settings.dateFormat;
+  return { tabs, activeTabId, settings: { dateFormat } };
+}
+async function loadTabsConfig(app) {
+  let raw = null;
+  try {
+    raw = safeParse(app.settings?.[SETTINGS_KEYS.tabs]);
+  } catch {
+    raw = null;
+  }
+  return normalizeConfig(raw);
+}
+async function saveTabsConfig(app, config) {
+  await app.setSetting(SETTINGS_KEYS.tabs, JSON.stringify(normalizeConfig(config)));
+  return config;
+}
+function setActiveTab(config, tabId) {
+  if (!config.tabs.some((t) => t.id === tabId)) return config;
+  return { ...config, activeTabId: tabId };
+}
+
+// anp-15-kanban/lib/core/sessionState.js
+var session = {
+  roundTrips: 0
+};
+function bumpRoundTrips() {
+  session.roundTrips += 1;
+  return session.roundTrips;
+}
+function getSessionSnapshot() {
+  return { roundTrips: session.roundTrips };
+}
+
+// anp-15-kanban/lib/core/demoBoard.js
+var DEMO_TAB_ID = "tab_demo";
+function withDemoContent(viewState) {
+  if (viewState.tabs && viewState.tabs.length > 0) return viewState;
+  const columns = [
+    {
+      id: "col_todo",
+      name: "To Do",
+      cards: [
+        { id: "card_1", title: "Welcome to Kanban \u{1F44B}", meta: "Demo card" },
+        { id: "card_2", title: "Drag & drop arrives in Phase 1", meta: "Roadmap" },
+        { id: "card_3", title: "Press T to cycle themes", meta: "Tip" }
+      ]
+    },
+    {
+      id: "col_doing",
+      name: "In Progress",
+      cards: [
+        { id: "card_4", title: "Scaffold embed round trip", meta: "Phase 0" }
+      ]
+    },
+    {
+      id: "col_done",
+      name: "Done",
+      cards: [
+        { id: "card_5", title: "Plugin plan approved", meta: "ds.md" }
+      ]
+    }
+  ];
+  return {
+    ...viewState,
+    activeTabId: DEMO_TAB_ID,
+    tabs: [{ id: DEMO_TAB_ID, kind: "note", name: "Demo Board", noteUUID: null, tag: null }],
+    boards: { [DEMO_TAB_ID]: { columns } }
+  };
+}
+
+// anp-15-kanban/lib/features/embedActions.js
+async function rerender(app) {
+  if (typeof app.context?.renderEmbed === "function") {
+    await app.context.renderEmbed();
+  }
+}
+async function handlePing(app) {
+  await rerender(app);
+  return { ok: true };
+}
+async function handleSaveTheme(app, payload) {
+  const themeId = payload && typeof payload.themeId === "string" ? payload.themeId : null;
+  if (!themeId || !isValidThemeId(themeId)) return;
+  await app.setSetting(SETTINGS_KEYS.theme, themeId);
+}
+async function handleSetActiveTab(app, payload) {
+  const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
+  if (!tabId) return;
+  const config = setActiveTab(await loadTabsConfig(app), tabId);
+  await saveTabsConfig(app, config);
+  await rerender(app);
+}
+async function handleRefreshTab(app) {
+  await rerender(app);
+}
+async function handleRefreshAll(app) {
+  await rerender(app);
+}
+var ACTIONS = {
+  ping: handlePing,
+  saveTheme: handleSaveTheme,
+  setActiveTab: handleSetActiveTab,
+  refreshTab: handleRefreshTab,
+  refreshAll: handleRefreshAll
+};
+async function handleEmbedAction(app, args) {
+  const [action, payload] = args || [];
+  const handler = ACTIONS[action];
+  if (!handler) {
+    console.warn(`Unknown embed action: ${action}`);
+    return void 0;
+  }
+  return handler(app, payload);
 }
 
 // anp-15-kanban/kanban.js
 var plugin = {
   appOption: {
     /* ----------------------------------- */
-    "Tagged!": handleTagged
+    "Open Kanban Board": async (app) => {
+      await app.openEmbed();
+      await app.navigate(`https://www.amplenote.com/notes/plugins/${app.context.pluginUUID}`);
+    }
     /* ----------------------------------- */
   },
   /* ----------------------------------- */
-  async onEmbedCall(app, ...args) {
-    switch (args[0]) {
-      case "taskEdit":
-        await handleTaskEdit(app, args[1]);
-        break;
-      case "createTask":
-        await handleCreateTask(app, args[1]);
-        break;
-      case "createNewNote":
-        await handleCreateNewNote(app);
-        break;
-      case "updateTag":
-        await handleUpdateTag(app);
-        break;
-      case "togglesort":
-        await handleToggleSort(app);
-        break;
-      case "refreshPage":
-        await handleRefreshPage(app);
-        break;
+  /**
+   * Builds the serializable view state consumed by the embed client.
+   * Always re-derived from source of truth (settings + notes/tags) — never
+   * trusted from stale embed args.
+   * @param {Object} app - The Amplenote App instance.
+   */
+  async buildViewState(app) {
+    const config = await loadTabsConfig(app);
+    let themeId = DEFAULT_THEME_ID;
+    try {
+      themeId = await app.settings?.[SETTINGS_KEYS.theme] || DEFAULT_THEME_ID;
+    } catch {
+      themeId = DEFAULT_THEME_ID;
     }
+    return {
+      version: 1,
+      activeTabId: config.activeTabId,
+      tabs: config.tabs,
+      boards: {},
+      settings: {
+        theme: themeId,
+        dateFormat: config.settings.dateFormat || DEFAULT_DATE_FORMAT
+      },
+      meta: { roundTrips: getSessionSnapshot().roundTrips }
+    };
   },
   /* ----------------------------------- */
-  async renderEmbed(app, ...args) {
-    let allTasksText;
-    let taskSorting;
-    const kanbanTagz = await app.settings["Kanban Filter Tag"];
-    const noteHandles = await app.filterNotes({ tag: kanbanTagz || "-reports/-kanban" });
-    if (noteHandles.length > 0) {
-      let allTasks = [];
-      const escapeHTML = (str) => String(str).replace(
-        /[&<>'"]/g,
-        (tag) => ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          "'": "&#39;",
-          '"': "&quot;"
-        })[tag]
-      );
-      for (let note of noteHandles) {
-        const noteUUID = note.uuid;
-        const noteTags = escapeHTML(note.tags.join(", "));
-        const noteNameSafe = escapeHTML(note.name);
-        const tasks = await app.getNoteTasks({ uuid: noteUUID }, { includeDone: true });
-        for (let i = 0; i < tasks.length; i++) {
-          const task = tasks[i];
-          allTasks.push({
-            ...task,
-            notename: noteNameSafe,
-            noteurl: `https://www.amplenote.com/notes/${note.uuid}`,
-            tags: noteTags,
-            startAtz: `${formatTimestamp(task.startAt)}`,
-            hideUntilz: `${formatTimestamp(task.hideUntil)}`,
-            endAtz: `${formatTimestamp(task.endAt)}`,
-            repeatz: `${formatTaskRepeat(task.repeat)}`,
-            taskInfo: `<b>Important:</b> ${task.important}<br><b>Urgent:</b> ${task.urgent}<br><b>Score:</b> ${task.score.toFixed(2)}<br><hr><b>Start At:</b> ${formatTimestamp(task.startAt)}<br><b>Hide Until:</b> ${formatTimestamp(task.hideUntil)}<br><b>End At:</b> ${formatTimestamp(task.endAt)}<br><b>Repeat:</b> ${formatTaskRepeat(task.repeat)}<br><hr><b>Completed At:</b> ${formatTimestamp(task.completedAt)}<br><b>Dismissed At:</b> ${formatTimestamp(task.dismissedAt)}<br><hr><b>Note Link:</b> <a href="https://www.amplenote.com/notes/${note.uuid}" target="_blank">${noteNameSafe}</a><br><b>Tags:</b> ${noteTags}`
-          });
-        }
-      }
-      taskSorting = app.settings["Toggle Sort"] || "taskScore";
-      if (taskSorting === "startDate") {
-        allTasks.sort((a, b) => (b.startAt || 0) - (a.startAt || 0));
-      }
-      if (taskSorting === "taskScore") {
-        allTasks.sort((a, b) => b.score - a.score);
-      }
-      if (taskSorting === "important") {
-        allTasks.sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
-      }
-      if (taskSorting === "urgent") {
-        allTasks.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-      }
-      allTasksText = JSON.stringify(allTasks, null, 2);
-    } else {
-      const goalsSmall = ["Life Goals", "Yearly Goals", "Monthly Goals", "Today's Tasks"];
-      for (const header of goalsSmall) {
-        await app.createNote(header, ["-reports/-kanban"]);
-        await app.setSetting("Kanban Filter Tag", "-reports/-kanban");
-        app.alert("Success! Looks like it's your first time running the program, so we created a few notes with a specific tag to get you rolling. Now you can run the Kanban Plugin again and see at your brand-new board!");
-      }
+  /**
+   * Renders the board HTML for the embed section.
+   * @param {Object} app - The Amplenote App instance.
+   * @returns {Promise<string>} full HTML document for the embed iframe.
+   */
+  async renderEmbed(app) {
+    const viewState = await this.buildViewState(app);
+    return buildBoardHtml(withDemoContent(viewState));
+  },
+  /* ----------------------------------- */
+  /**
+   * Handles actions dispatched from the embed via callAmplenotePlugin.
+   * @param {Object} app - The Amplenote App instance.
+   * @param {...any} args - [action, payload].
+   */
+  async onEmbedCall(app, ...args) {
+    bumpRoundTrips();
+    try {
+      return await handleEmbedAction(app, args);
+    } catch (error) {
+      console.error(`Embed action failed:`, error);
+      return void 0;
     }
-    return buildKanbanTemplate(allTasksText);
   }
   /* ----------------------------------- */
 };
