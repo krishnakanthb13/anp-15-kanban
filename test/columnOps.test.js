@@ -49,6 +49,23 @@ describe("columnOps", () => {
       );
     });
 
+    it("respects explicit heading levels (1, 2, 3)", async () => {
+      const app = makeApp();
+      await createColumn(app, "n1", "Heading One", 1);
+      expect(app.insertNoteContent).toHaveBeenCalledWith(
+        { uuid: "n1" },
+        "\n# Heading One\n",
+        { atEnd: true }
+      );
+
+      await createColumn(app, "n1", "Heading Three", "3");
+      expect(app.insertNoteContent).toHaveBeenCalledWith(
+        { uuid: "n1" },
+        "\n### Heading Three\n",
+        { atEnd: true }
+      );
+    });
+
     it("rejects blank names without writing", async () => {
       const app = makeApp();
       expect(await createColumn(app, "n1", "   ")).toBe(false);

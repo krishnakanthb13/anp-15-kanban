@@ -161,13 +161,21 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `cardMenu` | `handleCardMenu` | Context menu (edit details, label, date & time, snooze, timeblock, create note) |
 | `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (powered by universal `combineDateAndTime`) |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
-| `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board |
-| `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown |
-| `renameColumn` | `handleRenameColumn` | Renames heading in note markdown |
-| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to top |
-| `moveColumn` | `handleMoveColumn` | Re-orders headings in note markdown |
+| `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board or note in tag board |
+| `moveSectionToNote`| `handleMoveColumnToTab` | Alias for moving heading section to another note |
+| `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown (Note boards or specific note in Tag boards) |
+| `createSection`| `handleCreateColumn` | Alias for creating heading in note |
+| `createColumnNote`| `handleCreateColumnNote`| Creates new note auto-tagged with board tag for Tag/Notes boards |
+| `createNote` | `handleCreateColumnNote`| Alias for creating tagged column note |
+| `renameColumn` | `handleRenameColumn` | Renames heading in note markdown (Note boards & Tag board sections) |
+| `renameSection`| `handleRenameColumn` | Alias for renaming heading section |
+| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to top (Note boards & Tag board sections) |
+| `deleteSection`| `handleDeleteColumn` | Alias for deleting heading section |
+| `moveColumn` | `handleMoveColumn` | Re-orders headings in note markdown (Note boards & Tag board sections) |
+| `moveSection` | `handleMoveColumn` | Alias for re-ordering heading sections |
 | `setWipLimit` | `handleSetWipLimit` | Sets WIP limit for column |
 | `renameNote` | `handleRenameNote` | Renames note on Tag / Notes boards |
+| `deleteNote` | `handleDeleteNote` | Confirms and deletes note to Amplenote Trash via `app.deleteNote` |
 
 ---
  
@@ -180,16 +188,17 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
     - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
     - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), cycling sort button (`#kb-sort-btn`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
     - Column header layout with wide column title and right-aligned action group (`.kb-col-actions`) hosting count badge (`.kb-count`), `+` button, and micro floating tool palette (`.kb-col-tools`).
+    - Section header toolbars (`.kb-section-tools`) and right-end add column/note card (`.kb-add-column-card`).
     - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
  - **`clientScript.js`**:
-    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, and 0ms client theme cycler with unified cloud and local persistence.
+    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/note creator, tag board section tools, and 0ms client theme cycler with unified cloud and local persistence.
  
  ---
  
  ## Testing Strategy
  
  ```bash
- npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 209 tests)
+ npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 213 tests)
  node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
  node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
  ```

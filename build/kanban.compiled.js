@@ -228,6 +228,8 @@ function buildClientScript() {
   var SVG_ICONS = {
     note: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
     tag: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+    chevronUp: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>',
+    chevronDown: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>',
     chevronLeft: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>',
     chevronRight: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>',
     close: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
@@ -700,15 +702,25 @@ function buildClientScript() {
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
         actionsWrap.appendChild(tools);
-      } else if (isTagBoard) {
+      } else if (isTagBoard || data.kind === "notes") {
         var ttools = el("div", "kb-col-tools");
         addColToolSvg(ttools, "externalLink", "Open note in Amplenote", function (e) {
           e.stopPropagation();
           callPlugin("openCard", { noteUUID: col.noteUUID });
         });
+        if (isTagBoard) {
+          addColToolSvg(ttools, "plus", "Add header to this note", function (e) {
+            e.stopPropagation();
+            callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id });
+          });
+        }
         addColToolSvg(ttools, "edit", "Rename note", function (e) {
           e.stopPropagation();
           callPlugin("renameNote", { tabId: STATE.activeTabId, columnId: col.id });
+        });
+        addColToolSvg(ttools, "trash", "Delete note (move to Trash)", function (e) {
+          e.stopPropagation();
+          callPlugin("deleteNote", { tabId: STATE.activeTabId, columnId: col.id, noteUUID: col.noteUUID, noteName: col.name });
         });
         actionsWrap.appendChild(ttools);
       }
@@ -765,6 +777,34 @@ function buildClientScript() {
           tw.appendChild(el("span", "kb-section-title", sec.name + " (" + secCards.length + ")"));
           secHead.appendChild(tw);
 
+          var secActions = el("div", "kb-section-actions");
+
+          // Header tools for Tag tab sections (available for actual note headings)
+          if (sec.id !== "unsorted" && sec.id !== "main") {
+            var sectools = el("div", "kb-section-tools");
+            addColToolSvg(sectools, "chevronUp", "Move header up", function (e) {
+              e.stopPropagation();
+              callPlugin("moveColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id, direction: "left" });
+            });
+            addColToolSvg(sectools, "chevronDown", "Move header down", function (e) {
+              e.stopPropagation();
+              callPlugin("moveColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id, direction: "right" });
+            });
+            addColToolSvg(sectools, "edit", "Rename header", function (e) {
+              e.stopPropagation();
+              callPlugin("renameColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
+            });
+            addColToolSvg(sectools, "transfer", "Move header to another note / tab", function (e) {
+              e.stopPropagation();
+              callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
+            });
+            addColToolSvg(sectools, "trash", "Delete header (tasks move to top)", function (e) {
+              e.stopPropagation();
+              callPlugin("deleteColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
+            });
+            secActions.appendChild(sectools);
+          }
+
           var secAdd = el("button", "kb-col-btn");
           secAdd.type = "button";
           secAdd.title = "Add task in " + sec.name;
@@ -773,9 +813,12 @@ function buildClientScript() {
             e.stopPropagation();
             callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
           });
-          secHead.appendChild(secAdd);
+          secActions.appendChild(secAdd);
 
-          secHead.addEventListener("click", function () {
+          secHead.appendChild(secActions);
+
+          secHead.addEventListener("click", function (e) {
+            if (e.target && e.target.closest && (e.target.closest(".kb-col-btn") || e.target.closest(".kb-section-tools"))) return;
             collapsedSections[secKey] = !collapsedSections[secKey];
             renderBoard();
           });
@@ -789,6 +832,20 @@ function buildClientScript() {
           secEl.appendChild(secList);
           sectionsHost.appendChild(secEl);
         });
+
+        // Small "+ Add Header" card at bottom of sections in tag tab
+        var addSecCard = el("div", "kb-add-header-card");
+        addSecCard.title = "Add a new heading section to " + col.name;
+        var asIcon = el("span", "kb-add-header-icon");
+        asIcon.appendChild(svg("plus"));
+        addSecCard.appendChild(asIcon);
+        addSecCard.appendChild(el("span", "kb-add-header-label", "Add Header"));
+        addSecCard.addEventListener("click", function (e) {
+          e.stopPropagation();
+          callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id });
+        });
+        sectionsHost.appendChild(addSecCard);
+
         colEl.appendChild(sectionsHost);
       } else {
         var list = el("div", "kb-cards");
@@ -796,11 +853,49 @@ function buildClientScript() {
         applySort(visibleCards).forEach(function (card) {
           list.appendChild(buildCardEl(card));
         });
+
+        if (isTagBoard || data.kind === "notes") {
+          var addNotesSecCard = el("div", "kb-add-header-card");
+          addNotesSecCard.title = "Add a new heading to " + col.name;
+          var ansIcon = el("span", "kb-add-header-icon");
+          ansIcon.appendChild(svg("plus"));
+          addNotesSecCard.appendChild(ansIcon);
+          addNotesSecCard.appendChild(el("span", "kb-add-header-label", "Add Header"));
+          addNotesSecCard.addEventListener("click", function (e) {
+            e.stopPropagation();
+            callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id });
+          });
+          list.appendChild(addNotesSecCard);
+        }
+
         colEl.appendChild(list);
       }
 
       board.appendChild(colEl);
     });
+
+    // Add Column / Add Note button at the right end of the board
+    var isNoteTab = data.kind === "note";
+    var addCardEl = el("div", "kb-add-column-card");
+    addCardEl.title = isNoteTab
+      ? "Add new column / header to note"
+      : ("Create new note under tag " + (data.tag ? "#" + data.tag : ""));
+
+    var iconWrap = el("div", "kb-add-column-icon");
+    iconWrap.appendChild(svg("plus"));
+    addCardEl.appendChild(iconWrap);
+
+    addCardEl.appendChild(el("span", "kb-add-column-label", isNoteTab ? "+ Add Header" : "+ Add Note"));
+    addCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "New column heading" : "New column note"));
+
+    addCardEl.addEventListener("click", function () {
+      if (isNoteTab) {
+        callPlugin("createColumn", { tabId: STATE.activeTabId });
+      } else {
+        callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+      }
+    });
+    board.appendChild(addCardEl);
 
     if (!anyVisible) {
       board.appendChild(el("div", "kb-empty", searchQuery
@@ -1284,6 +1379,19 @@ function buildClientScript() {
       });
     }
 
+    window.addEventListener("wheel", function (e) {
+      // Shift + Wheel: strictly for horizontal scrolling across board columns
+      if (e.shiftKey) {
+        var boardEl = document.getElementById("kb-board");
+        if (boardEl) {
+          e.preventDefault();
+          var delta = e.deltaY || e.deltaX;
+          boardEl.scrollLeft += delta * 1.5;
+        }
+      }
+      // Without Shift: pure native vertical scroll only
+    }, { passive: false });
+
     window.addEventListener("keydown", function (e) {
       var tag = document.activeElement && document.activeElement.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -1323,6 +1431,8 @@ function buildBaseCss() {
         margin: 0;
         padding: 0;
         height: 100%;
+        width: 100%;
+        overflow: hidden;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         text-rendering: optimizeLegibility;
@@ -1335,6 +1445,9 @@ function buildBaseCss() {
         flex-direction: column;
         font-size: 13.5px;
         line-height: 1.45;
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden;
     }
     button, input, select, textarea {
         font-family: inherit;
@@ -1817,9 +1930,12 @@ function buildBaseCss() {
         display: flex;
         align-items: flex-start;
         gap: 14px;
-        padding: 14px 16px 24px 16px;
+        padding: 14px 16px 28px 16px;
         overflow-x: auto;
-        flex: 1 1 auto;
+        overflow-y: hidden;
+        flex: 1 1 0;
+        min-height: 0;
+        height: auto;
         border-top: 1px solid var(--kb-border);
     }
     .kb-empty {
@@ -1833,10 +1949,13 @@ function buildBaseCss() {
         padding: 24px 32px;
         max-width: 440px;
         box-shadow: 0 2px 8px var(--kb-shadow);
+        align-self: flex-start;
     }
     .kb-column {
-        flex: 0 0 auto;
-        width: 324px;
+        flex: 0 0 clamp(290px, 24vw, 360px);
+        width: clamp(290px, 24vw, 360px);
+        min-width: 280px;
+        max-width: 420px;
         max-height: 100%;
         display: flex;
         flex-direction: column;
@@ -1845,6 +1964,7 @@ function buildBaseCss() {
         border-radius: 12px;
         box-shadow: 0 2px 10px var(--kb-shadow);
         transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+        min-height: 0;
     }
     .kb-column.kb-col-dragging {
         opacity: 0.4;
@@ -1987,20 +2107,76 @@ function buildBaseCss() {
         color: var(--kb-accent);
     }
 
+    /* ---------- add column / add note placeholder at right end of board ---------- */
+    .kb-add-column-card {
+        flex: 0 0 clamp(240px, 20vw, 290px);
+        width: clamp(240px, 20vw, 290px);
+        min-height: 120px;
+        align-self: flex-start;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: color-mix(in srgb, var(--kb-bg-column) 50%, transparent);
+        border: 2px dashed var(--kb-border);
+        border-radius: 12px;
+        padding: 24px 16px;
+        cursor: pointer;
+        color: var(--kb-text-muted);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+    }
+    .kb-add-column-card:hover {
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-accent) 6%, var(--kb-bg-column));
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px var(--kb-shadow);
+    }
+    .kb-add-column-card .kb-add-column-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 1px dashed currentColor;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s ease, border-style 0.2s ease;
+    }
+    .kb-add-column-card:hover .kb-add-column-icon {
+        transform: scale(1.12);
+        border-style: solid;
+        background: color-mix(in srgb, var(--kb-accent) 15%, transparent);
+    }
+    .kb-add-column-card .kb-add-column-label {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+    .kb-add-column-card .kb-add-column-sub {
+        font-size: 11px;
+        opacity: 0.7;
+    }
+
     /* ---------- sections (for tag boards with collapsible headers) ---------- */
     .kb-sections {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 8px;
+        gap: 10px;
+        padding: 10px 10px 36px 10px;
         overflow-y: auto;
+        flex: 1 1 auto;
+        min-height: 0;
+        scrollbar-width: thin;
     }
     .kb-section {
         border: 1px solid var(--kb-border);
         border-radius: 8px;
         background: var(--kb-bg);
-        overflow: hidden;
+        overflow: visible;
         box-shadow: 0 1px 3px var(--kb-shadow);
+        flex-shrink: 0;
     }
     .kb-section-head {
         display: flex;
@@ -2012,6 +2188,7 @@ function buildBaseCss() {
         user-select: none;
         font-size: 12px;
         font-weight: 600;
+        border-radius: 8px 8px 0 0;
         transition: background 0.15s ease;
     }
     .kb-section-head:hover {
@@ -2022,6 +2199,37 @@ function buildBaseCss() {
         align-items: center;
         gap: 6px;
         min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+    .kb-section-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .kb-section-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+    .kb-section-tools {
+        display: flex;
+        align-items: center;
+        gap: 1px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+        padding: 1px 2px;
+        border-radius: 5px;
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        box-shadow: 0 1px 3px var(--kb-shadow);
+    }
+    .kb-section:hover .kb-section-tools {
+        opacity: 1;
+        pointer-events: auto;
     }
     .kb-section-toggle {
         display: inline-flex;
@@ -2033,18 +2241,91 @@ function buildBaseCss() {
         display: flex;
         flex-direction: column;
         gap: 8px;
-        padding: 8px;
+        padding: 8px 8px 12px 8px;
+        min-height: fit-content;
     }
     .kb-section-cards.kb-collapsed {
         display: none;
     }
 
+    /* ---------- add header button/card inside note column (tag/notes tab) ---------- */
+    .kb-add-header-card {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 7px 10px;
+        background: color-mix(in srgb, var(--kb-bg-column) 60%, transparent);
+        border: 1px dashed var(--kb-border);
+        border-radius: 8px;
+        cursor: pointer;
+        color: var(--kb-text-muted);
+        font-size: 11.5px;
+        font-weight: 600;
+        transition: all 0.15s ease;
+        user-select: none;
+        margin-top: 2px;
+        flex: 0 0 auto;
+    }
+    .kb-add-header-card:hover {
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-accent) 8%, var(--kb-bg-card));
+        border-style: solid;
+        box-shadow: 0 1px 4px var(--kb-shadow);
+    }
+    .kb-add-header-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     .kb-cards {
-        padding: 8px;
+        padding: 10px 10px 36px 10px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
         gap: 8px;
+        flex: 1 1 auto;
+        min-height: 0;
+        scrollbar-width: thin;
+    }
+
+    /* ---------- custom scrollbars for smooth scrolling ---------- */
+    .kb-board::-webkit-scrollbar {
+        height: 10px;
+    }
+    .kb-board::-webkit-scrollbar-track {
+        background: color-mix(in srgb, var(--kb-bg) 70%, transparent);
+        border-radius: 5px;
+    }
+    .kb-board::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--kb-border) 80%, transparent);
+        border-radius: 5px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+    .kb-board::-webkit-scrollbar-thumb:hover {
+        background: var(--kb-text-muted);
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+    .kb-sections::-webkit-scrollbar,
+    .kb-cards::-webkit-scrollbar {
+        width: 6px;
+    }
+    .kb-sections::-webkit-scrollbar-track,
+    .kb-cards::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .kb-sections::-webkit-scrollbar-thumb,
+    .kb-cards::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--kb-border) 90%, transparent);
+        border-radius: 3px;
+    }
+    .kb-sections::-webkit-scrollbar-thumb:hover,
+    .kb-cards::-webkit-scrollbar-thumb:hover {
+        background: var(--kb-text-muted);
     }
     .kb-card {
         background: var(--kb-bg-card);
@@ -2054,6 +2335,10 @@ function buildBaseCss() {
         box-shadow: 0 1px 3px var(--kb-shadow);
         cursor: grab;
         position: relative;
+        flex-shrink: 0;
+        min-height: fit-content;
+        word-break: break-word;
+        overflow-wrap: break-word;
         transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
                     box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1),
                     border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2921,16 +3206,19 @@ function headingLevel(line) {
   const m = String(line).match(HEADING_LINE_RE);
   return m ? m[1].length : null;
 }
-async function createColumn(app, noteUUID, name) {
+async function createColumn(app, noteUUID, name, level = null) {
   const trimmed = String(name || "").trim();
   if (!trimmed) return false;
-  const markdown = await app.getNoteContent({ uuid: noteUUID });
-  const { columns } = buildColumnSpans(markdown);
-  const level = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
+  let hLevel = level ? parseInt(String(level), 10) : null;
+  if (!hLevel || hLevel < 1 || hLevel > 6) {
+    const markdown = await app.getNoteContent({ uuid: noteUUID });
+    const { columns } = buildColumnSpans(markdown);
+    hLevel = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
+  }
   await app.insertNoteContent(
     { uuid: noteUUID },
     `
-${"#".repeat(level)} ${trimmed}
+${"#".repeat(hLevel)} ${trimmed}
 `,
     { atEnd: true }
   );
@@ -3515,46 +3803,103 @@ async function handleEditTaskDetails(app, payload) {
 async function handleEditCard(app, payload) {
   return handleEditTaskDetails(app, payload);
 }
-async function resolveNoteBoardTab(app, payload) {
+async function resolveHeading(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  return tab && tab.kind === "note" ? tab : null;
-}
-async function resolveColumn(app, payload) {
-  const tab = await resolveNoteBoardTab(app, payload);
-  if (!tab || !payload.columnId) return null;
-  const markdown = await app.getNoteContent({ uuid: tab.noteUUID });
+  if (!tab) return null;
+  let noteUUID = payload?.noteUUID || null;
+  if (!noteUUID && payload?.columnId && String(payload.columnId).startsWith(NOTE_PREFIX)) {
+    noteUUID = payload.columnId.slice(NOTE_PREFIX.length);
+  }
+  if (!noteUUID && tab.kind === "note" && tab.noteUUID) {
+    noteUUID = tab.noteUUID;
+  }
+  if (!noteUUID) return null;
+  const headingId = payload?.sectionId || payload?.columnId;
+  if (!headingId) return null;
+  let markdown = "";
+  try {
+    markdown = await app.getNoteContent({ uuid: noteUUID }) || "";
+  } catch {
+    return null;
+  }
   const { columns } = buildColumnSpans(markdown);
-  const span = resolveSpan(columns, payload.columnId);
+  const span = resolveSpan(columns, headingId);
   if (!span) return null;
-  return { tab, columnName: span.name };
+  return { tab, noteUUID, columnId: span.id, columnName: span.name, span, columns };
 }
 async function handleCreateColumn(app, payload) {
-  const tab = await resolveNoteBoardTab(app, payload);
+  const tab = await resolveNoteTab(app, payload);
   if (!tab) return;
-  const result = await app.prompt("New column", {
-    inputs: [{ label: "Column name:", type: "text" }]
+  let noteUUID = payload?.noteUUID || null;
+  if (!noteUUID && payload?.columnId && String(payload.columnId).startsWith(NOTE_PREFIX)) {
+    noteUUID = payload.columnId.slice(NOTE_PREFIX.length);
+  }
+  if (!noteUUID && tab.kind === "note") {
+    noteUUID = tab.noteUUID;
+  }
+  if (!noteUUID) return;
+  const result = await app.prompt("New Header / Column", {
+    inputs: [
+      { label: "Header name:", type: "text" },
+      {
+        label: "Heading type / level (1, 2, 3):",
+        type: "select",
+        options: [
+          { label: "H1 (# Large)", value: "1" },
+          { label: "H2 (## Medium)", value: "2" },
+          { label: "H3 (### Small)", value: "3" }
+        ],
+        value: "2"
+      }
+    ]
   });
-  const name = firstValue(result);
+  if (!result) return;
+  const [name, levelRaw] = Array.isArray(result) ? result : [result, null];
   if (!name || !String(name).trim()) return;
-  const created = await createColumn(app, tab.noteUUID, name);
+  const level = levelRaw ? parseInt(String(levelRaw), 10) || null : null;
+  const created = await createColumn(app, noteUUID, String(name).trim(), level);
   if (created) await rerender(app);
 }
+async function handleCreateColumnNote(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab) return;
+  const defaultTag = tab.tag ? tab.tag : "";
+  const tagLabel = defaultTag ? `#${defaultTag}` : "new note";
+  const result = await app.prompt(`Create New Note in ${tagLabel}`, {
+    inputs: [
+      { label: "Note title:", type: "text" },
+      {
+        label: "Tag(s) to assign (comma-separated):",
+        type: "text",
+        value: defaultTag
+      }
+    ]
+  });
+  if (!result) return;
+  const [title, tagsRaw] = Array.isArray(result) ? result : [result, defaultTag];
+  if (!title || !String(title).trim()) return;
+  const tags = String(tagsRaw !== void 0 && tagsRaw !== null ? tagsRaw : defaultTag).split(/[,;\s]+/).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+  const noteUUID = await createTaggedNote(app, String(title).trim(), tags);
+  if (noteUUID) {
+    await rerender(app);
+  }
+}
 async function handleRenameColumn(app, payload) {
-  const resolved = await resolveColumn(app, payload);
+  const resolved = await resolveHeading(app, payload);
   if (!resolved) return;
-  const { tab, columnName } = resolved;
-  const result = await app.prompt("Rename column", {
-    inputs: [{ label: "Column name:", type: "text", value: columnName }]
+  const { noteUUID, columnId, columnName } = resolved;
+  const result = await app.prompt("Rename Column / Header", {
+    inputs: [{ label: "Name:", type: "text", value: columnName }]
   });
   const name = firstValue(result);
   if (!name || !String(name).trim() || String(name) === columnName) return;
-  const renamed = await renameColumn(app, tab.noteUUID, payload.columnId, name);
+  const renamed = await renameColumn(app, noteUUID, columnId, name);
   if (renamed) await rerender(app);
 }
 async function handleDeleteColumn(app, payload) {
-  const resolved = await resolveColumn(app, payload);
+  const resolved = await resolveHeading(app, payload);
   if (!resolved) return;
-  const { tab, columnName } = resolved;
+  const { noteUUID, columnId, columnName } = resolved;
   const result = await app.prompt(`Delete "${columnName}"?`, {
     inputs: [
       {
@@ -3565,26 +3910,25 @@ async function handleDeleteColumn(app, payload) {
     ]
   });
   if (firstValue(result) !== true) return;
-  const deleted = await deleteColumn(app, tab.noteUUID, payload.columnId);
+  const deleted = await deleteColumn(app, noteUUID, columnId);
   if (deleted) await rerender(app);
 }
 async function handleMoveColumn(app, payload) {
-  const tab = await resolveNoteBoardTab(app, payload);
-  if (!tab || !payload.columnId) return;
-  const direction = payload.direction === "left" ? "left" : "right";
-  const markdown = await app.getNoteContent({ uuid: tab.noteUUID });
-  const { columns } = buildColumnSpans(markdown);
-  const index = columns.findIndex((c) => c.id === String(payload.columnId));
+  const resolved = await resolveHeading(app, payload);
+  if (!resolved) return;
+  const { noteUUID, columnId, columns } = resolved;
+  const direction = payload.direction === "left" || payload.direction === "up" ? "left" : "right";
+  const index = columns.findIndex((c) => c.id === String(columnId));
   if (index === -1) return;
   const target = direction === "left" ? index - 1 : index + 1;
   if (target < 0 || target >= columns.length) return;
   const order = columns.map((c) => c.id);
   [order[index], order[target]] = [order[target], order[index]];
-  const moved = await reorderColumns(app, tab.noteUUID, order);
+  const moved = await reorderColumns(app, noteUUID, order);
   if (moved) await rerender(app);
 }
 async function handleSetWipLimit(app, payload) {
-  const resolved = await resolveColumn(app, payload);
+  const resolved = await resolveHeading(app, payload);
   if (!resolved) return;
   const { tab, columnName } = resolved;
   const current = tab.columnLimits && tab.columnLimits[columnName] || "";
@@ -3815,26 +4159,33 @@ async function handleGlobalSearch(app, payload) {
   await openNote(app, picked);
 }
 async function handleMoveColumnToTab(app, payload) {
-  const resolved = await resolveColumn(app, payload);
+  const resolved = await resolveHeading(app, payload);
   if (!resolved) return;
-  const { tab, columnName } = resolved;
+  const { tab, noteUUID, columnId, columnName } = resolved;
   const config = await loadTabsConfig(app);
-  const candidates = config.tabs.filter((t) => t.kind === "note" && t.noteUUID && t.id !== tab.id);
-  if (!candidates.length) {
-    await app.alert("No other note-board tabs to move this column to.");
+  let options = [];
+  if (tab.kind === "tag" || tab.kind === "notes") {
+    const tagNotes = await app.filterNotes({ tag: tab.tag }) || [];
+    options = tagNotes.filter((n) => n.uuid !== noteUUID).map((n) => ({ label: n.name || "Untitled note", value: n.uuid }));
+  } else {
+    options = config.tabs.filter((t) => t.kind === "note" && t.noteUUID && t.id !== tab.id).map((t) => ({ label: t.name, value: t.id }));
+  }
+  if (!options.length) {
+    await app.alert("No other notes or note-board tabs to move this header to.");
     return;
   }
-  const targetId = firstValue(await app.prompt(`Move "${columnName}" to another board`, {
+  const picked = firstValue(await app.prompt(`Move "${columnName}" to another board`, {
     inputs: [{
-      label: "Target tab:",
+      label: "Target tab / note:",
       type: "select",
-      options: candidates.map((t) => ({ label: t.name, value: t.id }))
+      options
     }]
   }));
-  if (!targetId) return;
-  const target = tabById(config, targetId);
-  if (!target || target.kind !== "note" || !target.noteUUID) return;
-  const confirmed = firstValue(await app.prompt(`Move "${columnName}" to "${target.name}"?`, {
+  if (!picked) return;
+  const targetTab = tabById(config, picked);
+  const targetUUID = targetTab && targetTab.noteUUID ? targetTab.noteUUID : picked;
+  if (!targetUUID) return;
+  const confirmed = firstValue(await app.prompt(`Move "${columnName}" to selected destination?`, {
     inputs: [{
       label: "I understand: the heading and its tasks move to the other note.",
       type: "checkbox",
@@ -3842,7 +4193,7 @@ async function handleMoveColumnToTab(app, payload) {
     }]
   }));
   if (confirmed !== true) return;
-  const status = await transferColumn(app, tab.noteUUID, payload.columnId, target.noteUUID);
+  const status = await transferColumn(app, noteUUID, columnId, targetUUID);
   if (status === "moved") await rerender(app);
 }
 async function handleRenameNote(app, payload) {
@@ -3857,6 +4208,37 @@ async function handleRenameNote(app, payload) {
   }));
   if (!name || !String(name).trim() || String(name) === current) return;
   await app.setNoteName({ uuid: noteUUID }, String(name).trim());
+  await rerender(app);
+}
+async function handleDeleteNote(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab) return;
+  const noteUUID = payload?.noteUUID || (String(payload?.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : payload?.columnId);
+  if (!noteUUID) return;
+  let noteName = payload?.noteName;
+  if (!noteName) {
+    try {
+      const note = await app.notes.find(noteUUID);
+      noteName = note?.name || "this note";
+    } catch {
+      noteName = "this note";
+    }
+  }
+  const result = await app.prompt(`Delete note "${noteName}"?`, {
+    inputs: [
+      {
+        label: "I understand: this note will be moved to Amplenote Trash (restorable for 30 days).",
+        type: "checkbox",
+        value: false
+      }
+    ]
+  });
+  if (firstValue(result) !== true) return;
+  try {
+    await app.deleteNote({ uuid: noteUUID });
+  } catch (err) {
+    console.error("Failed to delete note:", err);
+  }
   await rerender(app);
 }
 async function handleReorderTabs(app, payload) {
@@ -3925,9 +4307,15 @@ var ACTIONS = {
   reorderTabs: handleReorderTabs,
   setDateFormat: handleSetDateFormat,
   createColumn: handleCreateColumn,
+  createSection: handleCreateColumn,
+  createColumnNote: handleCreateColumnNote,
+  createNote: handleCreateColumnNote,
   renameColumn: handleRenameColumn,
+  renameSection: handleRenameColumn,
   deleteColumn: handleDeleteColumn,
+  deleteSection: handleDeleteColumn,
   moveColumn: handleMoveColumn,
+  moveSection: handleMoveColumn,
   saveColumnsToNote: handleSaveColumnsToNote,
   setWipLimit: handleSetWipLimit,
   cardMenu: handleCardMenu,
@@ -3935,7 +4323,9 @@ var ACTIONS = {
   saveSortToNote: handleSaveSortToNote,
   globalSearch: handleGlobalSearch,
   moveColumnToTab: handleMoveColumnToTab,
-  renameNote: handleRenameNote
+  moveSectionToNote: handleMoveColumnToTab,
+  renameNote: handleRenameNote,
+  deleteNote: handleDeleteNote
 };
 async function handleEmbedAction(app, args) {
   const [action, payload] = args || [];

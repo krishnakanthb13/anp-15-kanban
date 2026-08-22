@@ -100,3 +100,14 @@ The Kanban plugin embraces three distinct, purpose-built board models to reflect
 3. **Multi-Note Project Boards (`notes`)**: Notes = columns, all tasks = flat cards. Ideal for "one note per project/client" workflows where dragging cards moves work across projects without altering note headings.
 
 **Why:** Forcing all Amplenote structures into a single rigid column model either breaks note-level encapsulation or loses heading granularity. Providing three clear paradigms lets users match their board directly to their organizational hierarchy without friction.
+
+---
+
+## 13. Symmetrical Structural Authority Across Board Paradigms
+
+Whether working in a Single Note Board or a Tag Hierarchy Board, users have symmetrical power to sculpt their information architecture directly from the canvas:
+- **Right-end Column Adders**: The canvas provides an intuitive, discoverable `+ Add Header` (Note board) or `+ Add Note` (Tag board) action at the right end of the board.
+- **Full Heading Operations in Tag Boards**: Note headings inside Tag boards enjoy the exact same structural capabilities (move up/down, rename, transfer between notes, delete) as top-level note board columns.
+- **First-Class Note Lifecycle**: Tag and Multi-Note boards support direct note creation and safe note deletion to Trash (`app.deleteNote`) with confirmation safeguards.
+
+**Why:** Users should not need to switch back to the standard markdown note editor just to add a new section, rename a stage, or prune an obsolete note. Empowering users with symmetrical tools across both note-level and heading-level structures makes the Kanban board a complete, autonomous cockpit.

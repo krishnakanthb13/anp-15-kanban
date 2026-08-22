@@ -108,6 +108,7 @@ A note board maps one single note onto the board:
 - **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note markdown.
 - **Drop into the last column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
+- **`+ Add Header` card at the right end of the board**: Click to instantly create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
 - **Click a card** opens the rich task editor dialog (markdown content, Important/Urgent quadrant, target note & heading section, task score, and lifecycle status).
 - **`ℹ` button on a card** toggles an inline task details inspector showing all non-empty properties (Start At, End At, Deadline, Hide Until, Repeat schedule, Completed/Dismissed status, and Note link).
 
@@ -116,9 +117,20 @@ A note board maps one single note onto the board:
 A tag board turns notes under a tag into columns with collapsible heading sections:
 
 - **Columns** = notes carrying the selected tag.
-- **Collapsible Heading Blocks** = within each note column, each heading is rendered as a collapsible section (`▼ / ▶`) showing the section title, card count, and a `+` button to create tasks directly under that heading.
-- **Drag & drop** across sections or columns automatically relocates the task under that heading or updates its parent note.
-- **Column Header Actions**: rename note (✎) or open the note directly in Amplenote (↗).
+- **Collapsible Heading Blocks** = within each note column, each heading is rendered as a collapsible section (`▼ / ▶`) showing the section title, card count, and action buttons.
+- **Full Header Management on Every Section**:
+  - **Move Header Up / Down** (`chevronUp` / `chevronDown`): Reorders the heading in the note's markdown.
+  - **Rename Header** (`edit`): Renames the heading line in place.
+  - **Transfer Header** (`transfer`): Moves the heading and all its tasks to another note under the same tag or another note-board tab.
+  - **Delete Header** (`trash`): Confirms and deletes the heading line, moving all its tasks to the top of that note.
+  - **Add Task** (`+`): Inserts a task directly under that specific heading section.
+- **Column Header Actions**:
+  - **Add Header to Note** (`+`): Appends a new heading section to that note with heading level selection (H1, H2, H3).
+  - **Rename Note** (`edit`): Renames the note title in Amplenote.
+  - **Open Note in Amplenote** (`externalLink`): Navigates to the note in the main editor.
+  - **Delete Note** (`trash`): Safely moves the note to Amplenote Trash with confirmation.
+- **Inline `Add Header +` Card in Each Note Column**: A dedicated card at the bottom of each note column to quickly add a new heading section directly into that note.
+- **`+ Add Note` card at the right end of the board**: Click to create a new note, with custom tag assignment (pre-filled with the active board's tag).
 
 ### 3. Multi-Note Project Boards (`notes`)
 
@@ -127,7 +139,10 @@ The third kind maps a tag where notes act as columns and all tasks inside each n
 - **Columns** = notes carrying the selected tag (one column per project/client note).
 - **Cards** = all tasks inside that note listed flatly without heading breakdown.
 - **Drag & drop** between columns moves the task to that note natively (`app.updateTask({ noteUUID })`), without touching markdown formatting.
+- **Column Header Actions**: rename note (✎), delete note to Trash (🗑), or open note in Amplenote (↗).
 - **`+` on a column header** inserts a task directly into the target note.
+- **Inline `Add Header +` Card in Each Note Column**: Add headings directly to individual project notes from the board.
+- **`+ Add Note` card at the right end of the board**: Click to create a new project/client note with customizable tags.
 
 ### Rich Card Badges & Conditional Indicators
 
@@ -234,16 +249,16 @@ lib/
     columnOps.js           # Structural heading ops: create/rename/delete/reorder/transfer
     noteOps.js             # Note operations: createTaggedNote, openNote
   features/
-    embedActions.js        # Command dispatch table for all embed actions
+    embedActions.js        # Command dispatch table for all embed actions (create/delete note, headers, etc.)
   ui/
     themes.js              # 8-theme registry + CSS variable palettes
-    boardTemplate.js       # Full HTML document assembly (theme CSS + layout + header controls)
-    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, theme cycler, persistent settings
+    boardTemplate.js       # Full HTML document assembly (theme CSS + layout + right-end add card)
+    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, section tools, right-end add button
   utils/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 209 tests)
+test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 213 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```

@@ -1,3 +1,18 @@
+## v0.0.19 (2026-08-22) — Column Adders, Tag Board Header Tools & Note Lifecycle
+
+### 🚀 New Features & Enhancements
+- **Scroll Behavior Standards**: Mouse wheel rolls exclusively vertically, and `Shift + Wheel` rolls horizontally across board columns without cross-axis interference.
+- **Flexible Column & Section Layout**: Upgraded columns to adaptive sizing (`clamp(290px, 24vw, 360px)`) with generous scroll padding and visible section cards, eliminating bottom card clipping.
+- **Inline `Add Header +` Cards for Note Columns**: Each note column in Tag and Multi-Note boards now features a small, tactile `Add Header` card at the bottom of its sections list to directly create new headings inside that note without leaving the board view.
+- **Heading Type / Level Selector**: When creating a new header or column, the prompt allows choosing the heading level (**H1 Large**, **H2 Medium**, or **H3 Small**), giving fine-grained control over note structure.
+- **Custom Tag Assignment on Note Creation**: Creating a note from the board prompts for both title and tags (pre-filling with the active board's tag and supporting comma-separated additional tags).
+- **Right-End Column Adder Placeholder**: A tactile `+ Add Header` / `+ Add Note` button at the right end of the board allows adding a new heading (Note board) or creating a new tagged note (Tag / Multi-note board) in one click.
+- **Symmetrical Header Actions in Tag Tabs**: Every heading section in a Tag board note now supports full structural tools: Move Up (`chevronUp`), Move Down (`chevronDown`), Rename (`edit`), Transfer to another note/tab (`transfer`), Delete heading with task relocation (`trash`), and Create task under heading (`plus`).
+- **Add Header to Note in Tag Boards**: Note columns in Tag boards now have an "Add header to this note" (`+`) tool in their column header toolbar.
+- **Delete Note in Tag & Multi-Note Boards**: Added a Delete Note (`trash`) option to note columns with a safety confirmation checkbox moving the note directly to Amplenote Trash (`app.deleteNote`).
+
+---
+
 ## v0.0.18 (2026-08-21) — Date & Time Scheduling & Task Sorting Refinements
 
 ### 🚀 New Features & Enhancements

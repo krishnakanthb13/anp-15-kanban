@@ -8,6 +8,7 @@ import {
   handleCreateCard,
   handleEditCard,
   handleCreateColumn,
+  handleCreateColumnNote,
   handleRenameColumn,
   handleDeleteColumn,
   handleMoveColumn,
@@ -26,6 +27,7 @@ import {
   handleGlobalSearch,
   handleMoveColumnToTab,
   handleRenameNote,
+  handleDeleteNote,
   handleReorderTabs,
   handleSaveColumnsToNote,
 } from '../lib/features/embedActions.js';
@@ -46,6 +48,7 @@ function makeApp(markdown = NOTE_MD) {
     prompt: jest.fn().mockResolvedValue(["typed content"]),
     navigate: jest.fn().mockResolvedValue(),
     createNote: jest.fn().mockResolvedValue("new-note"),
+    deleteNote: jest.fn().mockResolvedValue(true),
     addNoteTag: jest.fn().mockResolvedValue(true),
     removeNoteTag: jest.fn().mockResolvedValue(true),
     getTags: jest.fn().mockResolvedValue([]),
@@ -311,7 +314,7 @@ describe("embedActions", () => {
       expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes/abc");
     });
 
-    it("structural column actions are rejected on tag boards", async () => {
+    it("structural column actions without sectionId are rejected on tag boards", async () => {
       const app = tagApp();
       await handleCreateColumn(app, { tabId: "tg" });
       await handleRenameColumn(app, { tabId: "tg", columnId: "note:n1" });
@@ -321,6 +324,59 @@ describe("embedActions", () => {
       expect(app.prompt).not.toHaveBeenCalled();
       expect(app.replaceNoteContent).not.toHaveBeenCalled();
       expect(app.setSetting).not.toHaveBeenCalled();
+    });
+
+    it("handleCreateColumnNote creates a new tagged note with custom tags and re-renders", async () => {
+      const app = tagApp();
+      app.prompt.mockResolvedValueOnce(["New Project Doc", "projects, active, priority"]);
+      await handleCreateColumnNote(app, { tabId: "tg" });
+
+      expect(app.createNote).toHaveBeenCalledWith("New Project Doc", ["projects", "active", "priority"]);
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("handleDeleteNote prompts confirmation and deletes note via app.deleteNote", async () => {
+      const app = tagApp();
+      app.prompt.mockResolvedValueOnce(true); // confirmed checkbox
+      await handleDeleteNote(app, { tabId: "tg", columnId: "note:n1", noteName: "Alpha doc" });
+
+      expect(app.deleteNote).toHaveBeenCalledWith({ uuid: "n1" });
+      expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("handleDeleteNote aborts without confirmation", async () => {
+      const app = tagApp();
+      app.prompt.mockResolvedValueOnce(false); // unconfirmed
+      await handleDeleteNote(app, { tabId: "tg", columnId: "note:n1", noteName: "Alpha doc" });
+
+      expect(app.deleteNote).not.toHaveBeenCalled();
+    });
+
+    it("header operations on a specific note within a tag tab work with noteUUID, sectionId, and heading level", async () => {
+      const app = tagApp();
+      // Test createColumn in a specific note with heading level 1
+      app.prompt.mockResolvedValueOnce(["Next Steps", "1"]);
+      await handleCreateColumn(app, { tabId: "tg", noteUUID: "n1" });
+      expect(app.insertNoteContent).toHaveBeenCalledWith({ uuid: "n1" }, "\n# Next Steps\n", { atEnd: true });
+
+      // Test createColumn with heading level 3
+      app.prompt.mockResolvedValueOnce(["Sub Stage", "3"]);
+      await handleCreateColumn(app, { tabId: "tg", noteUUID: "n1" });
+      expect(app.insertNoteContent).toHaveBeenCalledWith({ uuid: "n1" }, "\n### Sub Stage\n", { atEnd: true });
+
+      // Test renameColumn on a section in note n1
+      app.prompt.mockResolvedValueOnce(["Alpha Renamed"]);
+      await handleRenameColumn(app, { tabId: "tg", noteUUID: "n1", sectionId: "0" });
+      expect(app.replaceNoteContent).toHaveBeenCalledWith({ uuid: "n1" }, expect.stringContaining("# Alpha Renamed"));
+
+      // Test deleteColumn on a section in note n1
+      app.prompt.mockResolvedValueOnce(true);
+      await handleDeleteColumn(app, { tabId: "tg", noteUUID: "n1", sectionId: "2" });
+      expect(app.replaceNoteContent).toHaveBeenCalled();
+
+      // Test moveColumn on a section in note n1
+      await handleMoveColumn(app, { tabId: "tg", noteUUID: "n1", sectionId: "0", direction: "right" });
+      expect(app.replaceNoteContent).toHaveBeenCalled();
     });
   });
 

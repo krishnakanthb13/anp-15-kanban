@@ -54,6 +54,11 @@ describe("clientScript", () => {
 
   it("supports note and tag board features", () => {
     expect(script).toContain("renameNote");
+    expect(script).toContain("deleteNote");
+    expect(script).toContain("createColumnNote");
+    expect(script).toContain("kb-add-column-card");
+    expect(script).toContain("kb-add-header-card");
+    expect(script).toContain("kb-section-tools");
   });
 
   it("contains no template literal interpolation that could leak server data", () => {
