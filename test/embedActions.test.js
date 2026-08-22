@@ -375,6 +375,19 @@ describe("embedActions", () => {
       expect(written.activeTabId).toBe(written.tabs[0].id); // first tab activates
     });
 
+    it("addTab creates a notes tab for multi-note project boards", async () => {
+      const app = makeApp();
+      app.prompt
+        .mockResolvedValueOnce("notes")
+        .mockResolvedValueOnce(["clients"]);
+
+      await handleAddTab(app);
+
+      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
+      expect(written.tabs[0]).toMatchObject({ kind: "notes", name: "clients", tag: "clients" });
+      expect(written.activeTabId).toBe(written.tabs[0].id);
+    });
+
     it("addTab aborts on cancel or missing selection", async () => {
       const app = makeApp();
       app.prompt.mockResolvedValueOnce(null);

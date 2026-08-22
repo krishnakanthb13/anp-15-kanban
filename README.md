@@ -39,45 +39,95 @@ Run the **Open Kanban Board** app option (the plugin's launch button). This open
 
 Until tabs are configured, the board shows a **Demo Board** so you can explore the UI.
 
-### Managing tabs
+### Managing tabs & Board Types
 
 The tab bar sits above the board:
 
 - **+ New tab** opens a clean **2-step progressive disclosure wizard**:
-  - **Step 1 (Choose Board Type)**: Select between:
-    1. **Note Board (Existing Note)**: Headings from an existing note act as columns.
-    2. **Create New Note Board**: Auto-generates a fresh note tagged `-reports/-kanban` with default `# To Do`, `# In Progress`, and `# Done` columns.
-    3. **Tag Board**: Notes carrying a specific tag act as columns with collapsible heading sections.
-  - **Step 2 (Context-Specific Input)**: Prompts *only* for the relevant field based on your choice (Note picker for Note Board, optional Board Title for New Board, or Tag selector for Tag Board).
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ Step 1: "Add Board Tab"                                                │
+│                                                                        │
+│ Choose board type:                                                     │
+│  ○ Existing Note Board (headings as columns)                  → 'note' │
+│  ○ Create New Note Board (auto-creates note with columns)     → 'note' │
+│  ○ Tag Board (notes as columns with collapsible sections)     → 'tag'  │
+│  ○ Multi-Note Board (one note per project, flat task cards)   → 'notes'│
+└────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ Step 2: Context-Specific Input                                         │
+│                                                                        │
+│ • If 'note': Prompts for Note Picker (select existing note)            │
+│ • If 'new_note': Prompts for Board Title (creates note with columns)   │
+│ • If 'tag' or 'notes': Prompts for Tag Picker (select #tag)            │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
 - **Click** a tab to switch boards; data is re-derived fresh on every switch.
 - **Drag & Drop** tabs to reorder them in your tab bar.
 - **Hover a tab** for its tools: ← / → reorder tabs, ✕ closes it (the underlying note/tag is never deleted).
 
-### Board interactions (Note Boards)
+---
 
-A note board maps one note onto the board:
+### Board Types: `note` vs `tag` vs `notes`
+
+| Tab Kind | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
+| :--- | :--- | :--- | :--- | :--- |
+| **`note`** *(Single Note Board)* | **1 specific note** (`noteUUID`) | **Headings** inside that note (`# To Do`, `# In Progress`, `# Done`) | **Tasks** under each heading | Moves the task markdown line between headings in that note |
+| **`tag`** *(Tag Hierarchy Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **Tasks** grouped into **collapsible heading sections** within each note | Moves tasks across headings or across notes |
+| **`notes`** *(Multi-Note Project Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **All tasks** in each note (flat card list, no heading breakdown) | Reassigns the task from one note to another natively (`updateTask`) |
+
+```
+1. Note Board (`note`):
+   [ Note Document ] ──► [ Column: # To Do ] ──► [ Card: Task 1 ]
+                     ──► [ Column: # Doing ] ──► [ Card: Task 2 ]
+                     ──► [ Column: # Done  ] ──► [ Card: Task 3 (completed) ]
+
+2. Tag Board (`tag`):
+   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
+                                          ──► [ Sec: # Done    ] ──► [ Task 2 ]
+                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
+
+3. Multi-Note Board (`notes`):
+   [ Tag: #clients  ] ──► [ Col: Client A Note ] ──► [ Flat Task 1 ]
+                                                  ──► [ Flat Task 2 ]
+                      ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
+```
+
+---
+
+### 1. Note Boards (`note`)
+
+A note board maps one single note onto the board:
 
 - **Columns** = the note's headings at the shallowest heading level present (H1s if the note uses H1s, etc.). Deeper sub-headings stay inside their parent column.
 - **Cards** = tasks under each heading, in document order. Tasks above the first heading appear in an implicit **Unsorted** column.
-- **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note.
+- **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note markdown.
 - **Drop into the last column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
 - **Click a card** opens the rich task editor dialog (markdown content, Important/Urgent quadrant, target note & heading section, task score, and lifecycle status).
 - **`ℹ` button on a card** toggles an inline task details inspector showing all non-empty properties (Start At, End At, Deadline, Hide Until, Repeat schedule, Completed/Dismissed status, and Note link).
 
-### Tag Boards (Notes as Columns with Collapsible Sections)
+### 2. Tag Boards (`tag`)
 
-A tab can also be a **Tag Board**:
+A tag board turns notes under a tag into columns with collapsible heading sections:
+
 - **Columns** = notes carrying the selected tag.
 - **Collapsible Heading Blocks** = within each note column, each heading is rendered as a collapsible section (`▼ / ▶`) showing the section title, card count, and a `+` button to create tasks directly under that heading.
 - **Drag & drop** across sections or columns automatically relocates the task under that heading or updates its parent note.
 - **Column Header Actions**: rename note (✎) or open the note directly in Amplenote (↗).
 
-### Notes Boards
+### 3. Multi-Note Project Boards (`notes`)
 
 The third kind maps a tag where notes act as columns and all tasks inside each note are listed as cards:
-- Dragging a card between columns moves the task to that note natively (`updateTask`), without touching markdown formatting.
-- `+` inserts a task directly into the target note.
+
+- **Columns** = notes carrying the selected tag (one column per project/client note).
+- **Cards** = all tasks inside that note listed flatly without heading breakdown.
+- **Drag & drop** between columns moves the task to that note natively (`app.updateTask({ noteUUID })`), without touching markdown formatting.
+- **`+` on a column header** inserts a task directly into the target note.
 
 ### Rich Card Badges & Conditional Indicators
 
@@ -106,7 +156,7 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 ### View Toolbar Controls (Empty Columns, Expand Info, Quick @ Date)
 
-- **👁️ Empty Button (`Empty`)**: Click to toggle between hiding and showing empty columns/headers across your board. When enabled, columns with 0 tasks remain visible for easy task creation (`+`).
+- **👁️ Empty Button (`Empty`)**: Click to toggle between hiding and showing empty columns across all board types (**Note Boards**, **Tag Boards** with empty notes or heading sections, and **Notes Boards**). When enabled, columns and sections with 0 tasks remain visible for easy task creation (`+`).
 - **ℹ️ Info Button (`Info`)**: 1-click master switch to expand or collapse inline task details (`Start At`, `End At`, `Deadline`, `Hide Until`, `Score`, `Repeat`, `Parent Note`) across all visible cards at once.
 - **📅 @ Date Button (`@ Date`)**: Toggles the **Quick @ Date Mode**. When active, every task card displays a dedicated `@` button in its top-right action bar — clicking it prompts with a native Date Selector and optional Time input (e.g. `14:30` or `2:30 PM`) to schedule the exact start timestamp or clear it.
 
@@ -193,7 +243,7 @@ lib/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 207 tests)
+test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 208 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```

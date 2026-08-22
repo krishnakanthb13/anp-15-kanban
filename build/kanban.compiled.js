@@ -597,6 +597,14 @@ function buildClientScript() {
       var isTagBoard = data.kind === "tag";
 
       var allColCards = col.cards || [];
+      if (isTagBoard && col.sections) {
+        var collected = [];
+        col.sections.forEach(function (s) {
+          if (s.cards) collected = collected.concat(s.cards);
+        });
+        allColCards = collected;
+      }
+
       var visibleCards = allColCards.filter(function (card) {
         if (!searchQuery) return true;
         var hay = ((card.title || "") + " " + (card.content || "") + " " +
@@ -605,7 +613,7 @@ function buildClientScript() {
         return hay.indexOf(searchQuery) !== -1;
       });
 
-      // Hide empty columns unless showEmptyColumns is enabled
+      // Hide empty columns unless showEmptyColumns is enabled (works for note, tag, and notes tabs)
       if (!showEmptyColumns && !visibleCards.length) return;
       anyVisible = true;
 
@@ -738,8 +746,8 @@ function buildClientScript() {
             return hay.indexOf(searchQuery) !== -1;
           });
 
-          // Omit empty sections
-          if (!secCards.length) return;
+          // Omit empty sections unless showEmptyColumns is enabled
+          if (!showEmptyColumns && !secCards.length) return;
 
           var secKey = col.id + "::" + sec.id;
           var isCollapsed = !!collapsedSections[secKey];
@@ -3136,7 +3144,7 @@ async function buildTagBoard(app, tag) {
         });
         allCards.push(...spanCards);
       }
-    } else if (unsorted.length === 0 && tasks.length > 0) {
+    } else if (unsorted.length === 0) {
       const noteCards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
       sections.push({
         id: "main",
@@ -3145,19 +3153,16 @@ async function buildTagBoard(app, tag) {
       });
       allCards.push(...noteCards);
     }
-    const nonEmptySections = sections.filter((s) => s.cards && s.cards.length > 0);
-    const flatCards = nonEmptySections.flatMap((s) => s.cards);
-    if (flatCards.length > 0) {
-      columns.push({
-        id: NOTE_PREFIX + note.uuid,
-        name: note.name || "Untitled note",
-        noteUUID: note.uuid,
-        tags: note.tags || [],
-        sections: nonEmptySections,
-        cards: flatCards,
-        wipLimit: null
-      });
-    }
+    const flatCards = sections.flatMap((s) => s.cards || []);
+    columns.push({
+      id: NOTE_PREFIX + note.uuid,
+      name: note.name || "Untitled note",
+      noteUUID: note.uuid,
+      tags: note.tags || [],
+      sections,
+      cards: flatCards,
+      wipLimit: null
+    });
   }
   await renderCardHtml(app, allCards);
   allCards.forEach((card) => {
@@ -3232,7 +3237,8 @@ async function handleAddTab(app) {
         options: [
           { label: "Existing Note Board (headings as columns)", value: "note" },
           { label: "Create New Note Board (auto-creates note with columns)", value: "new_note" },
-          { label: "Tag Board (all notes with tag as columns)", value: "tag" }
+          { label: "Tag Board (notes as columns with collapsible heading sections)", value: "tag" },
+          { label: "Multi-Note Board (one note per project, flat task cards)", value: "notes" }
         ]
       }
     ]
@@ -3287,6 +3293,20 @@ async function handleAddTab(app) {
     if (!tagText || !String(tagText).trim()) return;
     const clean = String(tagText).trim();
     tab = createTab({ kind: "tag", name: clean, tag: clean });
+  } else if (choice === "notes") {
+    const tagVal = firstValue(await app.prompt("Select Tag for Multi-Note Board", {
+      inputs: [
+        {
+          label: "Select or type a tag (all notes with this tag become columns):",
+          type: "tags",
+          limit: 1
+        }
+      ]
+    }));
+    const tagText = Array.isArray(tagVal) ? tagVal[0] : tagVal;
+    if (!tagText || !String(tagText).trim()) return;
+    const clean = String(tagText).trim();
+    tab = createTab({ kind: "notes", name: clean, tag: clean });
   } else {
     return;
   }

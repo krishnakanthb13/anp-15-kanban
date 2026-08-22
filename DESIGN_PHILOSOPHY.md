@@ -89,3 +89,14 @@ Complex configuration is broken into sequential single-purpose steps (e.g. 2-ste
 All user preferences and top-bar button states (Theme, Date format, Empty columns toggle, Quick `@` date mode, Card sort mode, Expanded details) are consolidated into a single, cohesive **`Kanban Settings`** JSON object in `app.settings`.
 
 **Why:** Scattering plugin configuration across half a dozen discrete setting keys clutters the user's Amplenote settings and complicates state synchronization. A unified JSON setting paired with a two-tier hydration model (instant local caching + asynchronous Amplenote cloud sync) ensures that every button and view preference is remembered seamlessly across browser sessions, notes, and devices with zero UI flicker.
+
+---
+
+## 12. Tri-Modal Board Paradigms (Single Note vs Tag Hierarchy vs Multi-Note)
+
+The Kanban plugin embraces three distinct, purpose-built board models to reflect how knowledge workers organize information:
+1. **Single Note Boards (`note`)**: Headings = columns, tasks = cards. Ideal for sprint backlogs, daily planners, and self-contained document workflows.
+2. **Tag Hierarchy Boards (`tag`)**: Notes = columns, headings = collapsible sections. Ideal for high-level portfolio oversight where each note represents a major workstream with internal stages.
+3. **Multi-Note Project Boards (`notes`)**: Notes = columns, all tasks = flat cards. Ideal for "one note per project/client" workflows where dragging cards moves work across projects without altering note headings.
+
+**Why:** Forcing all Amplenote structures into a single rigid column model either breaks note-level encapsulation or loses heading granularity. Providing three clear paradigms lets users match their board directly to their organizational hierarchy without friction.

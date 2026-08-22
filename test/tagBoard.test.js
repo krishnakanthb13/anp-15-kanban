@@ -59,6 +59,27 @@ describe("tagBoard", () => {
       expect(app.filterNotes).toHaveBeenCalledWith({ tag: "projects" });
     });
 
+    it("preserves empty notes and empty heading sections for empty toggle support", async () => {
+      const app = makeApp([
+        { uuid: "empty1", name: "Empty Note", tags: ["projects"] },
+        { uuid: "empty_headings", name: "Note With Empty Headings", tags: ["projects"] },
+      ]);
+      app.getNoteContent = jest.fn().mockImplementation(async ({ uuid }) => {
+        if (uuid === "empty_headings") return "# Backlog\n\n# In Progress\n";
+        return "";
+      });
+      app.getNoteTasks = jest.fn().mockResolvedValue([]);
+
+      const board = await buildTagBoard(app, "projects");
+      expect(board.columns.length).toBe(2);
+      expect(board.columns[0].name).toBe("Empty Note");
+      expect(board.columns[0].cards).toEqual([]);
+      expect(board.columns[1].name).toBe("Note With Empty Headings");
+      expect(board.columns[1].sections.length).toBe(2);
+      expect(board.columns[1].sections[0].name).toBe("Backlog");
+      expect(board.columns[1].sections[0].cards).toEqual([]);
+    });
+
     it("returns an empty board for a missing tag", async () => {
       const board = await buildTagBoard(makeApp([]), "");
       expect(board.columns).toEqual([]);

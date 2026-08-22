@@ -79,18 +79,44 @@ Amplenote tasks map into rich card objects with all native metadata:
 ---
 
 ## Tab Types & Creation Contract (`features/embedActions.js`)
- 
+
 `handleAddTab` executes a 2-step progressive disclosure wizard:
- 
-- **Step 1 (Board Type Selection)**: Prompts user with a 3-option radio selector:
+
+- **Step 1 (Board Type Selection)**: Prompts user with a 4-option radio selector:
   1. `note`: Existing Note Board (headings as columns)
   2. `new_note`: Create New Note Board (auto-creates note with columns)
-  3. `tag`: Tag Board (all notes with tag as columns)
+  3. `tag`: Tag Board (notes as columns with collapsible heading sections)
+  4. `notes`: Multi-Note Board (one note per project, flat task cards)
 
 - **Step 2 (Context-Specific Prompt)**: Sequentially displays only the required input:
   - **If `note`**: Displays a single `{ type: "note" }` picker prompt.
   - **If `new_note`**: Displays a single `{ type: "string" }` prompt for the board title (falling back to `defaultKanbanNoteName()` if blank). Creates note under tag `["-reports/-kanban"]` with default `# To Do`, `# In Progress`, `# Done` headings.
-  - **If `tag`**: Displays a single `{ type: "tags", limit: 1 }` tag selector prompt.
+  - **If `tag` or `notes`**: Displays a single `{ type: "tags", limit: 1 }` tag selector prompt.
+
+### Tab Architecture & Data Model Comparison
+
+| Tab Kind | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
+| :--- | :--- | :--- | :--- | :--- |
+| **`note`** | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`, `# Done`) | Tasks under each heading | Markdown line movement via `replaceNoteContent` |
+| **`tag`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Heading relocation or note reassignment |
+| **`notes`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | All tasks in note (flat list) | Native parent note update via `updateTask({ noteUUID })` |
+
+```
+1. Note Board (`kind: "note"`):
+   [ Note Document ] ──► [ Column: # To Do ] ──► [ Card: Task 1 ]
+                     ──► [ Column: # Doing ] ──► [ Card: Task 2 ]
+                     ──► [ Column: # Done  ] ──► [ Card: Task 3 (completed) ]
+
+2. Tag Board (`kind: "tag"`):
+   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
+                                          ──► [ Sec: # Done    ] ──► [ Task 2 ]
+                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
+
+3. Multi-Note Board (`kind: "notes"`):
+   [ Tag: #clients  ] ──► [ Col: Client A Note ] ──► [ Flat Task 1 ]
+                                                  ──► [ Flat Task 2 ]
+                      ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
+```
 
 ---
 
@@ -163,7 +189,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
  ## Testing Strategy
  
  ```bash
- npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 207 tests)
+ npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 208 tests)
  node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
  node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
  ```
