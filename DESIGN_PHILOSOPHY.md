@@ -176,3 +176,14 @@ Plugin views execute within sandboxed iframes where unhandled URL navigation bre
 
 **Why:** A dashboard should be an integrated gateway into the Amplenote workspace. Seamlessly jumping to connected notes while protecting the sandbox environment guarantees stability and fluid workspace navigation.
 
+---
+
+## 20. Inclusive Multi-Level Structural Parsing & Color-Coded Spatial Hierarchy
+
+Notes in Amplenote often mix heading depths (`# H1`, `## H2`, `### H3`) to create rich outlines. The Kanban parser treats the document structure inclusively:
+- **Inclusive Column Spans**: Every heading in the note represents a distinct Kanban column rather than arbitrarily filtering by a single depth level and dumping other headings into "Unsorted".
+- **Zero-Space Color-Coded Accents**: Heading depths are communicated through subtle, color-coded top and left accent indicator bars (H1 = Theme Accent, H2 = Purple, H3 = Cyan/Teal, H4+ = Emerald) rather than bulky text badges, preserving 100% of the horizontal width for user heading titles.
+- **Adjacent Header Migration on Deletion**: Deleting a column heading safely relocates its tasks into the **previous column heading** (or next remaining heading), guaranteeing zero data loss and preserving task proximity within the note outline.
+
+**Why:** Users should not have to rewrite their note headings into identical Markdown levels just to use a Kanban board. Recognizing the note's natural hierarchy and visually color-coding depth without consuming title space creates an adaptable, frictionless workspace.
+

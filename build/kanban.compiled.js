@@ -52,9 +52,8 @@ function findColumnLevel(headings) {
 }
 function buildColumnSpans(markdown, columnLevel) {
   const headings = parseHeadings(markdown);
-  const level = columnLevel ?? findColumnLevel(headings);
-  if (level === null) return { columns: [], preambleEnd: 0 };
-  const columnHeadings = headings.filter((h) => h.level === level);
+  if (!headings.length) return { columns: [], preambleEnd: 0 };
+  const columnHeadings = columnLevel !== void 0 && columnLevel !== null ? headings.filter((h) => h.level === columnLevel) : headings;
   const totalLines = String(markdown || "").split("\n").length;
   const columns = columnHeadings.map((h, i) => {
     const next = columnHeadings[i + 1];
@@ -62,6 +61,7 @@ function buildColumnSpans(markdown, columnLevel) {
     return {
       id: String(h.lineIndex),
       name: h.text,
+      level: h.level,
       startLine: h.lineIndex,
       contentStart: h.lineIndex + 1,
       contentEnd
@@ -403,7 +403,6 @@ function buildClientScript() {
   var expandCardInfo = !!getSetting("expandCardInfo", false);
   var collapsedSections = {};
   var openInfoCards = {};
-  var initialColumnOrders = {};
   var dragType = null; // "card" | "column" | "tab"
   var dragCardId = null;
   var dragColId = null;
@@ -617,6 +616,12 @@ function buildClientScript() {
       });
 
       var tools = el("span", "kb-tab-tools");
+      if (tab.kind === "note" && tab.noteUUID) {
+        addTabToolSvg(tools, "externalLink", "Open note in Amplenote", function (e) {
+          e.stopPropagation();
+          callPlugin("openCard", { noteUUID: tab.noteUUID });
+        });
+      }
       addTabToolSvg(tools, "chevronLeft", "Move tab left", function (e) {
         e.stopPropagation();
         callPlugin("moveTabDir", { tabId: tab.id, direction: "left" });
@@ -743,21 +748,8 @@ function buildClientScript() {
     var resetSortBtn = document.getElementById("kb-reset-sort-btn");
     if (resetSortBtn) resetSortBtn.style.display = isSorted ? "inline-flex" : "none";
 
-    // Column reorder dirty state
-    var currentCols = (tab && STATE.boards && STATE.boards[tab.id] && STATE.boards[tab.id].columns) || [];
-    var initialCols = tab && initialColumnOrders[tab.id];
-    var isColsDirty = false;
-    if (initialCols && isNoteBoard) {
-      var curIds = currentCols.map(function (c) { return c.id; }).join(",");
-      var initIds = initialCols.map(function (c) { return c.id; }).join(",");
-      isColsDirty = curIds !== initIds;
-    }
-
-    var saveColsBtn = document.getElementById("kb-save-cols-btn");
-    if (saveColsBtn) saveColsBtn.style.display = (isColsDirty && isNoteBoard) ? "inline-flex" : "none";
-
-    var resetColsBtn = document.getElementById("kb-reset-cols-btn");
-    if (resetColsBtn) resetColsBtn.style.display = (isColsDirty && isNoteBoard) ? "inline-flex" : "none";
+    var openNoteBtn = document.getElementById("kb-open-note-btn");
+    if (openNoteBtn) openNoteBtn.style.display = (isNoteBoard && tab && tab.noteUUID) ? "inline-flex" : "none";
   }
 
   function resetSort() {
@@ -767,15 +759,6 @@ function buildClientScript() {
     updateSortUi();
     renderBoard();
     showToast("Reset to default task order");
-  }
-
-  function resetColumns() {
-    var tab = activeTab();
-    if (!tab || !initialColumnOrders[tab.id] || !STATE.boards || !STATE.boards[tab.id]) return;
-    STATE.boards[tab.id].columns = initialColumnOrders[tab.id].slice();
-    renderBoard();
-    updateSortUi();
-    showToast("Reset column order to source note");
   }
 
   /* ---------------- density management ---------------- */
@@ -817,11 +800,6 @@ function buildClientScript() {
     var data = tab && STATE.boards ? STATE.boards[tab.id] : null;
     var columns = data && data.columns ? data.columns : [];
 
-    // Cache initial column order on first load
-    if (tab && !initialColumnOrders[tab.id] && columns.length) {
-      initialColumnOrders[tab.id] = columns.slice();
-    }
-
     updateSortUi();
 
     if (!columns.length) {
@@ -855,7 +833,7 @@ function buildClientScript() {
       if (!showEmptyColumns && !visibleCards.length) return;
       anyVisible = true;
 
-      var colEl = el("section", "kb-column" + (isLast && data.kind === "note" ? " kb-column-last" : ""));
+      var colEl = el("section", "kb-column" + (isLast && data.kind === "note" ? " kb-column-last" : "") + (col.level ? " kb-col-h" + col.level : ""));
       colEl.setAttribute("data-column-id", col.id);
       colEl.setAttribute("data-column-index", String(colIndex));
 
@@ -888,10 +866,17 @@ function buildClientScript() {
         e.dataTransfer.dropEffect = "move";
         var rect = colEl.getBoundingClientRect();
         var isAfter = e.clientX > (rect.left + rect.width / 2);
+
+        if ((col.id === "unsorted" && !isAfter) || (col.id === "completed" && isAfter) || dragColId === col.id) {
+          colEl.classList.remove("kb-col-drop-before", "kb-col-drop-after");
+          return;
+        }
+
         colEl.classList.toggle("kb-col-drop-before", !isAfter);
         colEl.classList.toggle("kb-col-drop-after", isAfter);
       });
-      colEl.addEventListener("dragleave", function () {
+      colEl.addEventListener("dragleave", function (e) {
+        if (e.relatedTarget && colEl.contains(e.relatedTarget)) return;
         colEl.classList.remove("kb-col-drop-before", "kb-col-drop-after");
       });
       colEl.addEventListener("drop", function (e) {
@@ -900,19 +885,47 @@ function buildClientScript() {
         var rect = colEl.getBoundingClientRect();
         var isAfter = e.clientX > (rect.left + rect.width / 2);
         colEl.classList.remove("kb-col-drop-before", "kb-col-drop-after");
-        if (!dragColId || dragColId === col.id) return;
+        if (col.id === "unsorted" && !isAfter) return;
+        if (col.id === "completed" && isAfter) return;
 
         var fromIdx = columns.findIndex(function (c) { return c.id === dragColId; });
-        var toIdx = colIndex;
-        if (isAfter && fromIdx > toIdx) toIdx++;
-        else if (!isAfter && fromIdx < toIdx) toIdx--;
-        toIdx = Math.max(0, Math.min(columns.length - 1, toIdx));
-        if (fromIdx === -1 || fromIdx === toIdx) return;
+        if (fromIdx === -1) return;
 
         var moved = columns.splice(fromIdx, 1)[0];
-        columns.splice(toIdx, 0, moved);
+        var newTargetIdx = columns.findIndex(function (c) { return c.id === col.id; });
+        var insertIdx = isAfter ? newTargetIdx + 1 : newTargetIdx;
+
+        // Ensure moved column never lands before Unsorted (index 0 if Unsorted exists)
+        if (columns[0] && columns[0].id === "unsorted" && insertIdx < 1) {
+          insertIdx = 1;
+        }
+        // Ensure moved column never lands after Completed (last index if Completed exists)
+        var lastCol = columns[columns.length - 1];
+        if (lastCol && lastCol.id === "completed" && insertIdx > columns.length - 1) {
+          insertIdx = columns.length - 1;
+        }
+
+        insertIdx = Math.max(0, Math.min(columns.length, insertIdx));
+        columns.splice(insertIdx, 0, moved);
         renderBoard();
-        showToast("Column reordered (Save to Note to persist)");
+        showToast("Column reordered");
+
+        if (data.kind === "note") {
+          var headingIds = columns.filter(function (c) {
+            return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
+          }).map(function (c) { return c.id; });
+          var p = callPlugin("reorderColumns", {
+            tabId: STATE.activeTabId,
+            columnIds: headingIds
+          });
+          if (p && typeof p.then === "function") {
+            p.then(function (res) {
+              if (res && res.board && res.tabId) {
+                STATE.boards[res.tabId] = res.board;
+              }
+            });
+          }
+        }
       });
 
       var titleWrap = el("div", "kb-col-titlewrap");
@@ -927,13 +940,54 @@ function buildClientScript() {
       // Column tools with crisp SVGs
       if (data.kind === "note" && col.id !== "unsorted" && col.id !== "completed") {
         var tools = el("div", "kb-col-tools");
+        addColToolSvg(tools, "externalLink", "Open note in Amplenote", function (e) {
+          e.stopPropagation();
+          var t = activeTab();
+          if (t && t.noteUUID) callPlugin("openCard", { noteUUID: t.noteUUID });
+        });
         addColToolSvg(tools, "chevronLeft", "Move column left", function (e) {
           e.stopPropagation();
-          callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "left" });
+          var colIdx = columns.findIndex(function (c) { return c.id === col.id; });
+          if (colIdx <= 0) return;
+          var targetIdx = colIdx - 1;
+          if (columns[targetIdx].id === "unsorted") return;
+
+          var moved = columns.splice(colIdx, 1)[0];
+          columns.splice(targetIdx, 0, moved);
+          renderBoard();
+          showToast("Column moved left");
+
+          if (data.kind === "note") {
+            var headingIds = columns.filter(function (c) {
+              return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
+            }).map(function (c) { return c.id; });
+            callPlugin("reorderColumns", {
+              tabId: STATE.activeTabId,
+              columnIds: headingIds
+            });
+          }
         });
         addColToolSvg(tools, "chevronRight", "Move column right", function (e) {
           e.stopPropagation();
-          callPlugin("moveColumn", { tabId: STATE.activeTabId, columnId: col.id, direction: "right" });
+          var colIdx = columns.findIndex(function (c) { return c.id === col.id; });
+          if (colIdx === -1 || colIdx >= columns.length - 1) return;
+          var targetIdx = colIdx + 1;
+          if (columns[targetIdx].id === "completed") return;
+
+          var moved = columns.splice(colIdx, 1)[0];
+          columns.splice(targetIdx, 0, moved);
+          renderBoard();
+          showToast("Column moved right");
+
+          if (data.kind === "note") {
+            var headingIds = columns.filter(function (c) {
+              return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
+            }).map(function (c) { return c.id; });
+            callPlugin("reorderColumns", {
+              tabId: STATE.activeTabId,
+              columnIds: headingIds
+            });
+          }
         });
         addColToolSvg(tools, "edit", "Rename column", function (e) {
           e.stopPropagation();
@@ -943,7 +997,7 @@ function buildClientScript() {
           e.stopPropagation();
           callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        addColToolSvg(tools, "trash", "Delete column (tasks move to top)", function (e) {
+        addColToolSvg(tools, "trash", "Delete column (tasks move to previous header)", function (e) {
           e.stopPropagation();
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
@@ -1024,7 +1078,7 @@ function buildClientScript() {
           var secKey = col.id + "::" + sec.id;
           var isCollapsed = !!collapsedSections[secKey];
 
-          var secEl = el("div", "kb-section");
+          var secEl = el("div", "kb-section" + (sec.level ? " kb-section-h" + sec.level : ""));
           var secHead = el("div", "kb-section-head");
           var tw = el("div", "kb-section-titlewrap");
           var toggleIcon = el("span", "kb-section-toggle");
@@ -1040,11 +1094,47 @@ function buildClientScript() {
             var sectools = el("div", "kb-section-tools");
             addColToolSvg(sectools, "chevronUp", "Move header up", function (e) {
               e.stopPropagation();
-              callPlugin("moveColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id, direction: "left" });
+              var secIdx = col.sections.findIndex(function (s) { return s.id === sec.id; });
+              if (secIdx <= 0) return;
+              var targetIdx = secIdx - 1;
+              if (col.sections[targetIdx].id === "unsorted") return;
+
+              var moved = col.sections.splice(secIdx, 1)[0];
+              col.sections.splice(targetIdx, 0, moved);
+              renderBoard();
+              showToast("Header moved up");
+
+              var headingIds = col.sections.filter(function (s) {
+                return s.id !== "unsorted" && s.id !== "main";
+              }).map(function (s) { return s.id; });
+
+              callPlugin("reorderColumns", {
+                tabId: STATE.activeTabId,
+                noteUUID: col.noteUUID,
+                columnIds: headingIds
+              });
             });
             addColToolSvg(sectools, "chevronDown", "Move header down", function (e) {
               e.stopPropagation();
-              callPlugin("moveColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id, direction: "right" });
+              var secIdx = col.sections.findIndex(function (s) { return s.id === sec.id; });
+              if (secIdx === -1 || secIdx >= col.sections.length - 1) return;
+              var targetIdx = secIdx + 1;
+              if (col.sections[targetIdx].id === "completed") return;
+
+              var moved = col.sections.splice(secIdx, 1)[0];
+              col.sections.splice(targetIdx, 0, moved);
+              renderBoard();
+              showToast("Header moved down");
+
+              var headingIds = col.sections.filter(function (s) {
+                return s.id !== "unsorted" && s.id !== "main";
+              }).map(function (s) { return s.id; });
+
+              callPlugin("reorderColumns", {
+                tabId: STATE.activeTabId,
+                noteUUID: col.noteUUID,
+                columnIds: headingIds
+              });
             });
             addColToolSvg(sectools, "edit", "Rename header", function (e) {
               e.stopPropagation();
@@ -1054,7 +1144,7 @@ function buildClientScript() {
               e.stopPropagation();
               callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
             });
-            addColToolSvg(sectools, "trash", "Delete header (tasks move to top)", function (e) {
+            addColToolSvg(sectools, "trash", "Delete header (tasks move to previous header)", function (e) {
               e.stopPropagation();
               callPlugin("deleteColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
             });
@@ -1844,20 +1934,15 @@ function buildClientScript() {
       });
     }
 
-    var saveColsBtn = document.getElementById("kb-save-cols-btn");
-    if (saveColsBtn) {
-      saveColsBtn.addEventListener("click", function () {
+    var openNoteBtn = document.getElementById("kb-open-note-btn");
+    if (openNoteBtn) {
+      openNoteBtn.addEventListener("click", function () {
         var tab = activeTab();
-        var cols = (tab && STATE.boards && STATE.boards[tab.id] && STATE.boards[tab.id].columns) || [];
-        var colIds = cols.map(function (c) { return c.id; });
-        callPlugin("saveColumnsToNote", { tabId: STATE.activeTabId, columnIds: colIds });
+        if (tab && tab.noteUUID) callPlugin("openCard", { noteUUID: tab.noteUUID });
       });
     }
 
-    var resetColsBtn = document.getElementById("kb-reset-cols-btn");
-    if (resetColsBtn) {
-      resetColsBtn.addEventListener("click", resetColumns);
-    }
+
 
     var refreshTabBtn = document.getElementById("kb-refresh-tab");
     if (refreshTabBtn) {
@@ -2693,6 +2778,7 @@ function buildBaseCss() {
         box-shadow: 0 2px 6px var(--kb-shadow);
     }
     .kb-column {
+        position: relative;
         flex: 0 0 var(--kb-col-w);
         width: var(--kb-col-w);
         min-width: var(--kb-col-min-w);
@@ -2718,27 +2804,27 @@ function buildBaseCss() {
     .kb-column.kb-col-drop-before::before {
         content: "";
         position: absolute;
-        left: calc(var(--kb-board-gap) * -0.5 - 2px);
+        left: -6px;
         top: 0;
         bottom: 0;
         width: 4px;
         background: var(--kb-accent);
-        border-radius: 2px;
-        box-shadow: 0 0 10px var(--kb-accent);
-        z-index: 20;
+        border-radius: 4px;
+        box-shadow: 0 0 12px 2px var(--kb-accent);
+        z-index: 50;
         pointer-events: none;
     }
     .kb-column.kb-col-drop-after::after {
         content: "";
         position: absolute;
-        right: calc(var(--kb-board-gap) * -0.5 - 2px);
+        right: -6px;
         top: 0;
         bottom: 0;
         width: 4px;
         background: var(--kb-accent);
-        border-radius: 2px;
-        box-shadow: 0 0 10px var(--kb-accent);
-        z-index: 20;
+        border-radius: 4px;
+        box-shadow: 0 0 12px 2px var(--kb-accent);
+        z-index: 50;
         pointer-events: none;
     }
     .kb-column-head {
@@ -3509,6 +3595,36 @@ function buildBaseCss() {
         border-left: 3px solid color-mix(in srgb, var(--kb-accent) 45%, var(--kb-border));
         margin-left: 8px;
     }
+    /* ---------- heading level color-coding (H1, H2, H3) ---------- */
+    .kb-col-h1 .kb-column-head {
+        border-top: 3px solid var(--kb-accent);
+    }
+    .kb-col-h2 .kb-column-head {
+        border-top: 3px solid #8b5cf6;
+    }
+    .kb-col-h3 .kb-column-head {
+        border-top: 3px solid #06b6d4;
+    }
+    .kb-col-h4 .kb-column-head,
+    .kb-col-h5 .kb-column-head,
+    .kb-col-h6 .kb-column-head {
+        border-top: 3px solid #10b981;
+    }
+
+    .kb-section-h1 .kb-section-head {
+        border-left: 3px solid var(--kb-accent);
+    }
+    .kb-section-h2 .kb-section-head {
+        border-left: 3px solid #8b5cf6;
+    }
+    .kb-section-h3 .kb-section-head {
+        border-left: 3px solid #06b6d4;
+    }
+    .kb-section-h4 .kb-section-head,
+    .kb-section-h5 .kb-section-head,
+    .kb-section-h6 .kb-section-head {
+        border-left: 3px solid #10b981;
+    }
     .kb-card-labels,
     .kb-card-tags {
         display: flex;
@@ -3737,13 +3853,9 @@ ${buildBaseCss()}
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
                     <span>Reset Sort</span>
                 </button>
-                <button id="kb-save-cols-btn" class="kb-btn" type="button" style="display:none;" title="Save dragged column order into note headings">
-                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                    <span>Save Columns</span>
-                </button>
-                <button id="kb-reset-cols-btn" class="kb-btn" type="button" style="display:none;" title="Reset columns to original source note order">
-                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
-                    <span>Reset Columns</span>
+                <button id="kb-open-note-btn" class="kb-btn" type="button" style="display:none;" title="Open active note in Amplenote">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    <span>Open Note</span>
                 </button>
                 <button id="kb-sort-btn" class="kb-btn" type="button" title="Cycle card sort order">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
@@ -4217,13 +4329,24 @@ async function deleteColumn(app, noteUUID, columnId) {
   const span = resolveSpan(columns, columnId);
   if (!span) return false;
   if (columns.length <= 1) return false;
+  const colIdx = columns.findIndex((c) => c.id === span.id);
+  if (colIdx === -1) return false;
   const extracted = lines.slice(span.contentStart, span.contentEnd).filter((line, i, arr) => !(line.trim() === "" && (i === 0 || i === arr.length - 1)));
+  const targetCol = colIdx > 0 ? columns[colIdx - 1] : columns[colIdx + 1];
   const next = [
     ...lines.slice(0, span.startLine),
     ...lines.slice(span.contentEnd)
   ];
-  const insertAt = span.startLine === columns[0].startLine ? 0 : Math.max(columns[0].startLine, 0);
-  next.splice(insertAt, 0, ...extracted);
+  if (extracted.length > 0 && targetCol) {
+    if (colIdx > 0) {
+      const insertAt = targetCol.contentEnd;
+      next.splice(insertAt, 0, ...extracted);
+    } else {
+      const shift = span.contentEnd - span.startLine;
+      const targetContentStart = targetCol.contentStart - shift;
+      next.splice(targetContentStart, 0, ...extracted);
+    }
+  }
   await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
   return true;
 }
@@ -4286,6 +4409,7 @@ async function buildNoteBoard(app, noteUUID, options = {}) {
   const makeColumn = (span, cards) => ({
     id: span.id,
     name: span.name,
+    level: span.level || null,
     wipLimit: Number.isInteger(limits[span.name]) && limits[span.name] > 0 ? limits[span.name] : null,
     cards
   });
@@ -4440,6 +4564,7 @@ async function buildTagBoard(app, tag) {
         sections.push({
           id: span.id,
           name: span.name,
+          level: span.level || null,
           cards: spanCards
         });
         allCards.push(...spanCards);
@@ -5183,7 +5308,7 @@ async function handleDeleteColumn(app, payload) {
   const result = await app.prompt(`Delete "${columnName}"?`, {
     inputs: [
       {
-        label: "I understand: the heading is removed and its tasks move to the top of the note.",
+        label: "I understand: the heading is removed and its tasks move to the previous header.",
         type: "checkbox",
         value: false
       }
@@ -5205,7 +5330,10 @@ async function handleMoveColumn(app, payload) {
   const order = columns.map((c) => c.id);
   [order[index], order[target]] = [order[target], order[index]];
   const moved = await reorderColumns(app, noteUUID, order);
-  if (moved) await rerender(app);
+  if (moved) {
+    const board = await buildSingleBoard(app, resolved.tab);
+    return { ok: true, board, tabId: resolved.tab.id };
+  }
 }
 async function handleSetWipLimit(app, payload) {
   const resolved = await resolveHeading(app, payload);
@@ -5562,25 +5690,19 @@ async function handleReorderTabs(app, payload) {
   const updated = moveTab(config, fromIndex, toIndex);
   await saveTabsConfig(app, updated);
 }
-async function handleSaveColumnsToNote(app, payload) {
+async function handleReorderColumns(app, payload) {
   const { tabId, columnIds } = payload || {};
   if (!tabId || !Array.isArray(columnIds) || !columnIds.length) return;
   const config = await loadTabsConfig(app);
   const tab = tabById(config, tabId);
-  if (!tab || tab.kind !== "note" || !tab.noteUUID) return;
-  const confirmed = await app.prompt("Save new column order into note?", {
-    inputs: [
-      {
-        label: "Reorder headings and all content in the note markdown",
-        type: "checkbox",
-        value: true
-      }
-    ]
-  });
-  if (!confirmed || !confirmed[0]) return;
-  const ok = await reorderColumns(app, tab.noteUUID, columnIds);
+  if (!tab) return;
+  const noteUUID = payload?.noteUUID || (tab.kind === "note" ? tab.noteUUID : null);
+  if (!noteUUID) return;
+  const cleanIds = columnIds.filter((id) => id !== "unsorted" && id !== "completed" && id !== "main");
+  const ok = await reorderColumns(app, noteUUID, cleanIds);
   if (ok) {
-    await rerender(app);
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, board, tabId };
   }
 }
 async function handleQuickSetDate(app, payload) {
@@ -5630,7 +5752,8 @@ var ACTIONS = {
   deleteSection: handleDeleteColumn,
   moveColumn: handleMoveColumn,
   moveSection: handleMoveColumn,
-  saveColumnsToNote: handleSaveColumnsToNote,
+  reorderColumns: handleReorderColumns,
+  saveColumnsToNote: handleReorderColumns,
   setWipLimit: handleSetWipLimit,
   cardMenu: handleCardMenu,
   quickSetDate: handleQuickSetDate,

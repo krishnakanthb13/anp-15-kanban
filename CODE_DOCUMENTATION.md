@@ -215,7 +215,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `createNote` | `handleCreateColumnNote`| Alias for creating tagged column note |
 | `renameColumn` | `handleRenameColumn` | Renames heading in note markdown (Note boards & Tag board sections) |
 | `renameSection`| `handleRenameColumn` | Alias for renaming heading section |
-| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to top (Note boards & Tag board sections) |
+| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to previous/adjacent header (Note boards & Tag board sections) |
 | `deleteSection`| `handleDeleteColumn` | Alias for deleting heading section |
 | `moveColumn` | `handleMoveColumn` | Re-orders headings in note markdown (Note boards & Tag board sections) |
 | `moveSection` | `handleMoveColumn` | Alias for re-ordering heading sections |
@@ -233,12 +233,12 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 - **`boardTemplate.js`**:
   - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
   - **Layout Density System**: Defines responsive CSS custom property tokens for three layout modes (`.kb-density-compact`, `.kb-density-cozy`, `.kb-density-spacious`) controlling board gaps, column widths, section padding, card padding, and font sizes.
-  - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), cycling sort button (`#kb-sort-btn`), density cycler button (`#kb-density-btn`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
+  - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), Open Note button (`#kb-open-note-btn`), cycling sort button (`#kb-sort-btn`), density cycler button (`#kb-density-btn`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
   - Column header layout with wide column title and right-aligned action group (`.kb-col-actions`) hosting count badge (`.kb-count`), `+` button, and micro floating tool palette (`.kb-col-tools`).
   - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside columns, stacked single-column right-end action group (`.kb-add-column-group` containing `+ Add Header`/`+ Add Note` and `+ Add Task`), actionable empty state container (`.kb-empty-actions`), color-coordinated tag chips (`.kb-label-chip`, `.kb-tag-chip`, `.kb-label-dot`), hierarchical task badges (`.kb-badge-parent`, `.kb-badge-child`, `.kb-card-subtask`), and full-resolution image Lightbox modal (`.kb-lightbox-overlay`).
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
-  - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
+  - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
 
 ---
 
@@ -250,9 +250,12 @@ The architecture in `anp-15-kanban` solves fundamental data safety and performan
    - Instead of replacing the entire note text (which wiped preambles and non-task text in legacy versions), [`markdownIndex.js`](./lib/api/markdownIndex.js) partitions notes into **Column Spans** (`[startLine, contentStart, contentEnd)`). Moving tasks uses index-shifted line replacements, preserving note preambles, formatting, and sub-headings.
 2. **Robust Task Identification ([`lib/api/markdownIndex.js`](./lib/api/markdownIndex.js))**:
    - Replaces brittle regexes with [`UUID_IN_LINE_RE`](./lib/api/markdownIndex.js). Fetches all tasks via a single bulk `app.getNoteTasks` query instead of $N$ synchronous `app.getTask` roundtrips.
-3. **Two-Phase Column Transfers & Zero-Loss Deletions ([`lib/api/columnOps.js`](./lib/api/columnOps.js))**:
+3. **Two-Phase Column Transfers & Zero-Loss Adjacent Migrations ([`lib/api/columnOps.js`](./lib/api/columnOps.js))**:
    - Column transfers append to the target note before removing from the source note, ensuring network drops leave a recoverable duplicate rather than lost data.
-   - Column deletions lift existing tasks to the top of the note (above all headings) before deleting the heading line.
+   - Column deletions safely relocate existing tasks directly into the **previous column heading** (or next remaining heading) before deleting the heading line, preventing tasks from spilling into Unsorted.
+4. **Color-Coded Multi-Level Heading Columns & 0ms Directional Moves**:
+   - All heading depths (`# H1`, `## H2`, `### H3`, etc.) are recognized as distinct columns with clean color-coded level indicators (H1 = Theme Accent, H2 = Purple, H3 = Cyan/Teal, H4+ = Emerald) taking zero extra horizontal space.
+   - Columns can be freely dragged across any number of positions with glowing vertical drop lines, and directional `<` / `>` buttons swap columns instantly in 0ms with zero screen flicker.
 
 For full live validation steps, see [`checklist.md`](./checklist.md).
 
@@ -261,8 +264,7 @@ For full live validation steps, see [`checklist.md`](./checklist.md).
 ## Testing Strategy
 
 ```bash
-npm test -- anp-15-kanban          # Jest unit and integration suites (19 suites, 214 tests)
+npm test -- anp-15-kanban          # Jest unit and integration suites (19 suites, 224 tests)
 node esbuild.js 15                 # Compiles bundle to build/kanban.compiled.js
 node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
 ```
-

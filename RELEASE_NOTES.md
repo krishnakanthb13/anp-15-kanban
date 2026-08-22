@@ -1,3 +1,13 @@
+## v0.0.29
+
+### 🚀 New Features & Enhancements
+- **Free-Span Column Drag & Drop with Glowing Drop Line**: Columns can now be freely dragged across any number of positions across the entire board. Displays a prominent 4px vertical glowing accent line (`.kb-col-drop-before` / `.kb-col-drop-after`) in the column gap indicating the exact target insertion slot, with guardrails preventing placement before `Unsorted` or after `Completed`.
+- **Instant 0ms Directional Move Buttons & Zero-Flicker Reordering**: The `<` and `>` arrow buttons now swap column and section headers instantly (optimistically in 0ms) in the UI while synchronizing the reordered heading markdown in the background without network delay, iframe reload, or screen flicker.
+- **Color-Coded Multi-Level Heading Columns**: All note headings (`# H1`, `## H2`, `### H3`, etc.) are recognized as Kanban columns with zero wasted horizontal space. Levels are elegantly differentiated via top accent indicator bars and left border highlights (H1 = Theme Accent, H2 = Purple, H3 = Cyan/Teal, H4+ = Emerald).
+- **Smart Column Deletion (Adjacent Header Migration)**: Deleting a column heading safely relocates all its existing tasks directly into the previous column heading (or next heading if deleting the first column), ensuring zero tasks are dumped into "Unsorted".
+- **Streamlined Toolbar (Live Sync Architecture)**: Removed obsolete "Save Columns" and "Reset Columns" buttons since all column movements (drag & drop and directional arrows) now synchronize live to note markdown in real-time, keeping the toolbar clean and focused.
+- **1-Click Note Navigation from Note Boards**: Added multiple quick-access navigation entry points to jump directly to the source note in Amplenote: a dedicated **`↗ Open Note`** button in the top action toolbar, a **`↗`** tab tool icon on the tab chip, and **`↗`** buttons on column header toolbars.
+
 ## v0.0.28 (2026-08-22) — Note Link Navigation, Outside Links Protection, Clean Note Conversion & Image Lightbox
 
 ### 🚀 New Features & Enhancements

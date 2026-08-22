@@ -95,34 +95,36 @@ describe("columnOps", () => {
   });
 
   describe("deleteColumn", () => {
-    it("moves tasks of the FIRST column to the very top of the note", async () => {
+    it("moves tasks of the FIRST column into the next remaining heading", async () => {
       const app = makeApp();
       const ok = await deleteColumn(app, "n1", "1"); // Alpha starts at line 1
 
       expect(ok).toBe(true);
       const written = app.replaceNoteContent.mock.calls[0][1];
       const lines = written.split("\n");
-      // Both extracted tasks land above everything else; sub-heading travels with them.
-      expect(lines.findIndex(l => l.includes("u1"))).toBe(0);
-      expect(lines.findIndex(l => l.includes("u2"))).toBeLessThan(lines.findIndex(l => l.startsWith("# ")));
+      // Tasks from Alpha land inside ## sub (the immediate next remaining heading)
+      const subIdx = lines.findIndex(l => l.startsWith("## sub"));
+      const u1Idx = lines.findIndex(l => l.includes("u1"));
+      expect(subIdx).toBeGreaterThan(-1);
+      expect(u1Idx).toBeGreaterThan(subIdx);
       expect(written).not.toContain("# Alpha");
-      expect(written).toContain("# Beta");
+      expect(written).toContain("## sub");
     });
 
-    it("slots tasks of a LATER column above the first remaining heading", async () => {
+    it("moves tasks of a LATER column into the PREVIOUS heading", async () => {
       const app = makeApp();
       const ok = await deleteColumn(app, "n1", "5"); // Beta
 
       expect(ok).toBe(true);
       const written = app.replaceNoteContent.mock.calls[0][1];
       const lines = written.split("\n");
+      const subIdx = lines.findIndex(l => l.startsWith("## sub"));
       const u3Idx = lines.findIndex(l => l.includes("u3"));
-      const firstHeadingIdx = lines.findIndex(l => l.startsWith("# "));
-      expect(u3Idx).toBeGreaterThan(-1);
-      expect(u3Idx).toBeLessThan(firstHeadingIdx);
+      expect(subIdx).toBeGreaterThan(-1);
+      expect(u3Idx).toBeGreaterThan(subIdx);
       expect(lines[0]).toBe("Intro"); // preamble stays on top
       expect(written).not.toContain("# Beta");
-      expect(written).toContain("# Alpha");
+      expect(written).toContain("## sub");
     });
 
     it("refuses to delete the last remaining column", async () => {
@@ -140,7 +142,7 @@ describe("columnOps", () => {
   describe("reorderColumns", () => {
     it("rewrites the note with columns in the requested order", async () => {
       const app = makeApp();
-      const ok = await reorderColumns(app, "n1", ["5", "1"]); // Beta first
+      const ok = await reorderColumns(app, "n1", ["5", "3", "1"]); // Beta first, then sub, then Alpha
 
       expect(ok).toBe(true);
       const written = app.replaceNoteContent.mock.calls[0][1];

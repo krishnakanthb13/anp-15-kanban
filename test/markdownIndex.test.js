@@ -45,15 +45,16 @@ describe("markdownIndex", () => {
   });
 
   describe("buildColumnSpans", () => {
-    it("creates spans at the column level, nesting deeper headings inside", () => {
+    it("creates spans for all headings across different levels", () => {
       const { columns, preambleEnd } = buildColumnSpans(MD);
-      expect(columns.map(c => c.name)).toEqual(["Alpha", "Beta"]);
-      expect(columns[0]).toMatchObject({ id: "2", startLine: 2, contentStart: 3, contentEnd: 6 });
-      expect(columns[1]).toMatchObject({ startLine: 6, contentStart: 7 });
+      expect(columns.map(c => c.name)).toEqual(["Alpha", "Sub note", "Beta"]);
+      expect(columns[0]).toMatchObject({ id: "2", level: 1, startLine: 2, contentStart: 3, contentEnd: 4 });
+      expect(columns[1]).toMatchObject({ id: "4", level: 2, startLine: 4, contentStart: 5, contentEnd: 6 });
+      expect(columns[2]).toMatchObject({ id: "6", level: 1, startLine: 6, contentStart: 7 });
       expect(preambleEnd).toBe(3);
 
       // Beta's span reaches to end of document
-      expect(columns[1].contentEnd).toBe(MD.split("\n").length);
+      expect(columns[2].contentEnd).toBe(MD.split("\n").length);
     });
 
     it("supports an explicit column level override", () => {
@@ -92,7 +93,8 @@ describe("markdownIndex", () => {
       const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
 
       expect(unsorted.map(t => t.uuid)).toEqual(["u0"]);
-      expect(columnCards.get("2").map(t => t.uuid)).toEqual(["u1", "u2"]); // sub-heading task included
+      expect(columnCards.get("2").map(t => t.uuid)).toEqual(["u1"]);
+      expect(columnCards.get("4").map(t => t.uuid)).toEqual(["u2"]);
       expect(columnCards.get("6").map(t => t.uuid)).toEqual(["u3"]);
     });
 
@@ -109,7 +111,7 @@ describe("markdownIndex", () => {
       const lines = MD.split("\n");
       const { columns } = buildColumnSpans(MD);
       expect(sectionContent(lines, columns[0])).toContain("task a1");
-      expect(sectionContent(lines, columns[0])).toContain("Sub note");
+      expect(sectionContent(lines, columns[1])).toContain("task a2");
       expect(sectionContent(lines, columns[0])).not.toContain("# Beta");
     });
 

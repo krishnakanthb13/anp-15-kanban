@@ -20,7 +20,7 @@ All operations across notes, headers, tasks, tabs, and buttons have been validat
 | **Move Task Across Notes** | `app.replaceNoteContent()` + `app.insertTask()` | Migrates task across notes by splicing from source note markdown and inserting into target note via Amplenote API. | [`lib/features/embedActions.js`](./lib/features/embedActions.js) |
 | **Edit Task Details (Dialog)** | `app.updateTask(taskUUID, updates)` | Full modal editor updating `content`, `important`, `urgent`, `score`, `startAt`, `completedAt`, `dismissedAt`, `hideUntil`, and heading relocation. | [`lib/features/embedActions.js`](./lib/features/embedActions.js) |
 | **Add / Rename Column** | `app.insertNoteContent()` / `app.replaceNoteContent()` / `app.setNoteName()` | Supports H1/H2/H3 levels. For tag/multi-note boards, modifies note titles directly via API. | [`lib/api/columnOps.js`](./lib/api/columnOps.js) |
-| **Delete Column** | Line extraction + `app.replaceNoteContent()` | **Zero-data-loss protection**: existing tasks in the deleted column are moved to the top of the note (above headings) before the heading is removed. | [`lib/api/columnOps.js`](./lib/api/columnOps.js) |
+| **Delete Column** | Line extraction + `app.replaceNoteContent()` | **Zero-data-loss protection**: existing tasks in the deleted column are safely relocated into the previous header (or next header if first) before the heading is removed. | [`lib/api/columnOps.js`](./lib/api/columnOps.js) |
 | **Transfer Column to Another Note** | Target insert + Source remove | Inserts into target note first before removing from source note to guarantee zero data loss on network failure. | [`lib/api/columnOps.js`](./lib/api/columnOps.js) |
 | **Rich Footnotes & Images** | `app.htmlFromContent(content)` | Renders Amplenote's native editor HTML markup, footnotes, links, and extracts the first image preview. | [`lib/api/noteBoard.js`](./lib/api/noteBoard.js) |
 | **Settings & Tabs Config** | `app.getSetting()` / `app.setSetting()` | Persists active tab, tab order, themes, WIP limits, date formats, and view preferences. | [`lib/core/settings.js`](./lib/core/settings.js) |
@@ -77,15 +77,16 @@ flowchart TD
 - [ ] **Close Tab**: Click `×` on a tab; confirm it closes and focuses the adjacent tab.
 - [ ] **Single Tab Refresh**: Click tab refresh button; verify only active tab re-queries Amplenote.
 - [ ] **All Tabs Refresh**: Click global refresh button; verify all tabs re-sync with progress indicator.
+- [ ] **Note Board Navigation**: Click the **↗** tab tool icon or the top action bar **`↗ Open Note`** button -> verify Amplenote navigates directly to the source note.
 
 ---
 
 ### 3.2. Note Board Columns (Headings)
 - [ ] **Add Column**: Click `+ Add Column` -> enter title & choose heading level (H1, H2, H3) -> check note markdown to verify the heading was appended.
 - [ ] **Rename Column**: Click 3-dot menu on column -> *Rename* -> change name -> check note markdown to verify heading was renamed in place.
-- [ ] **Reorder Columns (Drag & Drop)**: Drag column headers horizontally -> verify confirmation prompt -> check note markdown to verify heading sections and contents were reordered.
+- [ ] **Reorder Columns (Drag & Drop)**: Drag column headers horizontally across any number of positions -> verify smooth zero-flicker live reordering -> check note markdown to verify heading sections and contents were reordered.
 - [ ] **Move Column (Directional)**: Use 3-dot menu -> *Move Left* / *Move Right* -> verify column moves.
-- [ ] **Delete Column**: Click 3-dot menu -> *Delete* -> confirm prompt -> verify heading is removed and tasks are safely relocated to the top of the note (no tasks lost).
+- [ ] **Delete Column**: Click 3-dot menu -> *Delete* -> confirm prompt -> verify heading is removed and tasks are safely relocated into the previous header (or next header if first) with zero tasks lost.
 - [ ] **Set WIP Limit**: Click 3-dot menu -> *Set WIP limit* -> enter a number (e.g. `3`) -> verify limit badge appears and turns warning red when exceeded.
 - [ ] **Move Column to Another Board**: Click 3-dot menu -> *Move Column to Tab* -> pick destination note -> confirm heading and its tasks moved to the other note.
 

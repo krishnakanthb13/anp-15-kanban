@@ -29,6 +29,7 @@ import {
   handleRenameNote,
   handleDeleteNote,
   handleReorderTabs,
+  handleReorderColumns,
   handleSaveColumnsToNote,
   handleRefreshTab,
   handleRefreshAll,
@@ -886,6 +887,17 @@ describe("embedActions", () => {
       });
     });
 
+    describe("handleReorderColumns", () => {
+      it("saves drag-and-drop column order into note and returns updated board", async () => {
+        const app = withNoteTab(makeApp());
+        const res = await handleReorderColumns(app, { tabId: "t1", columnIds: ["2", "0"] });
+        const written = app.replaceNoteContent.mock.calls[0][1];
+        expect(written.indexOf("# Beta")).toBeLessThan(written.indexOf("# Alpha"));
+        expect(res.ok).toBe(true);
+        expect(res.board).toBeDefined();
+      });
+    });
+
     describe("handleSetWipLimit", () => {
       function withLimits(app) {
         app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
@@ -946,34 +958,25 @@ describe("embedActions", () => {
       });
     });
 
-    describe("handleSaveColumnsToNote", () => {
-      it("prompts for confirmation and rewrites note headings", async () => {
+    describe("handleSaveColumnsToNote / handleReorderColumns", () => {
+      it("saves column order into note and returns updated board", async () => {
         const app = makeApp();
         app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
           tabs: [{ id: "t1", kind: "note", name: "A", noteUUID: "n1" }],
           activeTabId: "t1",
           settings: {},
         });
-        app.prompt.mockResolvedValue([true]);
 
-        await handleSaveColumnsToNote(app, { tabId: "t1", columnIds: ["2", "0"] });
+        const res = await handleSaveColumnsToNote(app, { tabId: "t1", columnIds: ["2", "0"] });
 
-        expect(app.prompt).toHaveBeenCalled();
         expect(app.replaceNoteContent).toHaveBeenCalled();
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res.ok).toBe(true);
+        expect(res.board).toBeDefined();
       });
 
-      it("aborts when user cancels the prompt", async () => {
+      it("no-ops when missing tab or invalid columnIds", async () => {
         const app = makeApp();
-        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
-          tabs: [{ id: "t1", kind: "note", name: "A", noteUUID: "n1" }],
-          activeTabId: "t1",
-          settings: {},
-        });
-        app.prompt.mockResolvedValue(null);
-
-        await handleSaveColumnsToNote(app, { tabId: "t1", columnIds: ["2", "0"] });
-
+        await handleSaveColumnsToNote(app, { tabId: "nonexistent", columnIds: [] });
         expect(app.replaceNoteContent).not.toHaveBeenCalled();
       });
     });
