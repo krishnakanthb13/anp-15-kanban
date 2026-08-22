@@ -136,28 +136,40 @@ Amplenote tasks carry multiple lifecycle states that the Kanban plugin maps nati
 
 ### Board Types: `note` vs `tag` vs `notes`
 
-| Tab Kind | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **`note`** *(Single Note Board)* | **1 specific note** (`noteUUID`) | **Headings** inside that note (`# To Do`, `# In Progress`, `# Done`) | **Tasks** under each heading | Moves task markdown line between headings or reorders within the same heading |
-| **`tag`** *(Tag Hierarchy Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **Tasks** grouped into **collapsible heading sections** within each note | Moves tasks across headings or migrates tasks between notes |
-| **`notes`** *(Multi-Note Project Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **All tasks** in each note (flat card list, no heading breakdown) | Migrates the task from one note to another |
+| Tab Kind | Badge | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`note`** *(Single Note Board)* | <span style="color:#2563eb">`NOTE`</span> | **1 specific note** (`noteUUID`) | **Headings** inside that note (`# To Do`, `# In Progress`) | **Tasks** under each heading | Moves task markdown line between headings or reorders within the same heading |
+| **`notes`** *(Multi-Note Project Board)* | <span style="color:#8b5cf6">`NOTES`</span> | **All notes with a tag** (`tag`) | **Notes** with that tag | **All tasks** in each note (flat card list) | Migrates tasks between notes |
+| **`tag`** *(Tag Hierarchy Board)* | <span style="color:#dc2626">`TAG`</span> | **All notes with a tag** (`tag`) | **Notes** with that tag | **Tasks** grouped into **collapsible heading sections** within each note | Moves tasks across headings or migrates tasks between notes |
 
 ```
 1. Note Board (`note`):
    [ Note Document ] ──► [ Column: # To Do ] ──► [ Card: Task 1 ]
                      ──► [ Column: # Doing ] ──► [ Card: Task 2 ]
-                     ──► [ Column: # Done  ] ──► [ Card: Task 3 (completed) ]
+                     ──► [ Column: Completed ] ──► [ Card: Task 3 (done) ]
 
-2. Tag Board (`tag`):
-   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
-                                          ──► [ Sec: # Done    ] ──► [ Task 2 ]
-                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
-
-3. Multi-Note Board (`notes`):
+2. Multi-Note Board (`notes`):
    [ Tag: #clients  ] ──► [ Col: Client A Note ] ──► [ Flat Task 1 ]
                                                   ──► [ Flat Task 2 ]
                       ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
+
+3. Tag Board (`tag`):
+   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
+                                          ──► [ Sec: # Done    ] ──► [ Task 2 ]
+                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
 ```
+
+### Board Sorting Mechanics
+
+| Board Scope | Component | Default Sort Order | How to Reorder / Customize |
+| :--- | :--- | :--- | :--- |
+| **Single Note Board (`note`)** | **Columns (Headings)** | Physical Markdown heading order in note. | Drag-and-drop column headers or `<` / `>` buttons (persists in tab settings / note content). |
+| | **Cards Inside Column** | Strict physical `lineIndex` in note markdown (top-to-bottom). | Drag-and-drop cards (rewrites note markdown line sequence). |
+| **Multi-Note Board (`notes`)** | **Columns (Notes)** | **Last Updated / Recently Modified** from Amplenote `app.filterNotes({ tag })`. | Drag-and-drop column headers or `<` / `>` buttons (persists custom order in tab `columnOrder`). |
+| | **Cards Inside Column** | Strict physical `lineIndex` in each note's markdown. | Drag-and-drop cards (rewrites note markdown line sequence). |
+| **Tag Board (`tag`)** | **Columns (Notes)** | **Last Updated / Recently Modified** from Amplenote `app.filterNotes({ tag })`. | Drag-and-drop column headers or `<` / `>` buttons (persists in tab `columnOrder`). |
+| | **Heading Sections** | Physical Markdown heading order inside each note. | Add/remove headers or collapse sections. |
+| | **Cards Inside Section** | Strict physical `lineIndex` under that specific heading. | Drag-and-drop cards between sections or within section. |
 
 ---
 

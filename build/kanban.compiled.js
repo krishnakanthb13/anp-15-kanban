@@ -398,6 +398,7 @@ function buildClientScript() {
 
   var SVG_ICONS = {
     note: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+    notes: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
     tag: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
     chevronUp: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>',
     chevronDown: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>',
@@ -526,11 +527,14 @@ function buildClientScript() {
       var chip = el("div", "kb-tab" + (act && tab.id === act.id ? " kb-tab-active" : ""));
       chip.setAttribute("draggable", "true");
       chip.setAttribute("data-tab-index", String(tabIdx));
-      chip.title = (tab.kind === "tag" ? "Tag Board: #" : "Note Board: ") + tab.name;
+      var isNotes = tab.kind === "notes";
+      var isTag = tab.kind === "tag";
+      chip.title = (isTag ? "Tag Board: #" : isNotes ? "Multi-Note Board: #" : "Note Board: ") + tab.name;
 
+      var kindLabel = isTag ? "TAG" : isNotes ? "NOTES" : "NOTE";
       var badge = el("span", "kb-tab-badge kb-tab-badge-" + tab.kind);
-      badge.appendChild(svg(tab.kind === "tag" ? "tag" : "note"));
-      badge.appendChild(document.createTextNode(tab.kind === "tag" ? "TAG" : "NOTE"));
+      badge.appendChild(svg(isTag ? "tag" : isNotes ? "notes" : "note"));
+      badge.appendChild(document.createTextNode(kindLabel));
       chip.appendChild(badge);
 
       chip.appendChild(el("span", "kb-tab-name", tab.name));
@@ -1625,7 +1629,16 @@ function buildClientScript() {
     if (refreshTabBtn) {
       refreshTabBtn.addEventListener("click", function () {
         setBusy("kb-refresh-tab", true);
-        callPlugin("refreshTab", { tabId: STATE.activeTabId });
+        callPlugin("refreshTab", { tabId: STATE.activeTabId }).then(function (res) {
+          setBusy("kb-refresh-tab", false);
+          if (res && res.board && res.tabId) {
+            STATE.boards[res.tabId] = res.board;
+            renderBoard();
+            showToast("Tab refreshed");
+          }
+        }).catch(function () {
+          setBusy("kb-refresh-tab", false);
+        });
       });
     }
 
@@ -1633,8 +1646,19 @@ function buildClientScript() {
     if (refreshAllBtn) {
       refreshAllBtn.addEventListener("click", function () {
         setBusy("kb-refresh-all", true);
-        setProgress(0.15);
-        callPlugin("refreshAll");
+        setProgress(0.2);
+        callPlugin("refreshAll").then(function (res) {
+          setBusy("kb-refresh-all", false);
+          setProgress(1.0);
+          if (res && res.boards) {
+            STATE.boards = res.boards;
+            if (res.config) STATE.config = res.config;
+            renderAll();
+            showToast("All boards refreshed");
+          }
+        }).catch(function () {
+          setBusy("kb-refresh-all", false);
+        });
       });
     }
 
@@ -2167,6 +2191,11 @@ function buildBaseCss() {
         color: var(--kb-accent);
         border: 1px solid color-mix(in srgb, var(--kb-accent) 28%, transparent);
     }
+    .kb-tab-badge-notes {
+        background: color-mix(in srgb, #8b5cf6 16%, transparent);
+        color: color-mix(in srgb, #8b5cf6 85%, var(--kb-text));
+        border: 1px solid color-mix(in srgb, #8b5cf6 35%, transparent);
+    }
     .kb-tab-badge-tag {
         background: color-mix(in srgb, var(--kb-danger) 14%, transparent);
         color: var(--kb-danger);
@@ -2247,76 +2276,76 @@ function buildBaseCss() {
 
     /* ---------- density modes (compact, cozy, spacious) ---------- */
     :root {
-        --kb-board-gap: 12px;
-        --kb-board-pad: 10px 12px 20px 12px;
-        --kb-col-w: clamp(260px, 22vw, 330px);
-        --kb-col-min-w: 240px;
-        --kb-col-max-w: 380px;
-        --kb-col-head-pad: 7px 10px;
-        --kb-sec-gap: 6px;
-        --kb-sec-pad: 6px 6px 18px 6px;
-        --kb-sec-head-pad: 5px 8px;
-        --kb-card-gap: 6px;
-        --kb-card-pad: 7px 9px;
+        --kb-board-gap: 10px;
+        --kb-board-pad: 6px 10px 8px 10px;
+        --kb-col-w: clamp(250px, 20vw, 320px);
+        --kb-col-min-w: 230px;
+        --kb-col-max-w: 360px;
+        --kb-col-head-pad: 6px 9px;
+        --kb-sec-gap: 4px;
+        --kb-sec-pad: 4px 4px 6px 4px;
+        --kb-sec-head-pad: 4px 7px;
+        --kb-card-gap: 4px;
+        --kb-card-pad: 6px 8px;
         --kb-card-font: 12px;
-        --kb-card-title-font: 13px;
-        --kb-card-radius: 7px;
+        --kb-card-title-font: 12.5px;
+        --kb-card-radius: 6px;
         --kb-badge-font: 9.5px;
         --kb-badge-pad: 1px 4px;
     }
     body.kb-density-compact {
-        --kb-board-gap: 8px;
-        --kb-board-pad: 6px 8px 14px 8px;
-        --kb-col-w: clamp(230px, 18vw, 280px);
-        --kb-col-min-w: 220px;
-        --kb-col-max-w: 320px;
-        --kb-col-head-pad: 4px 7px;
-        --kb-sec-gap: 4px;
-        --kb-sec-pad: 3px 3px 12px 3px;
-        --kb-sec-head-pad: 3px 5px;
-        --kb-card-gap: 4px;
-        --kb-card-pad: 5px 7px;
+        --kb-board-gap: 6px;
+        --kb-board-pad: 4px 6px 6px 6px;
+        --kb-col-w: clamp(220px, 16vw, 270px);
+        --kb-col-min-w: 200px;
+        --kb-col-max-w: 300px;
+        --kb-col-head-pad: 3px 6px;
+        --kb-sec-gap: 3px;
+        --kb-sec-pad: 2px 2px 4px 2px;
+        --kb-sec-head-pad: 2px 5px;
+        --kb-card-gap: 3px;
+        --kb-card-pad: 4px 6px;
         --kb-card-font: 11px;
         --kb-card-title-font: 11.5px;
-        --kb-card-radius: 5px;
+        --kb-card-radius: 4px;
         --kb-badge-font: 9px;
         --kb-badge-pad: 0 3px;
     }
     body.kb-density-cozy {
-        --kb-board-gap: 12px;
-        --kb-board-pad: 10px 12px 20px 12px;
-        --kb-col-w: clamp(260px, 22vw, 330px);
-        --kb-col-min-w: 240px;
-        --kb-col-max-w: 380px;
-        --kb-col-head-pad: 7px 10px;
-        --kb-sec-gap: 6px;
-        --kb-sec-pad: 6px 6px 18px 6px;
-        --kb-sec-head-pad: 5px 8px;
-        --kb-card-gap: 6px;
-        --kb-card-pad: 7px 9px;
+        --kb-board-gap: 10px;
+        --kb-board-pad: 6px 10px 8px 10px;
+        --kb-col-w: clamp(250px, 20vw, 320px);
+        --kb-col-min-w: 230px;
+        --kb-col-max-w: 360px;
+        --kb-col-head-pad: 6px 9px;
+        --kb-sec-gap: 4px;
+        --kb-sec-pad: 4px 4px 6px 4px;
+        --kb-sec-head-pad: 4px 7px;
+        --kb-card-gap: 4px;
+        --kb-card-pad: 6px 8px;
         --kb-card-font: 12px;
-        --kb-card-title-font: 13px;
-        --kb-card-radius: 7px;
+        --kb-card-title-font: 12.5px;
+        --kb-card-radius: 6px;
         --kb-badge-font: 9.5px;
         --kb-badge-pad: 1px 4px;
     }
     body.kb-density-spacious {
-        --kb-board-gap: 16px;
-        --kb-board-pad: 14px 16px 28px 16px;
-        --kb-col-w: clamp(300px, 26vw, 390px);
-        --kb-col-min-w: 280px;
-        --kb-col-max-w: 440px;
-        --kb-col-head-pad: 9px 12px;
-        --kb-sec-gap: 8px;
-        --kb-sec-pad: 8px 8px 24px 8px;
-        --kb-sec-head-pad: 7px 10px;
-        --kb-card-gap: 8px;
-        --kb-card-pad: 10px 12px;
+        --kb-board-gap: 14px;
+        --kb-board-pad: 10px 12px 12px 12px;
+        --kb-col-w: clamp(280px, 24vw, 370px);
+        --kb-col-min-w: 260px;
+        --kb-col-max-w: 420px;
+        --kb-col-head-pad: 8px 11px;
+        --kb-sec-gap: 6px;
+        --kb-sec-pad: 6px 6px 10px 6px;
+        --kb-sec-head-pad: 6px 9px;
+        --kb-card-gap: 6px;
+        --kb-card-pad: 8px 10px;
         --kb-card-font: 13px;
         --kb-card-title-font: 13.5px;
-        --kb-card-radius: 9px;
-        --kb-badge-font: 10.5px;
-        --kb-badge-pad: 2px 6px;
+        --kb-card-radius: 8px;
+        --kb-badge-font: 10px;
+        --kb-badge-pad: 1px 5px;
     }
 
     /* ---------- board ---------- */
@@ -2529,19 +2558,19 @@ function buildBaseCss() {
 
     /* ---------- add column / add note placeholder at right end of board ---------- */
     .kb-add-column-card {
-        flex: 0 0 clamp(240px, 20vw, 290px);
-        width: clamp(240px, 20vw, 290px);
-        min-height: 120px;
+        flex: 0 0 clamp(160px, 14vw, 210px);
+        width: clamp(160px, 14vw, 210px);
+        min-height: auto;
         align-self: flex-start;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
         justify-content: center;
-        gap: 8px;
+        gap: 6px;
         background: color-mix(in srgb, var(--kb-bg-column) 50%, transparent);
-        border: 2px dashed var(--kb-border);
-        border-radius: 12px;
-        padding: 24px 16px;
+        border: 1.5px dashed var(--kb-border);
+        border-radius: 8px;
+        padding: 6px 12px;
         cursor: pointer;
         color: var(--kb-text-muted);
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2551,32 +2580,32 @@ function buildBaseCss() {
         border-color: var(--kb-accent);
         color: var(--kb-accent);
         background: color-mix(in srgb, var(--kb-accent) 6%, var(--kb-bg-column));
-        transform: translateY(-2px);
-        box-shadow: 0 4px 14px var(--kb-shadow);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px var(--kb-shadow);
     }
     .kb-add-column-card .kb-add-column-icon {
-        width: 32px;
-        height: 32px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
         border: 1px dashed currentColor;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
         transition: transform 0.2s ease, border-style 0.2s ease;
     }
     .kb-add-column-card:hover .kb-add-column-icon {
-        transform: scale(1.12);
+        transform: scale(1.1);
         border-style: solid;
         background: color-mix(in srgb, var(--kb-accent) 15%, transparent);
     }
     .kb-add-column-card .kb-add-column-label {
-        font-size: 13px;
+        font-size: 11.5px;
         font-weight: 600;
         letter-spacing: -0.01em;
     }
     .kb-add-column-card .kb-add-column-sub {
-        font-size: 11px;
-        opacity: 0.7;
+        display: none;
     }
 
     /* ---------- sections (for tag boards with collapsible headers) ---------- */
@@ -2673,18 +2702,19 @@ function buildBaseCss() {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 5px;
-        padding: 5px 8px;
+        gap: 4px;
+        padding: 3px 6px;
         background: color-mix(in srgb, var(--kb-bg-column) 60%, transparent);
         border: 1px dashed var(--kb-border);
-        border-radius: 7px;
+        border-radius: 5px;
         cursor: pointer;
         color: var(--kb-text-muted);
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 600;
         transition: all 0.15s ease;
         user-select: none;
-        margin-top: 2px;
+        margin-top: 1px;
+        margin-bottom: 1px;
         flex: 0 0 auto;
     }
     .kb-add-header-card:hover {
@@ -3947,6 +3977,62 @@ function firstValue(result) {
   return Array.isArray(result) ? result[0] : result;
 }
 
+// anp-15-kanban/lib/api/notesBoard.js
+var NOTE_PREFIX2 = "note:";
+async function buildNotesBoard(app, tag) {
+  if (!tag) {
+    return { kind: "notes", tag, columns: [], hasHeadings: false };
+  }
+  const notes = await app.filterNotes({ tag }) || [];
+  let colorMap = {};
+  try {
+    const tags = await app.getTags() || [];
+    tags.forEach((t) => {
+      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
+    });
+  } catch {
+    colorMap = {};
+  }
+  const columns = [];
+  const allCards = [];
+  for (const note of notes) {
+    const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
+    try {
+      const md = await app.getNoteContent({ uuid: note.uuid });
+      if (typeof md === "string") {
+        const { findTaskLines: findTaskLines2 } = await Promise.resolve().then(() => (init_markdownIndex(), markdownIndex_exports));
+        const taskLines = findTaskLines2(md.split("\n"), tasks);
+        tasks.sort((a, b) => {
+          const lineA = taskLines.get(a.uuid || a.id) ?? 0;
+          const lineB = taskLines.get(b.uuid || b.id) ?? 0;
+          return lineA - lineB;
+        });
+      }
+    } catch {
+    }
+    const cards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled note" }));
+    allCards.push(...cards);
+    columns.push({
+      id: NOTE_PREFIX2 + note.uuid,
+      name: note.name || "Untitled note",
+      color: null,
+      wipLimit: null,
+      cards,
+      noteUUID: note.uuid
+    });
+  }
+  await renderCardHtml(app, allCards);
+  allCards.forEach((card) => {
+    card.labels = resolveLabels(card.content, colorMap);
+  });
+  return {
+    kind: "notes",
+    tag,
+    columns,
+    hasHeadings: true
+  };
+}
+
 // anp-15-kanban/lib/features/embedActions.js
 async function rerender(app) {
   if (typeof app.context?.renderEmbed === "function") {
@@ -3972,11 +4058,39 @@ async function handleSetActiveTab(app, payload) {
   const config = setActiveTab(await loadTabsConfig(app), tabId);
   await saveTabsConfig(app, config);
 }
-async function handleRefreshTab(app) {
-  await rerender(app);
+async function buildSingleBoard(app, tab) {
+  if (!tab) return { kind: "note", columns: [], hasHeadings: false };
+  if (tab.kind === "note" && tab.noteUUID) {
+    return await buildNoteBoard(app, tab.noteUUID, { columnLimits: tab.columnLimits || {} });
+  } else if (tab.kind === "tag" && tab.tag) {
+    return await buildTagBoard(app, tab.tag);
+  } else if (tab.kind === "notes" && tab.tag) {
+    return await buildNotesBoard(app, tab.tag);
+  }
+  return { kind: tab.kind, columns: [], hasHeadings: false };
 }
-async function handleRefreshAll(app) {
-  await rerender(app);
+async function handleRefreshTab(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab) {
+    if (payload && payload.forceRerender) await rerender(app);
+    return { ok: false };
+  }
+  const board = await buildSingleBoard(app, tab);
+  if (payload && payload.forceRerender) await rerender(app);
+  return { ok: true, tabId: tab.id, board };
+}
+async function handleRefreshAll(app, payload) {
+  const config = await loadTabsConfig(app);
+  const boards = {};
+  for (const tab of config.tabs) {
+    try {
+      boards[tab.id] = await buildSingleBoard(app, tab);
+    } catch {
+      boards[tab.id] = { kind: tab.kind, columns: [], hasHeadings: false };
+    }
+  }
+  if (payload && payload.forceRerender) await rerender(app);
+  return { ok: true, boards, config };
 }
 function defaultKanbanNoteName(now = /* @__PURE__ */ new Date()) {
   const pad = (n) => (n < 10 ? "0" : "") + n;
@@ -4874,62 +4988,6 @@ async function handleEmbedAction(app, args) {
     return void 0;
   }
   return handler(app, payload);
-}
-
-// anp-15-kanban/lib/api/notesBoard.js
-var NOTE_PREFIX2 = "note:";
-async function buildNotesBoard(app, tag) {
-  if (!tag) {
-    return { kind: "notes", tag, columns: [], hasHeadings: false };
-  }
-  const notes = await app.filterNotes({ tag }) || [];
-  let colorMap = {};
-  try {
-    const tags = await app.getTags() || [];
-    tags.forEach((t) => {
-      if (t?.text) colorMap[t.text.toLowerCase()] = t.color || null;
-    });
-  } catch {
-    colorMap = {};
-  }
-  const columns = [];
-  const allCards = [];
-  for (const note of notes) {
-    const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
-    try {
-      const md = await app.getNoteContent({ uuid: note.uuid });
-      if (typeof md === "string") {
-        const { findTaskLines: findTaskLines2 } = await Promise.resolve().then(() => (init_markdownIndex(), markdownIndex_exports));
-        const taskLines = findTaskLines2(md.split("\n"), tasks);
-        tasks.sort((a, b) => {
-          const lineA = taskLines.get(a.uuid || a.id) ?? 0;
-          const lineB = taskLines.get(b.uuid || b.id) ?? 0;
-          return lineA - lineB;
-        });
-      }
-    } catch {
-    }
-    const cards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled note" }));
-    allCards.push(...cards);
-    columns.push({
-      id: NOTE_PREFIX2 + note.uuid,
-      name: note.name || "Untitled note",
-      color: null,
-      wipLimit: null,
-      cards,
-      noteUUID: note.uuid
-    });
-  }
-  await renderCardHtml(app, allCards);
-  allCards.forEach((card) => {
-    card.labels = resolveLabels(card.content, colorMap);
-  });
-  return {
-    kind: "notes",
-    tag,
-    columns,
-    hasHeadings: true
-  };
 }
 
 // anp-15-kanban/kanban.js

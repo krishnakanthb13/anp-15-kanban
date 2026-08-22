@@ -30,6 +30,8 @@ import {
   handleDeleteNote,
   handleReorderTabs,
   handleSaveColumnsToNote,
+  handleRefreshTab,
+  handleRefreshAll,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -70,21 +72,21 @@ function withTagTab(app) {
   return app;
 }
 
-function withNoteTab(app) {
+function withNoteTab(app, tabId = "t1", noteUUID = "n1") {
   app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
-    tabs: [{ id: "t1", kind: "note", name: "Board", noteUUID: "n1" }],
-    activeTabId: "t1",
+    tabs: [{ id: tabId, kind: "note", name: "Board", noteUUID }],
+    activeTabId: tabId,
     settings: {},
   });
   return app;
 }
 
 describe("embedActions", () => {
-  describe("handleEmbedAction dispatch", () => {
-    it("routes known actions to handlers", async () => {
+  describe("handleEmbedAction dispatcher", () => {
+    it("routes registered actions to handlers", async () => {
       const app = makeApp();
-      await handleEmbedAction(app, ["ping"]);
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      const result = await handleEmbedAction(app, ["ping", {}]);
+      expect(result).toEqual({ ok: true });
     });
 
     it("ignores unknown actions without throwing", async () => {
@@ -98,6 +100,24 @@ describe("embedActions", () => {
       const app = makeApp();
       await expect(handleEmbedAction(app, [])).resolves.not.toThrow();
       await expect(handleEmbedAction(app)).resolves.toBeUndefined();
+    });
+  });
+
+  describe("handleRefreshTab and handleRefreshAll", () => {
+    it("handleRefreshTab returns fresh board data without calling renderEmbed", async () => {
+      const app = withNoteTab(makeApp());
+      const res = await handleRefreshTab(app, { tabId: "t1" });
+      expect(res.ok).toBe(true);
+      expect(res.board).toBeDefined();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
+    });
+
+    it("handleRefreshAll returns all boards without calling renderEmbed", async () => {
+      const app = withNoteTab(makeApp());
+      const res = await handleRefreshAll(app);
+      expect(res.ok).toBe(true);
+      expect(res.boards).toBeDefined();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
     });
   });
 

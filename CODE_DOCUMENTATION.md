@@ -95,27 +95,35 @@ Amplenote tasks map into rich card objects with all native metadata:
 
 ### Tab Architecture & Data Model Comparison
 
-| Tab Kind | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **`note`** | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`, `# Done`) | Tasks under each heading | Moves task markdown line between headings or reorders within the same heading |
-| **`tag`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Relocates under heading or migrates task across notes |
-| **`notes`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | All tasks in note (flat list) | Migrates task across notes via markdown splice & insertTask |
+| Tab Kind | Badge | Badge Color | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`note`** | `NOTE` | Accent Blue (`--kb-accent`) | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`) | Tasks under each heading | Moves task markdown line between headings or reorders within the same heading |
+| **`notes`** | `NOTES` | Violet Purple (`#8b5cf6`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | All tasks in note (flat list) | Migrates task across notes via markdown splice & insertTask |
+| **`tag`** | `TAG` | Coral Red (`--kb-danger`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Relocates under heading or migrates task across notes |
+
+### Sorting Architecture Across Board Types
+
+1. **Columns Order**:
+   - **`note` Boards**: Parsed in strict physical markdown heading sequence (`parseHeadings`).
+   - **`tag` / `notes` Boards**: Initialized via Amplenote API's `app.filterNotes({ tag })` (ordered by **Last Updated / Recently Modified**). Reordering columns via drag-and-drop or `<` / `>` persists custom order in `tab.columnOrder`.
+2. **Cards Order Inside Columns / Sections**:
+   - In all board types (`note`, `notes`, `tag`), tasks are ordered strictly by their **physical document `lineIndex` in the note markdown** (top-to-bottom). Dragging cards updates the markdown document line order.
 
 ```
 1. Note Board (`kind: "note"`):
    [ Note Document ] ──► [ Column: # To Do ] ──► [ Card: Task 1 ]
                      ──► [ Column: # Doing ] ──► [ Card: Task 2 ]
-                     ──► [ Column: # Done  ] ──► [ Card: Task 3 (completed) ]
+                     ──► [ Column: Completed ] ──► [ Card: Task 3 (done) ]
 
-2. Tag Board (`kind: "tag"`):
-   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
-                                          ──► [ Sec: # Done    ] ──► [ Task 2 ]
-                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
-
-3. Multi-Note Board (`kind: "notes"`):
+2. Multi-Note Board (`kind: "notes"`):
    [ Tag: #clients  ] ──► [ Col: Client A Note ] ──► [ Flat Task 1 ]
                                                   ──► [ Flat Task 2 ]
                       ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
+
+3. Tag Board (`kind: "tag"`):
+   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
+                                          ──► [ Sec: # Done    ] ──► [ Task 2 ]
+                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
 ```
 
 ---
