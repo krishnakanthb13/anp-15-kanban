@@ -6,7 +6,7 @@ import { handleEmbedAction } from "./lib/features/embedActions.js";
 import { buildNoteBoard } from "./lib/api/noteBoard.js";
 import { buildTagBoard } from "./lib/api/tagBoard.js";
 import { buildNotesBoard } from "./lib/api/notesBoard.js";
-import { SETTINGS_KEYS, DEFAULT_THEME_ID, DEFAULT_DATE_FORMAT } from "./lib/core/constants.js";
+import { loadPluginSettings } from "./lib/core/settings.js";
 
 /* ----------------------------------- */
 /**
@@ -39,12 +39,7 @@ const plugin = {
    */
   async buildViewState(app) {
     const config = await loadTabsConfig(app);
-    let themeId = DEFAULT_THEME_ID;
-    try {
-      themeId = (await app.settings?.[SETTINGS_KEYS.theme]) || DEFAULT_THEME_ID;
-    } catch {
-      themeId = DEFAULT_THEME_ID;
-    }
+    const settings = await loadPluginSettings(app);
 
     // Derive board snapshots fresh from source of truth: note boards from
     // their note's markdown, tag boards from live account queries.
@@ -72,8 +67,12 @@ const plugin = {
       tabs: config.tabs,
       boards,
       settings: {
-        theme: themeId,
-        dateFormat: config.settings.dateFormat || DEFAULT_DATE_FORMAT,
+        theme: settings.theme,
+        dateFormat: settings.dateFormat,
+        showEmptyColumns: settings.showEmptyColumns,
+        quickDateEnabled: settings.quickDateEnabled,
+        sortMode: settings.sortMode,
+        expandCardInfo: settings.expandCardInfo,
       },
       meta: { roundTrips: getSessionSnapshot().roundTrips },
     };

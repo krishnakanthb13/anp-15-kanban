@@ -21,8 +21,9 @@ The plugin object exposes three main surfaces:
 ```
 lib/
   core/
-    constants.js       # Settings keys ("Kanban Tabs" / "Kanban Theme" / "Kanban Date Format"),
+    constants.js       # Settings keys ("Kanban Tabs" / "Kanban Settings"),
                        # defaults, id generator, tab-shape validation
+    settings.js        # Unified JSON settings loader/saver with backward compatibility fallback
     tabsConfig.js      # JSON persistence (load/save) + pure CRUD ops (add/remove/activate/move)
     sessionState.js    # Module-scope session state (round-trip counter); non-authoritative
     demoBoard.js       # Hardcoded demo tab shown while no real tabs are configured
@@ -114,7 +115,8 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | Action | Handler | Description |
 | :--- | :--- | :--- |
 | `ping` | `handlePing` | Bumps round-trip counter and triggers re-render |
-| `saveTheme` | `handleSaveTheme` | Persists theme choice to account settings |
+| `saveTheme` | `handleSaveTheme` | Persists theme choice to unified Kanban Settings |
+| `saveSetting` | `handleSaveSetting` | Persists top-bar view settings (empty, date, sort, info) to unified settings |
 | `setActiveTab` | `handleSetActiveTab` | Switches active tab and refreshes view |
 | `refreshTab` | `handleRefreshTab` | Re-queries active board data |
 | `refreshAll` | `handleRefreshAll` | Re-queries all tabs |
@@ -122,7 +124,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `closeTab` | `handleCloseTab` | Removes tab configuration |
 | `moveTabDir` | `handleMoveTabDir` | Moves tab left or right in tab bar |
 | `reorderTabs` | `handleReorderTabs` | Persists drag-and-drop tab ordering to settings |
-| `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string |
+| `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string in unified settings |
 | `moveCard` | `handleMoveCard` | Moves tasks across headings, sections, or notes |
 | `createCard` | `handleCreateCard` | Inserts task in column heading or note |
 | `editCard` | `handleEditCard` | Quick raw-markdown task editor |
@@ -154,14 +156,14 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
     - Column header layout with wide column title and right-aligned action group (`.kb-col-actions`) hosting count badge (`.kb-count`), `+` button, and micro floating tool palette (`.kb-col-tools`).
     - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
  - **`clientScript.js`**:
-    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, and 0ms client theme cycler.
+    - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, and 0ms client theme cycler with unified cloud and local persistence.
  
  ---
  
  ## Testing Strategy
  
  ```bash
- npx jest "anp-15-kanban/test"     # Jest unit and integration suites (18 suites, 195 tests)
+ npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 207 tests)
  node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
  node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
  ```

@@ -16,8 +16,7 @@ Icon: `view_kanban`
 | `description` | A visual Kanban board: note headings as columns, tasks as cards. |
 | `icon` | view_kanban |
 | `setting` | Kanban Tabs |
-| `setting` | Kanban Theme |
-| `setting` | Kanban Date Format |
+| `setting` | Kanban Settings |
 
 3. **Insert Code Block**: Below the table, create a single Javascript code block (type ` ```javascript `).
 4. **Paste Compiled Code**: Copy the content from `build/kanban.compiled.js` and paste it inside that code block.
@@ -25,13 +24,12 @@ Icon: `view_kanban`
 
 ## Settings
 
-Settings are stored via `app.settings` / `app.setSetting` and sync across devices. All values are strings.
+Settings are stored via `app.settings` / `app.setSetting` and sync across devices and notes. All values are strings.
 
 | Setting | Purpose | Example value |
 | :--- | :--- | :--- |
 | `Kanban Tabs` | JSON tab configuration: which notes/tags are boarded, their order, and the active tab. Written by the plugin; edit by hand only for repair. | `{"tabs":[{"id":"tab_x","kind":"note","name":"My Board","noteUUID":"…"}],"activeTabId":"tab_x","settings":{"dateFormat":"YYYY-MM-DD"}}` |
-| `Kanban Theme` | Active theme id (also changeable from the board's theme button). | `midnight` |
-| `Kanban Date Format` | Format used for date chips on cards. | `YYYY-MM-DD` |
+| `Kanban Settings` | **Unified JSON Plugin Settings & View Preferences**: Persists theme, date format, empty column visibility, quick `@` date button state, card sort mode, and expanded card details across sessions, notes, and devices. | `{"theme":"light","dateFormat":"YYYY-MM-DD","showEmptyColumns":false,"quickDateEnabled":false,"sortMode":"none","expandCardInfo":false}` |
 
 ## Usage
 
@@ -173,6 +171,7 @@ kanban.js                  # Entry: appOption launcher, renderEmbed, onEmbedCall
 lib/
   core/
     constants.js           # Settings keys, defaults, id generation
+    settings.js            # Unified JSON settings management (load, save, fallback)
     tabsConfig.js          # Tab persistence (validated load/save + pure CRUD ops)
     sessionState.js        # Session-scoped state (round-trip counter)
     demoBoard.js           # Hardcoded demo content shown before any tabs exist
@@ -189,12 +188,12 @@ lib/
   ui/
     themes.js              # 8-theme registry + CSS variable palettes
     boardTemplate.js       # Full HTML document assembly (theme CSS + layout + header controls)
-    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, theme cycler
+    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, theme cycler, persistent settings
   utils/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (18 suites, 190 tests)
+test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 207 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```

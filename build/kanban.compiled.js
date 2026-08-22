@@ -2,11 +2,21 @@
 // anp-15-kanban/lib/core/constants.js
 var SETTINGS_KEYS = {
   tabs: "Kanban Tabs",
+  settings: "Kanban Settings",
   theme: "Kanban Theme",
+  // retained for backward-compatibility lookup
   dateFormat: "Kanban Date Format"
 };
 var DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
 var DEFAULT_THEME_ID = "light";
+var DEFAULT_SETTINGS = {
+  theme: DEFAULT_THEME_ID,
+  dateFormat: DEFAULT_DATE_FORMAT,
+  showEmptyColumns: false,
+  quickDateEnabled: false,
+  sortMode: "none",
+  expandCardInfo: false
+};
 function emptyTabsConfig() {
   return {
     tabs: [],
@@ -179,10 +189,32 @@ function buildClientScript() {
   var STATE = window.__KANBAN_STATE__ || {};
   var THEMES = window.__KANBAN_THEMES__ || [];
   var THEME_STORAGE_KEY = "ANP_ACTIVE_THEME";
+  var SETTINGS_STORAGE_PREFIX = "ANP_KB_";
   var currentTheme = null;
-  var sortMode = "none";
-  var showEmptyColumns = false;
-  var quickDateEnabled = false;
+
+  function getSetting(key, fallback) {
+    if (STATE.settings && STATE.settings[key] !== undefined && STATE.settings[key] !== null) {
+      return STATE.settings[key];
+    }
+    try {
+      var cached = localStorage.getItem(SETTINGS_STORAGE_PREFIX + key);
+      if (cached !== null) {
+        try { return JSON.parse(cached); } catch (e) { return cached; }
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
+  function setLocalSetting(key, val) {
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_PREFIX + key, JSON.stringify(val));
+    } catch (e) {}
+  }
+
+  var sortMode = getSetting("sortMode", "none");
+  var showEmptyColumns = !!getSetting("showEmptyColumns", false);
+  var quickDateEnabled = !!getSetting("quickDateEnabled", false);
+  var expandCardInfo = !!getSetting("expandCardInfo", false);
   var collapsedSections = {};
   var openInfoCards = {};
   var initialColumnOrders = {};
@@ -268,7 +300,8 @@ function buildClientScript() {
     try {
       if (persist) {
         localStorage.setItem(THEME_STORAGE_KEY, theme.id);
-        callPlugin("saveTheme", theme.id);
+        setLocalSetting("theme", theme.id);
+        callPlugin("saveTheme", { themeId: theme.id });
         showToast("Theme: " + theme.name);
       }
     } catch (e) { /* storage fallback */ }
@@ -474,6 +507,8 @@ function buildClientScript() {
   function cycleSort() {
     var idx = SORT_MODES.indexOf(sortMode);
     sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
+    setLocalSetting("sortMode", sortMode);
+    callPlugin("saveSetting", { sortMode: sortMode });
     updateSortUi();
     renderBoard();
     if (sortMode !== "none") {
@@ -518,6 +553,8 @@ function buildClientScript() {
 
   function resetSort() {
     sortMode = "none";
+    setLocalSetting("sortMode", "none");
+    callPlugin("saveSetting", { sortMode: "none" });
     updateSortUi();
     renderBoard();
     showToast("Reset to default task order");
@@ -809,7 +846,8 @@ function buildClientScript() {
     infoBtn.appendChild(svg("info"));
     infoBtn.addEventListener("click", function (e) {
       e.stopPropagation();
-      openInfoCards[card.id] = !openInfoCards[card.id];
+      var wasOpen = openInfoCards[card.id] !== undefined ? !!openInfoCards[card.id] : expandCardInfo;
+      openInfoCards[card.id] = !wasOpen;
       renderBoard();
     });
     actions.appendChild(infoBtn);
@@ -891,8 +929,9 @@ function buildClientScript() {
       }
     }
 
-    // Inline Task Details Popup (from \u2139 button) - only outputs rows that have values
-    if (openInfoCards[card.id]) {
+    // Inline Task Details Popup (from \u2139 button or expandCardInfo)
+    var isCardInfoOpen = openInfoCards[card.id] !== undefined ? !!openInfoCards[card.id] : expandCardInfo;
+    if (isCardInfoOpen) {
       var details = el("div", "kb-task-details");
       var parts = [];
 
@@ -1062,14 +1101,27 @@ function buildClientScript() {
     if (btn) btn.classList.toggle("kb-busy", !!busy);
   }
 
-  function toggleEmptyColumns() {
-    showEmptyColumns = !showEmptyColumns;
+  function updateEmptyUi() {
     var btn = document.getElementById("kb-toggle-empty-btn");
     var lbl = document.getElementById("kb-empty-label");
     if (btn) btn.classList.toggle("kb-btn-active", showEmptyColumns);
     if (lbl) lbl.textContent = showEmptyColumns ? "Empty: Show" : "Empty";
+  }
+
+  function toggleEmptyColumns() {
+    showEmptyColumns = !showEmptyColumns;
+    setLocalSetting("showEmptyColumns", showEmptyColumns);
+    callPlugin("saveSetting", { showEmptyColumns: showEmptyColumns });
+    updateEmptyUi();
     renderBoard();
     showToast(showEmptyColumns ? "Showing all columns (including empty)" : "Hiding empty columns");
+  }
+
+  function updateInfoUi() {
+    var btn = document.getElementById("kb-toggle-info-btn");
+    var lbl = document.getElementById("kb-info-label");
+    if (btn) btn.classList.toggle("kb-btn-active", expandCardInfo);
+    if (lbl) lbl.textContent = expandCardInfo ? "Info: All" : "Info";
   }
 
   function toggleAllInfo() {
@@ -1089,35 +1141,38 @@ function buildClientScript() {
     var totalCards = allCards.length;
     var openCount = 0;
     allCards.forEach(function (c) {
-      if (openInfoCards[c.id]) openCount++;
+      var isOpen = openInfoCards[c.id] !== undefined ? !!openInfoCards[c.id] : expandCardInfo;
+      if (isOpen) openCount++;
     });
 
     var shouldExpand = openCount < totalCards;
     allCards.forEach(function (c) {
-      if (shouldExpand) {
-        openInfoCards[c.id] = true;
-      } else {
-        delete openInfoCards[c.id];
-      }
+      openInfoCards[c.id] = shouldExpand;
     });
 
     if (data && data.kind === "tag" && shouldExpand) {
       collapsedSections = {};
     }
 
-    var btn = document.getElementById("kb-toggle-info-btn");
-    var lbl = document.getElementById("kb-info-label");
-    if (btn) btn.classList.toggle("kb-btn-active", shouldExpand);
-    if (lbl) lbl.textContent = shouldExpand ? "Info: All" : "Info";
+    expandCardInfo = shouldExpand;
+    setLocalSetting("expandCardInfo", expandCardInfo);
+    callPlugin("saveSetting", { expandCardInfo: expandCardInfo });
 
+    updateInfoUi();
     renderBoard();
     showToast(shouldExpand ? "Expanded all task details" : "Collapsed all task details");
   }
 
-  function toggleQuickDate() {
-    quickDateEnabled = !quickDateEnabled;
+  function updateQuickDateUi() {
     var btn = document.getElementById("kb-toggle-date-action-btn");
     if (btn) btn.classList.toggle("kb-btn-active", quickDateEnabled);
+  }
+
+  function toggleQuickDate() {
+    quickDateEnabled = !quickDateEnabled;
+    setLocalSetting("quickDateEnabled", quickDateEnabled);
+    callPlugin("saveSetting", { quickDateEnabled: quickDateEnabled });
+    updateQuickDateUi();
     renderBoard();
     showToast(quickDateEnabled ? "Quick @ date buttons enabled on cards" : "Quick @ date buttons disabled");
   }
@@ -1235,6 +1290,10 @@ function buildClientScript() {
 
   bootTheme();
   wireControls();
+  updateEmptyUi();
+  updateQuickDateUi();
+  updateInfoUi();
+  updateSortUi();
   renderAll();
 })();
 `;
@@ -2576,6 +2635,81 @@ function withDemoContent(viewState) {
   };
 }
 
+// anp-15-kanban/lib/core/settings.js
+var VALID_SORT_MODES = /* @__PURE__ */ new Set(["none", "score", "startDate", "important", "urgent", "alpha", "date", "urgency"]);
+function safeParse2(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+function sanitizeSettings(raw) {
+  const base = { ...DEFAULT_SETTINGS };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return base;
+  }
+  if (typeof raw.theme === "string" && isValidThemeId(raw.theme)) {
+    base.theme = raw.theme;
+  }
+  if (typeof raw.dateFormat === "string" && raw.dateFormat.trim()) {
+    base.dateFormat = raw.dateFormat.trim();
+  }
+  if (typeof raw.showEmptyColumns === "boolean") {
+    base.showEmptyColumns = raw.showEmptyColumns;
+  } else if (raw.showEmptyColumns === "true") {
+    base.showEmptyColumns = true;
+  }
+  if (typeof raw.quickDateEnabled === "boolean") {
+    base.quickDateEnabled = raw.quickDateEnabled;
+  } else if (raw.quickDateEnabled === "true") {
+    base.quickDateEnabled = true;
+  }
+  if (typeof raw.sortMode === "string" && VALID_SORT_MODES.has(raw.sortMode)) {
+    base.sortMode = raw.sortMode;
+  }
+  if (typeof raw.expandCardInfo === "boolean") {
+    base.expandCardInfo = raw.expandCardInfo;
+  } else if (raw.expandCardInfo === "true") {
+    base.expandCardInfo = true;
+  }
+  return base;
+}
+async function loadPluginSettings(app) {
+  let raw = null;
+  try {
+    raw = safeParse2(app.settings?.[SETTINGS_KEYS.settings]);
+  } catch {
+    raw = null;
+  }
+  if (raw && typeof raw === "object") {
+    return sanitizeSettings(raw);
+  }
+  const fallback = { ...DEFAULT_SETTINGS };
+  try {
+    const legacyTheme = await app.settings?.[SETTINGS_KEYS.theme];
+    if (legacyTheme && isValidThemeId(legacyTheme)) {
+      fallback.theme = legacyTheme;
+    }
+  } catch {
+  }
+  try {
+    const legacyDateFormat = await app.settings?.[SETTINGS_KEYS.dateFormat];
+    if (legacyDateFormat && typeof legacyDateFormat === "string" && legacyDateFormat.trim()) {
+      fallback.dateFormat = legacyDateFormat.trim();
+    }
+  } catch {
+  }
+  return fallback;
+}
+async function savePluginSettings(app, updates) {
+  const current = await loadPluginSettings(app);
+  const merged = sanitizeSettings({ ...current, ...updates });
+  await app.setSetting(SETTINGS_KEYS.settings, JSON.stringify(merged));
+  return merged;
+}
+
 // anp-15-kanban/lib/api/markdownIndex.js
 var HEADING_RE = /^(#{1,6})\s+(.*)$/;
 var UUID_IN_LINE_RE = (uuid) => new RegExp(`["']uuid["']\\s*:\\s*["']${uuid}["']`);
@@ -3064,9 +3198,13 @@ async function handlePing(app) {
   return { ok: true };
 }
 async function handleSaveTheme(app, payload) {
-  const themeId = payload && typeof payload.themeId === "string" ? payload.themeId : null;
+  const themeId = payload && typeof payload.themeId === "string" ? payload.themeId : typeof payload === "string" ? payload : null;
   if (!themeId || !isValidThemeId(themeId)) return;
-  await app.setSetting(SETTINGS_KEYS.theme, themeId);
+  await savePluginSettings(app, { theme: themeId });
+}
+async function handleSaveSetting(app, payload) {
+  if (!payload || typeof payload !== "object") return;
+  await savePluginSettings(app, payload);
 }
 async function handleSetActiveTab(app, payload) {
   const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
@@ -3176,18 +3314,17 @@ async function handleMoveTabDir(app, payload) {
   await rerender(app);
 }
 async function handleSetDateFormat(app) {
-  const config = await loadTabsConfig(app);
+  const settings = await loadPluginSettings(app);
   const result = await app.prompt("Date format for card chips", {
     inputs: [{
       label: "Format tokens: YYYY MM DD MMM (e.g. DD MMM YYYY):",
       type: "text",
-      value: config.settings.dateFormat
+      value: settings.dateFormat
     }]
   });
   const fmt = firstValue(result);
   if (!fmt || !String(fmt).trim()) return;
-  config.settings.dateFormat = String(fmt).trim();
-  await saveTabsConfig(app, config);
+  await savePluginSettings(app, { dateFormat: String(fmt).trim() });
   await rerender(app);
 }
 async function resolveNoteTab(app, payload) {
@@ -3749,6 +3886,8 @@ async function handleQuickSetDate(app, payload) {
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
+  saveSetting: handleSaveSetting,
+  saveSettings: handleSaveSetting,
   setActiveTab: handleSetActiveTab,
   refreshTab: handleRefreshTab,
   refreshAll: handleRefreshAll,
@@ -3853,12 +3992,7 @@ var plugin = {
    */
   async buildViewState(app) {
     const config = await loadTabsConfig(app);
-    let themeId = DEFAULT_THEME_ID;
-    try {
-      themeId = await app.settings?.[SETTINGS_KEYS.theme] || DEFAULT_THEME_ID;
-    } catch {
-      themeId = DEFAULT_THEME_ID;
-    }
+    const settings = await loadPluginSettings(app);
     const boards = {};
     for (const tab of config.tabs) {
       try {
@@ -3882,8 +4016,12 @@ var plugin = {
       tabs: config.tabs,
       boards,
       settings: {
-        theme: themeId,
-        dateFormat: config.settings.dateFormat || DEFAULT_DATE_FORMAT
+        theme: settings.theme,
+        dateFormat: settings.dateFormat,
+        showEmptyColumns: settings.showEmptyColumns,
+        quickDateEnabled: settings.quickDateEnabled,
+        sortMode: settings.sortMode,
+        expandCardInfo: settings.expandCardInfo
       },
       meta: { roundTrips: getSessionSnapshot().roundTrips }
     };

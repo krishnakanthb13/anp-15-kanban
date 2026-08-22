@@ -81,3 +81,11 @@ The interface combines Google Fonts typography (**Inter** + **JetBrains Mono**),
 Complex configuration is broken into sequential single-purpose steps (e.g. 2-step prompt wizard for adding board tabs: choose type first, then configure only that specific selection). Quick action buttons (cycling sort order, Empty columns show/hide, Expand/Collapse all info, and Quick `@` date mode) give power users immediate, frictionless board customizability without visual clutter or modal fatigue.
 
 **Why:** Presenting users with irrelevant or conditional inputs in a single monolithic modal creates cognitive overload and confusion. Progressive disclosure and direct 1-click controls minimize friction, make options immediately discoverable, and provide clear mental models for everyday operations.
+
+---
+
+## 11. Unified Settings & Persistent UX State
+
+All user preferences and top-bar button states (Theme, Date format, Empty columns toggle, Quick `@` date mode, Card sort mode, Expanded details) are consolidated into a single, cohesive **`Kanban Settings`** JSON object in `app.settings`.
+
+**Why:** Scattering plugin configuration across half a dozen discrete setting keys clutters the user's Amplenote settings and complicates state synchronization. A unified JSON setting paired with a two-tier hydration model (instant local caching + asynchronous Amplenote cloud sync) ensures that every button and view preference is remembered seamlessly across browser sessions, notes, and devices with zero UI flicker.

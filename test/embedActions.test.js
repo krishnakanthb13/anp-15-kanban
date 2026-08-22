@@ -108,10 +108,22 @@ describe("embedActions", () => {
   });
 
   describe("handleSaveTheme", () => {
-    it("persists valid theme ids", async () => {
+    it("persists valid theme ids into unified settings", async () => {
       const app = makeApp();
       await handleSaveTheme(app, { themeId: "dracula" });
-      expect(app.setSetting).toHaveBeenCalledWith(SETTINGS_KEYS.theme, "dracula");
+      expect(app.setSetting).toHaveBeenCalledWith(
+        SETTINGS_KEYS.settings,
+        expect.stringContaining('"theme":"dracula"')
+      );
+    });
+
+    it("accepts string payload directly", async () => {
+      const app = makeApp();
+      await handleSaveTheme(app, "nord");
+      expect(app.setSetting).toHaveBeenCalledWith(
+        SETTINGS_KEYS.settings,
+        expect.stringContaining('"theme":"nord"')
+      );
     });
 
     it("rejects invalid theme ids without writing", async () => {
@@ -120,6 +132,21 @@ describe("embedActions", () => {
       await handleSaveTheme(app, {});
       await handleSaveTheme(app);
       expect(app.setSetting).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleSaveSetting", () => {
+    it("persists top-bar view settings to unified settings", async () => {
+      const app = makeApp();
+      await handleEmbedAction(app, ["saveSetting", { showEmptyColumns: true, sortMode: "score" }]);
+      expect(app.setSetting).toHaveBeenCalledWith(
+        SETTINGS_KEYS.settings,
+        expect.stringContaining('"showEmptyColumns":true')
+      );
+      expect(app.setSetting).toHaveBeenCalledWith(
+        SETTINGS_KEYS.settings,
+        expect.stringContaining('"sortMode":"score"')
+      );
     });
   });
 
@@ -399,8 +426,10 @@ describe("embedActions", () => {
       app.prompt.mockResolvedValue(["DD MMM YYYY"]);
       await handleSetDateFormat(app);
 
-      const written = JSON.parse(app.setSetting.mock.calls[0][1]);
-      expect(written.settings.dateFormat).toBe("DD MMM YYYY");
+      expect(app.setSetting).toHaveBeenCalledWith(
+        SETTINGS_KEYS.settings,
+        expect.stringContaining('"dateFormat":"DD MMM YYYY"')
+      );
       expect(app.context.renderEmbed).toHaveBeenCalled();
 
       app.prompt.mockResolvedValue(["   "]);

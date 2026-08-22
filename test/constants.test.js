@@ -4,6 +4,7 @@ describe("constants", () => {
   describe("SETTINGS_KEYS", () => {
     it("exposes stable setting keys", () => {
       expect(SETTINGS_KEYS.tabs).toBe("Kanban Tabs");
+      expect(SETTINGS_KEYS.settings).toBe("Kanban Settings");
       expect(SETTINGS_KEYS.theme).toBe("Kanban Theme");
       expect(SETTINGS_KEYS.dateFormat).toBe("Kanban Date Format");
     });

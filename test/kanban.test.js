@@ -115,8 +115,7 @@ describe("kanban plugin entry", () => {
 
     it("falls back to the default theme for unset/invalid theme settings", async () => {
       const html = await plugin.renderEmbed(makeApp({ [SETTINGS_KEYS.theme]: "bogus" }));
-      // state carries the raw value; client + resolveTheme handle fallback
-      expect(html).toContain("bogus");
+      expect(html).toContain(DEFAULT_THEME_ID);
       const noTheme = await plugin.renderEmbed(makeApp({}));
       expect(noTheme).toContain(DEFAULT_THEME_ID);
     });
