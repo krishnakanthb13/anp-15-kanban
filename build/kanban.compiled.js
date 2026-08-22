@@ -15,7 +15,8 @@ var DEFAULT_SETTINGS = {
   showEmptyColumns: false,
   quickDateEnabled: false,
   sortMode: "none",
-  expandCardInfo: false
+  expandCardInfo: false,
+  density: "cozy"
 };
 function emptyTabsConfig() {
   return {
@@ -573,6 +574,35 @@ function buildClientScript() {
     renderBoard();
     updateSortUi();
     showToast("Reset column order to source note");
+  }
+
+  /* ---------------- density management ---------------- */
+
+  var DENSITY_MODES = ["cozy", "compact", "spacious"];
+  var DENSITY_LABELS = {
+    cozy: "Cozy",
+    compact: "Compact",
+    spacious: "Spacious"
+  };
+  var density = (STATE.settings && STATE.settings.density) || "cozy";
+
+  function applyDensity(mode) {
+    density = mode || "cozy";
+    document.body.classList.remove("kb-density-compact", "kb-density-cozy", "kb-density-spacious");
+    document.body.classList.add("kb-density-" + density);
+    var label = document.getElementById("kb-density-label");
+    if (label) {
+      label.textContent = DENSITY_LABELS[density] || "Cozy";
+    }
+  }
+
+  function cycleDensity() {
+    var idx = DENSITY_MODES.indexOf(density);
+    var next = DENSITY_MODES[(idx + 1) % DENSITY_MODES.length];
+    applyDensity(next);
+    setLocalSetting("density", next);
+    callPlugin("saveSetting", { density: next });
+    showToast("Density: " + (DENSITY_LABELS[next] || next));
   }
 
   /* ---------------- board rendering & column drag-and-drop ---------------- */
@@ -1301,6 +1331,9 @@ function buildClientScript() {
     var sortBtn = document.getElementById("kb-sort-btn");
     if (sortBtn) sortBtn.addEventListener("click", cycleSort);
 
+    var densityBtn = document.getElementById("kb-density-btn");
+    if (densityBtn) densityBtn.addEventListener("click", cycleDensity);
+
     var resetSortBtn = document.getElementById("kb-reset-sort-btn");
     if (resetSortBtn) resetSortBtn.addEventListener("click", resetSort);
 
@@ -1408,6 +1441,7 @@ function buildClientScript() {
   /* ---------------- boot ---------------- */
 
   bootTheme();
+  applyDensity(density);
   wireControls();
   updateEmptyUi();
   updateQuickDateUi();
@@ -1925,12 +1959,86 @@ function buildBaseCss() {
         white-space: nowrap;
     }
 
+    /* ---------- density modes (compact, cozy, spacious) ---------- */
+    :root {
+        --kb-board-gap: 12px;
+        --kb-board-pad: 10px 12px 20px 12px;
+        --kb-col-w: clamp(260px, 22vw, 330px);
+        --kb-col-min-w: 240px;
+        --kb-col-max-w: 380px;
+        --kb-col-head-pad: 7px 10px;
+        --kb-sec-gap: 6px;
+        --kb-sec-pad: 6px 6px 18px 6px;
+        --kb-sec-head-pad: 5px 8px;
+        --kb-card-gap: 6px;
+        --kb-card-pad: 7px 9px;
+        --kb-card-font: 12px;
+        --kb-card-title-font: 13px;
+        --kb-card-radius: 7px;
+        --kb-badge-font: 9.5px;
+        --kb-badge-pad: 1px 4px;
+    }
+    body.kb-density-compact {
+        --kb-board-gap: 8px;
+        --kb-board-pad: 6px 8px 14px 8px;
+        --kb-col-w: clamp(230px, 18vw, 280px);
+        --kb-col-min-w: 220px;
+        --kb-col-max-w: 320px;
+        --kb-col-head-pad: 4px 7px;
+        --kb-sec-gap: 4px;
+        --kb-sec-pad: 3px 3px 12px 3px;
+        --kb-sec-head-pad: 3px 5px;
+        --kb-card-gap: 4px;
+        --kb-card-pad: 5px 7px;
+        --kb-card-font: 11px;
+        --kb-card-title-font: 11.5px;
+        --kb-card-radius: 5px;
+        --kb-badge-font: 9px;
+        --kb-badge-pad: 0 3px;
+    }
+    body.kb-density-cozy {
+        --kb-board-gap: 12px;
+        --kb-board-pad: 10px 12px 20px 12px;
+        --kb-col-w: clamp(260px, 22vw, 330px);
+        --kb-col-min-w: 240px;
+        --kb-col-max-w: 380px;
+        --kb-col-head-pad: 7px 10px;
+        --kb-sec-gap: 6px;
+        --kb-sec-pad: 6px 6px 18px 6px;
+        --kb-sec-head-pad: 5px 8px;
+        --kb-card-gap: 6px;
+        --kb-card-pad: 7px 9px;
+        --kb-card-font: 12px;
+        --kb-card-title-font: 13px;
+        --kb-card-radius: 7px;
+        --kb-badge-font: 9.5px;
+        --kb-badge-pad: 1px 4px;
+    }
+    body.kb-density-spacious {
+        --kb-board-gap: 16px;
+        --kb-board-pad: 14px 16px 28px 16px;
+        --kb-col-w: clamp(300px, 26vw, 390px);
+        --kb-col-min-w: 280px;
+        --kb-col-max-w: 440px;
+        --kb-col-head-pad: 9px 12px;
+        --kb-sec-gap: 8px;
+        --kb-sec-pad: 8px 8px 24px 8px;
+        --kb-sec-head-pad: 7px 10px;
+        --kb-card-gap: 8px;
+        --kb-card-pad: 10px 12px;
+        --kb-card-font: 13px;
+        --kb-card-title-font: 13.5px;
+        --kb-card-radius: 9px;
+        --kb-badge-font: 10.5px;
+        --kb-badge-pad: 2px 6px;
+    }
+
     /* ---------- board ---------- */
     .kb-board {
         display: flex;
         align-items: flex-start;
-        gap: 14px;
-        padding: 14px 16px 28px 16px;
+        gap: var(--kb-board-gap);
+        padding: var(--kb-board-pad);
         overflow-x: auto;
         overflow-y: hidden;
         flex: 1 1 0;
@@ -1952,17 +2060,17 @@ function buildBaseCss() {
         align-self: flex-start;
     }
     .kb-column {
-        flex: 0 0 clamp(290px, 24vw, 360px);
-        width: clamp(290px, 24vw, 360px);
-        min-width: 280px;
-        max-width: 420px;
+        flex: 0 0 var(--kb-col-w);
+        width: var(--kb-col-w);
+        min-width: var(--kb-col-min-w);
+        max-width: var(--kb-col-max-w);
         max-height: 100%;
         display: flex;
         flex-direction: column;
         background: var(--kb-bg-column);
         border: 1px solid var(--kb-border);
-        border-radius: 12px;
-        box-shadow: 0 2px 10px var(--kb-shadow);
+        border-radius: 10px;
+        box-shadow: 0 2px 8px var(--kb-shadow);
         transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
         min-height: 0;
     }
@@ -1978,11 +2086,11 @@ function buildBaseCss() {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        padding: 9px 12px;
+        gap: 6px;
+        padding: var(--kb-col-head-pad);
         border-bottom: 1px solid var(--kb-border);
         cursor: grab;
-        border-radius: 12px 12px 0 0;
+        border-radius: 10px 10px 0 0;
         background: color-mix(in srgb, var(--kb-bg-card) 30%, var(--kb-bg-column));
         position: relative;
     }
@@ -2163,8 +2271,8 @@ function buildBaseCss() {
     .kb-sections {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        padding: 10px 10px 36px 10px;
+        gap: var(--kb-sec-gap);
+        padding: var(--kb-sec-pad);
         overflow-y: auto;
         flex: 1 1 auto;
         min-height: 0;
@@ -2182,11 +2290,11 @@ function buildBaseCss() {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 7px 10px;
+        padding: var(--kb-sec-head-pad);
         background: var(--kb-bg-column);
         cursor: pointer;
         user-select: none;
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 600;
         border-radius: 8px 8px 0 0;
         transition: background 0.15s ease;
@@ -2240,8 +2348,8 @@ function buildBaseCss() {
     .kb-section-cards {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 8px 8px 12px 8px;
+        gap: var(--kb-card-gap);
+        padding: 5px;
         min-height: fit-content;
     }
     .kb-section-cards.kb-collapsed {
@@ -2253,14 +2361,14 @@ function buildBaseCss() {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        padding: 7px 10px;
+        gap: 5px;
+        padding: 5px 8px;
         background: color-mix(in srgb, var(--kb-bg-column) 60%, transparent);
         border: 1px dashed var(--kb-border);
-        border-radius: 8px;
+        border-radius: 7px;
         cursor: pointer;
         color: var(--kb-text-muted);
-        font-size: 11.5px;
+        font-size: 11px;
         font-weight: 600;
         transition: all 0.15s ease;
         user-select: none;
@@ -2281,11 +2389,11 @@ function buildBaseCss() {
     }
 
     .kb-cards {
-        padding: 10px 10px 36px 10px;
+        padding: var(--kb-sec-pad);
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--kb-card-gap);
         flex: 1 1 auto;
         min-height: 0;
         scrollbar-width: thin;
@@ -2330,8 +2438,9 @@ function buildBaseCss() {
     .kb-card {
         background: var(--kb-bg-card);
         border: 1px solid var(--kb-border);
-        border-radius: 9px;
-        padding: 11px;
+        border-radius: var(--kb-card-radius);
+        padding: var(--kb-card-pad);
+        font-size: var(--kb-card-font);
         box-shadow: 0 1px 3px var(--kb-shadow);
         cursor: grab;
         position: relative;
@@ -2366,40 +2475,54 @@ function buildBaseCss() {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 5px;
-        margin-bottom: 7px;
+        gap: 4px;
+        margin-bottom: 5px;
     }
     .kb-badge {
-        font-size: 10.5px;
+        font-size: var(--kb-badge-font);
         font-weight: 600;
-        padding: 2px 7px;
-        border-radius: 5px;
-        line-height: 1.25;
+        border-radius: 4px;
+        padding: var(--kb-badge-pad);
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        letter-spacing: 0.01em;
+        gap: 3px;
+        line-height: 1.2;
     }
     .kb-badge-urgent {
-        background: color-mix(in srgb, var(--kb-danger) 14%, transparent);
-        color: var(--kb-danger);
-        border: 1px solid color-mix(in srgb, var(--kb-danger) 35%, transparent);
+        background: color-mix(in srgb, var(--kb-urgent) 14%, transparent);
+        color: var(--kb-urgent);
+        border: 1px solid color-mix(in srgb, var(--kb-urgent) 30%, transparent);
     }
     .kb-badge-important {
-        background: color-mix(in srgb, var(--kb-accent) 14%, transparent);
-        color: var(--kb-accent);
-        border: 1px solid color-mix(in srgb, var(--kb-accent) 35%, transparent);
+        background: color-mix(in srgb, var(--kb-important) 14%, transparent);
+        color: var(--kb-important);
+        border: 1px solid color-mix(in srgb, var(--kb-important) 30%, transparent);
     }
     .kb-badge-score {
+        background: color-mix(in srgb, var(--kb-accent) 12%, transparent);
+        color: var(--kb-accent);
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 600;
+    }
+    .kb-badge-note {
         background: var(--kb-bg-column);
         color: var(--kb-text-muted);
         border: 1px solid var(--kb-border);
-        font-variant-numeric: tabular-nums;
+        font-size: 10px;
+        max-width: 130px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    .kb-badge-subtask {
-        background: color-mix(in srgb, var(--kb-accent) 12%, transparent);
-        border: 1px solid var(--kb-border);
-        color: var(--kb-text);
+    .kb-badge-check {
+        cursor: pointer;
+        padding: 0 4px;
+        border-radius: 4px;
+        transition: background 0.12s ease, transform 0.1s ease;
+    }
+    .kb-badge-check:hover {
+        background: color-mix(in srgb, var(--kb-accent) 20%, transparent);
+        transform: scale(1.15);
     }
 
     .kb-col-titlewrap {
@@ -2412,25 +2535,15 @@ function buildBaseCss() {
     .kb-card-tags {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
-        margin-top: 7px;
+        gap: 3px;
+        margin-top: 5px;
     }
     .kb-tag-chip {
-        font-size: 10.5px;
+        font-size: 10px;
         color: var(--kb-text-muted);
-        background: var(--kb-bg-column);
-        border: 1px solid var(--kb-border);
-        border-radius: 10px;
-        padding: 1px 7px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 130px;
-        transition: all 0.12s ease;
-    }
-    .kb-tag-chip:hover {
-        color: var(--kb-text);
-        border-color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-text-muted) 10%, transparent);
+        padding: 1px 6px;
+        border-radius: 8px;
     }
     .kb-search {
         background: var(--kb-bg-card);
@@ -2459,16 +2572,15 @@ function buildBaseCss() {
         right: 6px;
         display: flex;
         align-items: center;
-        gap: 2px;
-        padding: 2px;
-        border-radius: 6px;
-        background: var(--kb-bg-card);
-        border: 1px solid var(--kb-border);
-        box-shadow: 0 1px 4px var(--kb-shadow);
+        gap: 1px;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.15s ease;
-        z-index: 2;
+        background: var(--kb-bg-card);
+        border-radius: 6px;
+        padding: 1px 2px;
+        box-shadow: 0 1px 4px var(--kb-shadow);
+        border: 1px solid var(--kb-border);
     }
     .kb-card:hover .kb-card-actions {
         opacity: 1;
@@ -2505,26 +2617,26 @@ function buildBaseCss() {
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
-        margin-top: 8px;
+        margin-top: 6px;
     }
     .kb-label-chip {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        font-size: 10.5px;
+        font-size: 10px;
         color: var(--kb-text-muted);
         background: var(--kb-bg-column);
         border: 1px solid var(--kb-border);
         border-radius: 10px;
-        padding: 1px 8px;
+        padding: 1px 7px;
         max-width: 140px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .kb-label-dot {
-        width: 7px;
-        height: 7px;
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
         flex: 0 0 auto;
     }
@@ -2546,18 +2658,18 @@ function buildBaseCss() {
     }
     .kb-column-last .kb-column-title { color: var(--kb-accent); }
     .kb-card-title {
-        font-size: 13.5px;
+        font-size: var(--kb-card-title-font);
         font-weight: 500;
-        line-height: 1.4;
+        line-height: 1.35;
     }
     .kb-card-body {
-        font-size: 13px;
-        line-height: 1.45;
+        font-size: var(--kb-card-font);
+        line-height: 1.4;
         overflow-wrap: break-word;
     }
     .kb-card-body img {
         max-width: 100%;
-        border-radius: 6px;
+        border-radius: 5px;
     }
     .kb-card-body ample-editor,
     .kb-card-body .ample-editor { display: block; }
@@ -2571,24 +2683,24 @@ function buildBaseCss() {
     .kb-card-img {
         display: block;
         width: 100%;
-        max-height: 160px;
+        max-height: 140px;
         object-fit: cover;
-        border-radius: 7px;
-        margin-top: 8px;
+        border-radius: 6px;
+        margin-top: 6px;
     }
     .kb-card-meta {
-        margin-top: 7px;
-        font-size: 11px;
+        margin-top: 6px;
+        font-size: 10.5px;
         color: var(--kb-text-muted);
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 5px;
         align-items: center;
     }
     .kb-card-meta-item {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
     }
     .kb-card-done .kb-card-title {
         text-decoration: line-through;
@@ -2598,50 +2710,76 @@ function buildBaseCss() {
 
     /* ---------- task info details card ---------- */
     .kb-task-details {
-        margin-top: 8px;
-        padding: 9px;
+        margin-top: 6px;
+        padding: 7px;
         background: var(--kb-bg-column);
         border: 1px solid var(--kb-border);
-        border-radius: 7px;
+        border-radius: 6px;
         font-size: 11px;
-        line-height: 1.55;
+        color: var(--kb-text);
     }
-    .kb-task-details hr {
-        border: none;
-        border-top: 1px solid var(--kb-border);
-        margin: 6px 0;
+    .kb-task-details table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .kb-task-details td {
+        padding: 2px 4px;
+        vertical-align: top;
+    }
+    .kb-task-details td:first-child {
+        color: var(--kb-text-muted);
+        font-weight: 600;
+        width: 75px;
+        white-space: nowrap;
+    }
+    .kb-task-edit-btn {
+        margin-top: 5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-accent) 10%, transparent);
+        border: 1px solid color-mix(in srgb, var(--kb-accent) 25%, transparent);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background 0.12s ease, transform 0.1s ease;
+    }
+    .kb-task-edit-btn:hover {
+        background: color-mix(in srgb, var(--kb-accent) 20%, transparent);
+        transform: translateY(-1px);
     }
 
-    /* ---------- toasts ---------- */
+    /* ---------- toast notifications ---------- */
     .kb-toast-container {
         position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 9999;
+        bottom: 18px;
+        right: 18px;
         display: flex;
         flex-direction: column;
         gap: 8px;
+        z-index: 10000;
         pointer-events: none;
     }
     .kb-toast {
-        background: var(--kb-bg-header);
+        background: var(--kb-bg-card);
         color: var(--kb-text);
         border: 1px solid var(--kb-border);
-        border-left: 3px solid var(--kb-accent);
-        border-radius: 7px;
-        padding: 9px 15px;
+        border-radius: 8px;
+        padding: 8px 14px;
         font-size: 12.5px;
-        font-weight: 500;
-        box-shadow: 0 6px 18px var(--kb-shadow);
-        opacity: 0;
-        transform: translateY(10px) scale(0.98);
-        transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 16px var(--kb-shadow);
+        animation: kbToastIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
-    .kb-toast.kb-toast-visible {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+    @keyframes kbToastIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     /* ---------- scrollbars ---------- */
@@ -2763,6 +2901,10 @@ ${buildBaseCss()}
                 <button id="kb-sort-btn" class="kb-btn" type="button" title="Cycle card sort order">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
                     <span id="kb-sort-label">Sort Tasks</span>
+                </button>
+                <button id="kb-density-btn" class="kb-btn" type="button" title="Cycle layout density (Compact, Cozy, Spacious)">
+                    <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="12" x2="3" y2="12"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+                    <span id="kb-density-label">Cozy</span>
                 </button>
                 <button id="kb-toggle-empty-btn" class="kb-btn" type="button" title="Show or hide empty columns">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
@@ -2969,6 +3111,9 @@ function sanitizeSettings(raw) {
     base.expandCardInfo = raw.expandCardInfo;
   } else if (raw.expandCardInfo === "true") {
     base.expandCardInfo = true;
+  }
+  if (typeof raw.density === "string" && (raw.density === "compact" || raw.density === "cozy" || raw.density === "spacious")) {
+    base.density = raw.density;
   }
   return base;
 }

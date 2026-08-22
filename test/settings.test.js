@@ -29,6 +29,7 @@ describe("settings", () => {
         quickDateEnabled: true,
         sortMode: "score",
         expandCardInfo: true,
+        density: "compact",
       });
 
       expect(sanitized).toEqual({
@@ -38,6 +39,7 @@ describe("settings", () => {
         quickDateEnabled: true,
         sortMode: "score",
         expandCardInfo: true,
+        density: "compact",
       });
     });
 

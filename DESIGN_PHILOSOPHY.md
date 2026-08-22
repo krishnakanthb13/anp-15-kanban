@@ -111,3 +111,14 @@ Whether working in a Single Note Board or a Tag Hierarchy Board, users have symm
 - **First-Class Note Lifecycle**: Tag and Multi-Note boards support direct note creation and safe note deletion to Trash (`app.deleteNote`) with confirmation safeguards.
 
 **Why:** Users should not need to switch back to the standard markdown note editor just to add a new section, rename a stage, or prune an obsolete note. Empowering users with symmetrical tools across both note-level and heading-level structures makes the Kanban board a complete, autonomous cockpit.
+
+---
+
+## 14. Responsive Layout Density & Ergonomic Canvas Navigation
+
+The visual board adapts to diverse monitor sizes, information volumes, and user preferences:
+- **Layout Density System (`Cozy`, `Compact`, `Spacious`)**: The interface supports three distinct spacing densities powered by CSS custom properties, allowing power users to maximize screen real estate or enjoy relaxed readability without rewriting board HTML.
+- **Strictly Separated Scroll Axes**: Standard mouse wheel scrolling maps exclusively to vertical column/card navigation, while `Shift + Wheel` executes horizontal canvas panning, preventing accidental cross-axis jumps or hijacked browser zoom.
+- **Flexible Parent Bounding**: Board containers utilize flexible height clamping (`flex: 1 1 0; min-height: 0`) rather than rigid viewport percentages (`100vh`), ensuring cards and scrollbars are never sliced off by embedded iframe boundaries.
+
+**Why:** A world-class Kanban tool must feel comfortable across varied display environments — from compact laptops to ultrawide workstations — with predictable, standard input mechanics that never fight the user's natural muscle memory.

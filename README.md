@@ -24,12 +24,47 @@ Icon: `view_kanban`
 
 ## Settings
 
-Settings are stored via `app.settings` / `app.setSetting` and sync across devices and notes. All values are strings.
+Settings are stored via `app.settings` / `app.setSetting` and synchronized across devices and notes automatically. All values are stored as strings.
 
-| Setting | Purpose | Example value |
-| :--- | :--- | :--- |
-| `Kanban Tabs` | JSON tab configuration: which notes/tags are boarded, their order, and the active tab. Written by the plugin; edit by hand only for repair. | `{"tabs":[{"id":"tab_x","kind":"note","name":"My Board","noteUUID":"…"}],"activeTabId":"tab_x","settings":{"dateFormat":"YYYY-MM-DD"}}` |
-| `Kanban Settings` | **Unified JSON Plugin Settings & View Preferences**: Persists theme, date format, empty column visibility, quick `@` date button state, card sort mode, and expanded card details across sessions, notes, and devices. | `{"theme":"light","dateFormat":"YYYY-MM-DD","showEmptyColumns":false,"quickDateEnabled":false,"sortMode":"none","expandCardInfo":false}` |
+### 📋 `Kanban Tabs`
+Stores board tab definitions, tab ordering, and active tab state. Managed automatically by the plugin.
+
+```json
+{
+  "tabs": [
+    {
+      "id": "tab_1",
+      "kind": "note",
+      "name": "Sprint Tasks",
+      "noteUUID": "692c8152-7b19-4a41-b841-32b03c200547"
+    }
+  ],
+  "activeTabId": "tab_1"
+}
+```
+
+### ⚙️ `Kanban Settings`
+**Unified JSON Plugin Settings & View Preferences**: Persists all appearance and view preferences across sessions, notes, and devices:
+
+- **`theme`**: Active color palette (`"light"`, `"sepia"`, `"matcha"`, `"nord-light"`, `"midnight"`, `"nord"`, `"dracula"`, `"emerald"`)
+- **`density`**: Layout spacing density (`"cozy"`, `"compact"`, `"spacious"`)
+- **`sortMode`**: Default visual card sorting (`"none"`, `"score"`, `"startDate"`, `"important"`, `"urgent"`)
+- **`dateFormat`**: Custom date chip format (`"YYYY-MM-DD"`, `"DD/MM/YYYY"`, `"MM/DD/YYYY"`)
+- **`showEmptyColumns`**: Keep empty columns visible (`true` / `false`)
+- **`quickDateEnabled`**: Show quick `@` date button on cards (`true` / `false`)
+- **`expandCardInfo`**: Expand inline task details on all cards (`true` / `false`)
+
+```json
+{
+  "theme": "light",
+  "density": "cozy",
+  "dateFormat": "YYYY-MM-DD",
+  "showEmptyColumns": false,
+  "quickDateEnabled": false,
+  "sortMode": "none",
+  "expandCardInfo": false
+}
+```
 
 ## Usage
 
@@ -169,8 +204,12 @@ Task cards dynamically display badges and metadata chips **only when those value
 - **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
 - **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task order.
 
-### View Toolbar Controls (Empty Columns, Expand Info, Quick @ Date)
+### View Toolbar Controls (Density, Empty Columns, Expand Info, Quick @ Date)
 
+- **📐 Density Button (`Cozy` / `Compact` / `Spacious`)**: 1-click layout spacing cycler with responsive CSS custom properties:
+  - **`Cozy`** (default): Streamlined, refined column padding with comfortable touch targets.
+  - **`Compact`**: High-density cards, tight column widths (`clamp(230px, 18vw, 280px)`), and reduced margins for power users.
+  - **`Spacious`**: Relaxed margins and wider columns for large desktop monitors.
 - **👁️ Empty Button (`Empty`)**: Click to toggle between hiding and showing empty columns across all board types (**Note Boards**, **Tag Boards** with empty notes or heading sections, and **Notes Boards**). When enabled, columns and sections with 0 tasks remain visible for easy task creation (`+`).
 - **ℹ️ Info Button (`Info`)**: 1-click master switch to expand or collapse inline task details (`Start At`, `End At`, `Deadline`, `Hide Until`, `Score`, `Repeat`, `Parent Note`) across all visible cards at once.
 - **📅 @ Date Button (`@ Date`)**: Toggles the **Quick @ Date Mode**. When active, every task card displays a dedicated `@` button in its top-right action bar — clicking it prompts with a native Date Selector and optional Time input (e.g. `14:30` or `2:30 PM`) to schedule the exact start timestamp or clear it.
@@ -185,8 +224,10 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 - **Drag Tabs**: Click and drag any tab in the top tab bar to reorder your boards. The new sequence is persisted quietly in the background.
 
-### Keyboard Shortcuts & Rich UX
+### Scrolling & Keyboard Shortcuts
 
+- **Mouse Wheel**: Native vertical scrolling over columns and cards.
+- **`Shift + Wheel`**: Horizontal scrolling across columns from anywhere on the canvas.
 - **`T` / `t`**: Cycle through the 8 themes with 0ms client-side switching.
 - **`/`**: Instantly focus and select the card filter search input.
 - **`Esc`**: Clear search filter and blur search input.

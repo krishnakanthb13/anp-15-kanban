@@ -1,8 +1,12 @@
 ## v0.0.19 (2026-08-22) — Column Adders, Tag Board Header Tools & Note Lifecycle
 
 ### 🚀 New Features & Enhancements
+- **Layout Density Cycler (`Cozy` / `Compact` / `Spacious`)**: Added a tactile density button in the top toolbar to effortlessly switch between three layout spacing modes:
+  - **`Cozy`** (default): Streamlined, refined column and card padding with reduced margins.
+  - **`Compact`**: Ultra high-density cards, tight column widths, and minimized spacing for maximum information density.
+  - **`Spacious`**: Relaxed padding and breathing room for wide displays.
 - **Scroll Behavior Standards**: Mouse wheel rolls exclusively vertically, and `Shift + Wheel` rolls horizontally across board columns without cross-axis interference.
-- **Flexible Column & Section Layout**: Upgraded columns to adaptive sizing (`clamp(290px, 24vw, 360px)`) with generous scroll padding and visible section cards, eliminating bottom card clipping.
+- **Flexible Column & Section Layout**: Upgraded columns to adaptive sizing with generous scroll padding and visible section cards, eliminating bottom card clipping.
 - **Inline `Add Header +` Cards for Note Columns**: Each note column in Tag and Multi-Note boards now features a small, tactile `Add Header` card at the bottom of its sections list to directly create new headings inside that note without leaving the board view.
 - **Heading Type / Level Selector**: When creating a new header or column, the prompt allows choosing the heading level (**H1 Large**, **H2 Medium**, or **H3 Small**), giving fine-grained control over note structure.
 - **Custom Tag Assignment on Note Creation**: Creating a note from the board prompts for both title and tags (pre-filling with the active board's tag and supporting comma-separated additional tags).
