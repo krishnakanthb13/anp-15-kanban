@@ -189,7 +189,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
  ## Testing Strategy
  
  ```bash
- npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 208 tests)
+ npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 209 tests)
  node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
  node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
  ```

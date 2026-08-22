@@ -365,6 +365,10 @@ function buildClientScript() {
       var activate = function () {
         if (STATE.activeTabId === tab.id) return;
         STATE.activeTabId = tab.id;
+        openInfoCards = {};
+        if (expandCardInfo && tab.kind === "tag") {
+          collapsedSections = {};
+        }
         renderAll();
         callPlugin("setActiveTab", { tabId: tab.id });
       };
@@ -1138,11 +1142,12 @@ function buildClientScript() {
     var cols = (data && data.columns) || [];
     var allCards = [];
     cols.forEach(function (c) {
-      if (c.cards) allCards = allCards.concat(c.cards);
-      if (c.sections) {
+      if (c.sections && c.sections.length > 0) {
         c.sections.forEach(function (s) {
           if (s.cards) allCards = allCards.concat(s.cards);
         });
+      } else if (c.cards) {
+        allCards = allCards.concat(c.cards);
       }
     });
 
@@ -1154,9 +1159,7 @@ function buildClientScript() {
     });
 
     var shouldExpand = openCount < totalCards;
-    allCards.forEach(function (c) {
-      openInfoCards[c.id] = shouldExpand;
-    });
+    openInfoCards = {};
 
     if (data && data.kind === "tag" && shouldExpand) {
       collapsedSections = {};
@@ -3964,7 +3967,7 @@ async function buildNotesBoard(app, tag) {
   const allCards = [];
   for (const note of notes) {
     const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
-    const cards = tasks.map((t) => toCardModel(t));
+    const cards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled note" }));
     allCards.push(...cards);
     columns.push({
       id: NOTE_PREFIX2 + note.uuid,

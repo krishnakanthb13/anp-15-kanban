@@ -243,7 +243,7 @@ lib/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 208 tests)
+test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 209 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```
