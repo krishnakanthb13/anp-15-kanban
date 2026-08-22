@@ -929,10 +929,13 @@ function buildClientScript() {
       });
 
       var titleWrap = el("div", "kb-col-titlewrap");
+      titleWrap.title = col.name;
       var dragHandle = el("span", "kb-col-drag-handle");
       dragHandle.appendChild(svg("grip"));
       titleWrap.appendChild(dragHandle);
-      titleWrap.appendChild(el("h3", "kb-column-title", col.name));
+      var titleEl = el("h3", "kb-column-title", col.name);
+      titleEl.title = col.name;
+      titleWrap.appendChild(titleEl);
       head.appendChild(titleWrap);
 
       var actionsWrap = el("div", "kb-col-actions");
@@ -1001,7 +1004,7 @@ function buildClientScript() {
           e.stopPropagation();
           callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
         });
-        actionsWrap.appendChild(tools);
+        head.appendChild(tools);
       } else if (isTagBoard || data.kind === "notes") {
         var ttools = el("div", "kb-col-tools");
         addColToolSvg(ttools, "externalLink", "Open note in Amplenote", function (e) {
@@ -1022,7 +1025,7 @@ function buildClientScript() {
           e.stopPropagation();
           callPlugin("deleteNote", { tabId: STATE.activeTabId, columnId: col.id, noteUUID: col.noteUUID, noteName: col.name });
         });
-        actionsWrap.appendChild(ttools);
+        head.appendChild(ttools);
       }
 
       var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
@@ -2928,19 +2931,25 @@ function buildBaseCss() {
         transform: scale(1.08);
     }
     .kb-col-tools {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
         display: flex;
         align-items: center;
         gap: 1px;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.15s ease;
-        padding: 1px 2px;
+        padding: 1px 3px;
         border-radius: 5px;
         background: var(--kb-bg-card);
         border: 1px solid var(--kb-border);
-        box-shadow: 0 1px 3px var(--kb-shadow);
+        box-shadow: 0 1px 4px var(--kb-shadow);
+        z-index: 10;
     }
-    .kb-column:hover .kb-col-tools {
+    .kb-column:hover .kb-col-tools,
+    .kb-column-head:hover .kb-col-tools {
         opacity: 1;
         pointer-events: auto;
     }
@@ -3304,13 +3313,6 @@ function buildBaseCss() {
         transform: scale(1.15);
     }
 
-    .kb-col-titlewrap {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        min-width: 0;
-        margin-right: auto;
-    }
     .kb-card-tags {
         display: flex;
         flex-wrap: wrap;
