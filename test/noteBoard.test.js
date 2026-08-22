@@ -122,6 +122,8 @@ describe("noteBoard", () => {
         repeat: null,
         isRepeating: false,
         isParent: false,
+        isSubtask: false,
+        subtaskDepth: 0,
         important: true,
         urgent: false,
         score: null,
@@ -155,15 +157,23 @@ describe("noteBoard", () => {
   });
 
   describe("resolveLabels", () => {
-    it("extracts unique wiki-link names in order", () => {
-      expect(resolveLabels("[[Beta]] text [[Alpha]] more [[Beta]]", {}))
-        .toEqual([{ name: "Beta", color: null }, { name: "Alpha", color: null }]);
+    it("extracts unique wiki-link names and hashtags in order", () => {
+      expect(resolveLabels("[[Beta]] text #urgent [[Alpha]] #work/project more [[Beta]] #urgent", {}))
+        .toEqual([
+          { name: "Beta", color: null },
+          { name: "Alpha", color: null },
+          { name: "#urgent", color: null },
+          { name: "#work/project", color: null },
+        ]);
     });
 
     it("resolves colors case-insensitively from the tag map", () => {
-      const map = { "urgent-label": "ff0000" };
-      expect(resolveLabels("see [[Urgent-Label]] now", map))
-        .toEqual([{ name: "Urgent-Label", color: "ff0000" }]);
+      const map = { "urgent-label": "ff0000", "urgent": "e02424" };
+      expect(resolveLabels("see [[Urgent-Label]] and #Urgent now", map))
+        .toEqual([
+          { name: "Urgent-Label", color: "ff0000" },
+          { name: "#Urgent", color: "e02424" },
+        ]);
       expect(resolveLabels("[[unknown]]", map)[0].color).toBeNull();
     });
 

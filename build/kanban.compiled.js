@@ -107,11 +107,26 @@ function assignTasksToColumns(columns, lines, tasks, options = {}) {
   const unsorted = [];
   const completed = [];
   for (const task of tasks) {
+    const lineIndex = taskLines.get(task.uuid || task.id);
+    if (lineIndex !== void 0 && lineIndex >= 0) {
+      const rawLine = String(lines[lineIndex] || "");
+      const indentMatch = rawLine.match(/^(\s+)[-*+]\s*\[/);
+      if (indentMatch) {
+        const spaces = indentMatch[1].replace(/\t/g, "    ").length;
+        task.subtaskDepth = spaces >= 4 ? Math.floor(spaces / 4) : 1;
+        task.isSubtask = true;
+      } else {
+        task.subtaskDepth = 0;
+        task.isSubtask = false;
+      }
+    } else {
+      task.subtaskDepth = 0;
+      task.isSubtask = false;
+    }
     if (separateCompleted && (task.completedAt || task.completed || task.dismissedAt)) {
       completed.push(task);
       continue;
     }
-    const lineIndex = taskLines.get(task.uuid || task.id);
     if (lineIndex === void 0 || lineIndex < 0) continue;
     const owner = columns.find((c) => lineIndex >= c.contentStart && lineIndex < c.contentEnd);
     if (owner) columnCards.get(owner.id).push(task);
@@ -435,10 +450,11 @@ function buildClientScript() {
     toast.className = "kb-toast";
     toast.textContent = msg;
     host.appendChild(toast);
-    setTimeout(function () { toast.classList.add("kb-toast-visible"); }, 10);
     setTimeout(function () {
-      toast.classList.remove("kb-toast-visible");
-      setTimeout(function () { if (toast.parentElement) toast.parentElement.removeChild(toast); }, 250);
+      toast.classList.add("kb-toast-hiding");
+      setTimeout(function () {
+        if (toast.parentElement) toast.parentElement.removeChild(toast);
+      }, 220);
     }, 2800);
   }
 
@@ -1263,20 +1279,33 @@ function buildClientScript() {
   /* ---------------- card building ---------------- */
 
   function buildCardEl(card) {
-    var cardEl = el("article", "kb-card" + (card.completedAt ? " kb-card-done" : ""));
+    var depth = card.subtaskDepth || (card.isSubtask ? 1 : 0);
+    var cardClasses = "kb-card" + (card.completedAt ? " kb-card-done" : "") + (depth > 0 ? " kb-card-subtask" : "");
+    var cardEl = el("article", cardClasses);
     cardEl.setAttribute("data-card-id", card.id);
     cardEl.setAttribute("draggable", "true");
 
-    // Badges (Urgent, Important, Score, Subtasks) - only when values exist
-    var hasBadges = card.urgent || card.important || (card.score !== null && card.score !== undefined) || card.isParent;
+    if (depth > 1) {
+      cardEl.style.marginLeft = Math.min(depth * 8, 28) + "px";
+    }
+
+    // Badges (Urgent, Important, Score [if != 1.0], Parent Subtasks, Child Subtask)
+    var showScore = card.score !== null && card.score !== undefined && !Number.isNaN(Number(card.score)) && Math.abs(Number(card.score) - 1.0) > 0.001;
+    var hasBadges = card.urgent || card.important || showScore || card.isParent || depth > 0;
     if (hasBadges) {
       var badges = el("div", "kb-task-badges");
       if (card.urgent) badges.appendChild(el("span", "kb-badge kb-badge-urgent", "\\uD83D\\uDD25 Urgent"));
       if (card.important) badges.appendChild(el("span", "kb-badge kb-badge-important", "\\u2B50 Important"));
-      if (card.score !== null && card.score !== undefined) {
+      if (showScore) {
         badges.appendChild(el("span", "kb-badge kb-badge-score", "\\uD83C\\uDFAF " + Number(card.score).toFixed(1)));
       }
-      if (card.isParent) badges.appendChild(el("span", "kb-badge kb-badge-subtask", "\\uD83D\\uDCCB Subtasks"));
+      if (card.isParent) {
+        badges.appendChild(el("span", "kb-badge kb-badge-parent", "\\uD83D\\uDCCB Parent Task"));
+      }
+      if (depth > 0) {
+        var childLabel = depth > 1 ? "\\u21B3".repeat(Math.min(depth, 3)) + " Child Task" : "\\u21B3 Child Task";
+        badges.appendChild(el("span", "kb-badge kb-badge-child", childLabel));
+      }
       cardEl.appendChild(badges);
     }
 
@@ -1321,6 +1350,14 @@ function buildClientScript() {
     if (card.html) {
       var body = el("div", "kb-card-body");
       body.innerHTML = card.html;
+      var links = body.querySelectorAll("a");
+      for (var lIdx = 0; lIdx < links.length; lIdx++) {
+        var a = links[lIdx];
+        var aText = (a.textContent || "").trim();
+        if (aText === "open_in_new" || a.classList.contains("open_in_new") || a.classList.contains("open-in-new")) {
+          a.remove();
+        }
+      }
       cardEl.appendChild(body);
     } else {
       cardEl.appendChild(el("div", "kb-card-title", card.title || card.content));
@@ -1350,8 +1387,9 @@ function buildClientScript() {
       cardEl.appendChild(tagChips);
     }
 
-    // Image
-    if (card.imageUrl) {
+    // Image (only append if card.html didn't already render an image)
+    var htmlHasImg = !!(card.html && (card.html.indexOf("<img") !== -1 || card.html.indexOf("<picture") !== -1));
+    if (card.imageUrl && !htmlHasImg) {
       var img = document.createElement("img");
       img.className = "kb-card-img";
       img.loading = "lazy";
@@ -1411,6 +1449,13 @@ function buildClientScript() {
       if (card.dismissedAt) status.push("<b>Dismissed:</b> " + formatFullStamp(card.dismissedAt));
       if (status.length) parts.push(status.join("<br>"));
 
+      if (card.isParent) {
+        parts.push("<b>Role:</b> Parent Task (has subtasks)");
+      }
+      if (depth > 0) {
+        parts.push("<b>Hierarchy:</b> Child Task (Level " + depth + ")");
+      }
+
       if (card.noteName) parts.push("<b>Note:</b> " + card.noteName);
 
       details.innerHTML = parts.join("<hr>");
@@ -1431,10 +1476,38 @@ function buildClientScript() {
       cardEl.classList.remove("kb-dragging");
     });
 
-    // Click opens rich task editor
+    // Click handling: note link navigation, external link toast, or open task editor
     cardEl.addEventListener("click", function (e) {
       if (dragCardId || dragType) return;
-      if (e.target && e.target.closest && (e.target.closest("a") || e.target.closest("button"))) return;
+      if (e.target && e.target.closest && e.target.closest("button")) return;
+
+      var link = e.target && e.target.closest ? e.target.closest("a") : null;
+      if (link) {
+        e.stopPropagation();
+        var href = (link.getAttribute("href") || "").trim();
+        var noteUuid = (link.getAttribute("data-note-uuid") || "").trim();
+
+        // Check if it is an Amplenote note link
+        var anpLinkRe = new RegExp("amplenote\\.com/notes/([a-zA-Z0-9_-]+)", "i");
+        var anpPathRe = new RegExp("^/notes/([a-zA-Z0-9_-]+)", "i");
+        var m = href.match(anpLinkRe) || href.match(anpPathRe);
+        var targetNoteUUID = noteUuid || (m ? m[1] : null);
+
+        if (targetNoteUUID && targetNoteUUID !== "plugins") {
+          e.preventDefault();
+          callPlugin("openCard", { noteUUID: targetNoteUUID });
+          return;
+        }
+
+        if (href.startsWith("#") || href.startsWith("javascript:")) {
+          return;
+        }
+
+        e.preventDefault();
+        showToast("Outside links do not work here.");
+        return;
+      }
+
       callPlugin("editCard", { cardId: card.id });
     });
 
@@ -1604,6 +1677,45 @@ function buildClientScript() {
     renderTabs();
     renderBoard();
     renderMeta();
+  }
+
+  /* ---------------- image lightbox ---------------- */
+
+  function openImageLightbox(src) {
+    if (!src) return;
+    var overlay = el("div", "kb-lightbox-overlay");
+    var img = document.createElement("img");
+    img.className = "kb-lightbox-img";
+    img.src = src;
+    img.alt = "Enlarged preview";
+    img.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+
+    var closeBtn = el("button", "kb-lightbox-close", "\xD7");
+    closeBtn.type = "button";
+    closeBtn.title = "Close preview (Esc)";
+    closeBtn.addEventListener("click", function () {
+      overlay.remove();
+      window.removeEventListener("keydown", handleKey);
+    });
+
+    function handleKey(e) {
+      if (e.key === "Escape") {
+        overlay.remove();
+        window.removeEventListener("keydown", handleKey);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+
+    overlay.addEventListener("click", function () {
+      overlay.remove();
+      window.removeEventListener("keydown", handleKey);
+    });
+
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
   }
 
   /* ---------------- progress ---------------- */
@@ -1850,6 +1962,51 @@ function buildClientScript() {
         if (s) { s.focus(); s.select(); }
       }
     });
+
+    // Global capture-phase interception for images (lightbox) and links
+    document.addEventListener("click", function (e) {
+      // 1. Image click -> open full-resolution lightbox modal
+      var imgEl = e.target && e.target.closest ? e.target.closest(".kb-card-body img, .kb-card-img") : null;
+      if (imgEl) {
+        var src = imgEl.getAttribute("src");
+        if (src) {
+          e.preventDefault();
+          e.stopPropagation();
+          openImageLightbox(src);
+          return;
+        }
+      }
+
+      // 2. Link click
+      var link = e.target && e.target.closest ? e.target.closest("a") : null;
+      if (!link) return;
+
+      var href = (link.getAttribute("href") || "").trim();
+      var noteUuid = (link.getAttribute("data-note-uuid") || "").trim();
+
+      // Ignore hash anchors or void scripts
+      if (href.startsWith("#") || href.startsWith("javascript:") || !href) {
+        return;
+      }
+
+      // Always prevent native iframe navigation or popup attempts
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Check if it is an Amplenote note URL
+      var anpLinkRe = new RegExp("amplenote\\.com/notes/([a-zA-Z0-9_-]+)", "i");
+      var anpPathRe = new RegExp("^/notes/([a-zA-Z0-9_-]+)", "i");
+      var m = href.match(anpLinkRe) || href.match(anpPathRe);
+      var targetNoteUUID = noteUuid || (m ? m[1] : null);
+
+      if (targetNoteUUID && targetNoteUUID !== "plugins") {
+        callPlugin("openCard", { noteUUID: targetNoteUUID });
+        return;
+      }
+
+      // External link: show friendly notification
+      showToast("Outside links do not work here.");
+    }, true);
   }
 
   /* ---------------- boot ---------------- */
@@ -3203,9 +3360,22 @@ function buildBaseCss() {
         line-height: 1.4;
         overflow-wrap: break-word;
     }
-    .kb-card-body img {
+    .kb-card-body img,
+    .kb-card-img {
+        width: 100%;
         max-width: 100%;
-        border-radius: 5px;
+        max-height: 220px;
+        object-fit: cover;
+        border-radius: 6px;
+        display: block;
+        margin: 6px 0;
+        cursor: zoom-in;
+        box-sizing: border-box;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .kb-card-body img:hover,
+    .kb-card-img:hover {
+        opacity: 0.93;
     }
     .kb-card-body ample-editor,
     .kb-card-body .ample-editor { display: block; }
@@ -3216,13 +3386,67 @@ function buildBaseCss() {
     .kb-card-body a:hover {
         text-decoration: underline;
     }
-    .kb-card-img {
-        display: block;
-        width: 100%;
-        max-height: 140px;
-        object-fit: cover;
-        border-radius: 6px;
-        margin-top: 6px;
+    .kb-card-body a.open_in_new,
+    .kb-card-body a.open-in-new,
+    .kb-card-body .open_in_new,
+    .kb-card-body .open-in-new {
+        display: none !important;
+    }
+
+    /* Lightbox Modal for Full-Resolution Image Viewing */
+    .kb-lightbox-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.88);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        cursor: zoom-out;
+        opacity: 0;
+        animation: kb-lightbox-fade 0.2s ease forwards;
+        padding: 24px;
+        box-sizing: border-box;
+    }
+    @keyframes kb-lightbox-fade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .kb-lightbox-img {
+        max-width: 94vw;
+        max-height: 92vh;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75);
+        cursor: default;
+        animation: kb-lightbox-zoom 0.2s ease forwards;
+    }
+    @keyframes kb-lightbox-zoom {
+        from { transform: scale(0.92); opacity: 0.8; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .kb-lightbox-close {
+        position: absolute;
+        top: 16px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        z-index: 100000;
+    }
+    .kb-lightbox-close:hover {
+        background: rgba(255, 255, 255, 0.4);
     }
     .kb-card-meta {
         margin-top: 6px;
@@ -3237,6 +3461,87 @@ function buildBaseCss() {
         display: inline-flex;
         align-items: center;
         gap: 3px;
+    }
+    .kb-task-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 6px;
+        align-items: center;
+    }
+    .kb-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10.5px;
+        font-weight: 500;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--kb-text-muted) 10%, var(--kb-bg-card));
+        color: var(--kb-text-muted);
+        border: 1px solid color-mix(in srgb, var(--kb-border) 80%, transparent);
+        line-height: 1.2;
+    }
+    .kb-badge-urgent {
+        background: color-mix(in srgb, var(--kb-danger) 10%, var(--kb-bg-card));
+        color: var(--kb-danger);
+        border-color: color-mix(in srgb, var(--kb-danger) 25%, transparent);
+    }
+    .kb-badge-important {
+        background: color-mix(in srgb, #f59e0b 10%, var(--kb-bg-card));
+        color: #d97706;
+        border-color: color-mix(in srgb, #f59e0b 25%, transparent);
+    }
+    .kb-badge-score {
+        background: color-mix(in srgb, var(--kb-accent) 10%, var(--kb-bg-card));
+        color: var(--kb-accent);
+        border-color: color-mix(in srgb, var(--kb-accent) 20%, transparent);
+    }
+    .kb-badge-parent,
+    .kb-badge-child,
+    .kb-badge-subtask,
+    .kb-badge-child-subtask {
+        background: color-mix(in srgb, var(--kb-text-muted) 10%, var(--kb-bg-card));
+        color: var(--kb-text-muted);
+        border-color: var(--kb-border);
+    }
+    .kb-card-subtask {
+        border-left: 3px solid color-mix(in srgb, var(--kb-accent) 45%, var(--kb-border));
+        margin-left: 8px;
+    }
+    .kb-card-labels,
+    .kb-card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+    }
+    .kb-label-chip,
+    .kb-tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--kb-accent) 12%, var(--kb-bg-card));
+        color: var(--kb-accent);
+        border: 1px solid color-mix(in srgb, var(--kb-accent) 25%, transparent);
+        line-height: 1.2;
+        letter-spacing: 0.01em;
+    }
+    .kb-tag-chip {
+        background: color-mix(in srgb, var(--kb-text-muted) 14%, var(--kb-bg-card));
+        color: var(--kb-text-muted);
+        border-color: color-mix(in srgb, var(--kb-text-muted) 28%, transparent);
+    }
+    .kb-label-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
     }
     .kb-card-done .kb-card-title {
         text-decoration: line-through;
@@ -3291,12 +3596,12 @@ function buildBaseCss() {
     /* ---------- toast notifications ---------- */
     .kb-toast-container {
         position: fixed;
-        bottom: 18px;
-        right: 18px;
+        bottom: 20px;
+        right: 20px;
         display: flex;
         flex-direction: column;
         gap: 8px;
-        z-index: 10000;
+        z-index: 100000;
         pointer-events: none;
     }
     .kb-toast {
@@ -3304,17 +3609,23 @@ function buildBaseCss() {
         color: var(--kb-text);
         border: 1px solid var(--kb-border);
         border-radius: 8px;
-        padding: 8px 14px;
+        padding: 9px 16px;
         font-size: 12.5px;
-        box-shadow: 0 4px 16px var(--kb-shadow);
+        font-weight: 500;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
         animation: kbToastIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         pointer-events: auto;
         display: flex;
         align-items: center;
         gap: 8px;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .kb-toast.kb-toast-hiding {
+        opacity: 0;
+        transform: translateY(8px);
     }
     @keyframes kbToastIn {
-        from { opacity: 0; transform: translateY(8px); }
+        from { opacity: 0; transform: translateY(12px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
@@ -4026,6 +4337,8 @@ function toCardModel(task) {
     repeat: task.repeat ?? null,
     isRepeating: !!task.isRepeating,
     isParent: !!task.isParent,
+    isSubtask: !!task.isSubtask,
+    subtaskDepth: typeof task.subtaskDepth === "number" ? task.subtaskDepth : task.isSubtask ? 1 : 0,
     important: !!task.important,
     urgent: !!task.urgent,
     score: typeof task.score === "number" ? task.score : null,
@@ -4048,14 +4361,32 @@ function firstImageUrl(markdown) {
   return m ? m[1] : null;
 }
 function resolveLabels(markdown, colorMap = {}) {
-  const names = [];
-  const re = /\[\[([^\]]+)\]\]/g;
+  const labels = [];
+  const str = String(markdown || "");
+  const wikiRe = /\[\[([^\]]+)\]\]/g;
   let m;
-  while ((m = re.exec(String(markdown))) !== null) {
+  while ((m = wikiRe.exec(str)) !== null) {
     const name = m[1].trim();
-    if (name && !names.includes(name)) names.push(name);
+    if (name && !labels.some((l) => l.name.toLowerCase() === name.toLowerCase())) {
+      labels.push({
+        name,
+        color: colorMap[name.toLowerCase()] ?? null
+      });
+    }
   }
-  return names.map((name) => ({ name, color: colorMap[name.toLowerCase()] ?? null }));
+  const tagRe = /(?:^|\s)#([a-zA-Z][a-zA-Z0-9_\-\/]*)/g;
+  while ((m = tagRe.exec(str)) !== null) {
+    const rawTag = m[1].trim();
+    const tagDisplay = "#" + rawTag;
+    if (rawTag && !labels.some((l) => l.name.toLowerCase() === tagDisplay.toLowerCase() || l.name.toLowerCase() === rawTag.toLowerCase())) {
+      const matchedColor = colorMap[rawTag.toLowerCase()] ?? colorMap[tagDisplay.toLowerCase()] ?? null;
+      labels.push({
+        name: tagDisplay,
+        color: matchedColor
+      });
+    }
+  }
+  return labels;
 }
 function plainPreview(markdown) {
   return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
@@ -5083,11 +5414,20 @@ async function handleCardMenu(app, payload) {
     return;
   }
   if (choice === "note") {
-    const title = String(task.content || "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
-    const uuid = await createTaggedNote(app, title);
+    const defaultTitle = String(task.content || "").replace(/\[\[[^\]]+\]\]/g, "").replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
+    const promptRes = await app.prompt("Create Note from Card", {
+      inputs: [
+        { label: "Note Title:", type: "text", value: defaultTitle }
+      ]
+    });
+    const title = firstValue(promptRes) || defaultTitle;
+    if (!title || !title.trim()) return;
+    const uuid = await app.createNote(title.trim(), []);
     if (!uuid) return;
-    await addLabelToTask(app, cardId, title);
+    const noteLink = `[${title.trim()}](https://www.amplenote.com/notes/${uuid})`;
+    await app.updateTask(cardId, { content: noteLink });
     await rerender(app);
+    return;
   }
 }
 async function handleSaveSortToNote(app, payload) {

@@ -585,13 +585,15 @@ describe("embedActions", () => {
         expect(app.updateTask).toHaveBeenLastCalledWith("u1", { startAt: null });
       });
 
-      it("create-note branch creates a note and links it from the task", async () => {
+      it("create-note branch creates a fresh note and links it from the task", async () => {
         const app = makeApp();
-        app.prompt.mockResolvedValueOnce("note");
+        app.prompt
+          .mockResolvedValueOnce("note")
+          .mockResolvedValueOnce(["one"]);
         await handleCardMenu(app, { cardId: "u1" });
 
-        expect(app.createNote).toHaveBeenCalledWith("one");
-        expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one\n[[one]]" });
+        expect(app.createNote).toHaveBeenCalledWith("one", []);
+        expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "[one](https://www.amplenote.com/notes/new-note)" });
       });
 
       it("complete and uncomplete branches toggle completion timestamp", async () => {

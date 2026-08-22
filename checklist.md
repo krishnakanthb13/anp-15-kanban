@@ -105,9 +105,12 @@ flowchart TD
   - [ ] *Set start date / time*: Choose date & time -> verify start time chip appears on card.
   - [ ] *Snooze / Hide Until*: Set hide-until date -> verify saved to task.
   - [ ] *Schedule Time Block*: Set start & end dates/times -> verify calendar block info saved.
-  - [ ] *Create note from card*: Verify new note is created and linked as a label on the card.
+  - [ ] *Create note from card*: Prompts for note title -> creates fresh note with no tags -> links `[Title](https://www.amplenote.com/notes/{uuid})` into task -> clicking link navigates to note.
 - [ ] **Quick Date (`@` Button)**: Hover over card -> click `@` -> pick date -> verify task start date is updated.
-- [ ] **Rich Footnotes & Image Preview**: Create a task with an image URL (`![img](url)`) and a rich footnote/link -> verify thumbnail embeds at card bottom and link is clickable.
+- [ ] **Note Links & Outside Link Safety**: Click note link -> verify navigates in Amplenote; click external link -> verify outside link toast alert.
+- [ ] **Tag & Label Chips**: Add `#tag` or `#parent/subtag` to task -> verify colored chip appears below task title matching account palette.
+- [ ] **Parent & Child Task Hierarchy**: Verify parent tasks show `📋 Parent Task` badge; indented subtasks show `↳ Child Task` / `↳↳ Child Task` with visual indentation and left accent lines.
+- [ ] **Rich Footnotes & Image Preview**: Create a task with an image URL (`![img](url)`) -> verify image fits column width cleanly without `open_in_new` artifacts; click image -> verify full-resolution Lightbox modal opens with close button and Escape key support.
 
 ---
 

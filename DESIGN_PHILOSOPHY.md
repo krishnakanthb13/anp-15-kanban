@@ -164,3 +164,15 @@ Card interactions dynamically adapt their modal interfaces and action menus base
 - **Contextual 3-Dots Action Menus**: Menu options on active tasks highlight scheduling (Start Date, Snooze, Time-block) and completion, while completed tasks highlight reopening and archiving.
 
 **Why:** Asking users to configure future start dates or snooze timers on already completed tasks is cognitive friction. Tailoring prompts to the task's exact lifecycle phase keeps workflows intuitive, purposeful, and free of irrelevant inputs.
+
+---
+
+## 19. Sandboxed Link Hygiene & Native Note Navigation
+
+Plugin views execute within sandboxed iframes where unhandled URL navigation breaks embedding or fails silently:
+- **Native Note Link Interception**: Clicks on internal Amplenote note links (`https://www.amplenote.com/notes/<uuid>` or `[[Note Name]]`) are intercepted and routed through `app.navigate` on the parent window, smoothly transitioning the user to the target note in the main editor.
+- **Outside Link Protection**: External hyperlinks are non-destructively caught and accompanied by non-intrusive toast notifications, preventing broken navigation frames.
+- **Image Artifact Hygiene**: Rich text conversion artifacts (such as orphaned `open_in_new` anchor tags) are automatically pruned, ensuring cards render clean, uncluttered visual media without duplication.
+
+**Why:** A dashboard should be an integrated gateway into the Amplenote workspace. Seamlessly jumping to connected notes while protecting the sandbox environment guarantees stability and fluid workspace navigation.
+

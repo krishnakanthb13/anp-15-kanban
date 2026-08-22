@@ -183,20 +183,23 @@ A note board maps one single note onto the board:
 - **Drop into the Completed / Done column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
 - **`+ Add Task` card at the right end of the board**: Click to instantly add a task at the top of the note (automatically placed in the **Unsorted** column).
-- **`+ Add Header` card at the right end of the board**: Click to instantly create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
+- **`+ Add Header` card at the right end of the board**: Click to create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
 - **Click a card** opens the dedicated task editor dialog:
   - **On Active Tasks**: Full Task Details modal (markdown content, Important/Urgent quadrants, move to note / heading dropdown, task score, and mark status: `Started`, `Completed`, `Dismissed`).
   - **On Completed Tasks**: Specialized Completed Details modal (markdown content, target heading dropdown for where to relocate on reopen, and lifecycle actions: `Reopen / Active`, `Dismiss / Archive`, `Keep completed`).
 - **`ℹ` button on a card** toggles an inline task details inspector showing all non-empty properties (Start At, End At, Deadline, Hide Until, Repeat schedule, Completed/Dismissed status, and Note link).
 - **`...` 3-dots button on a card** opens a context-aware action menu:
-  - **Active Tasks**: `Mark as completed`, `Edit details`, `Add label`, `Set start date/time`, `Snooze / Hide Until`, `Schedule Time Block`, `Create note from card`.
+  - **Active Tasks**: `Mark as completed`, `Edit details`, `Add label`, `Set start date/time`, `Snooze / Hide Until`, `Schedule Time Block`, `Create note from card` (prompts for title, creates a fresh note with no tags, and embeds a clickable note link `[Title](https://www.amplenote.com/notes/{uuid})`).
   - **Completed Tasks**: `Reopen task (mark active)`, `Dismiss / Archive task`, `Edit details`, `Add label`, `Create note from card`.
+- **Note Links & Navigation**: Clicking any linked Amplenote note inside a task navigates the main Amplenote application window directly to that note.
+- **Outside Links Protection**: External web links inside cards are safely blocked within the plugin embed and display a friendly bottom-right toast notification (*"Outside links do not work here."*).
+- **Rich Editor Content & Clean Images**: Supports bold, italics, Rich Footnotes, and embedded images (with automatic column fitting, full-resolution glassmorphic Lightbox zoom preview on click, de-duplication, and clean stripping of `open_in_new` markup artifacts).
 
 ### 2. Tag Boards (`tag`)
 
-A tag board turns notes under a tag into columns with collapsible heading sections:
+The second kind groups notes by an Amplenote tag:
 
-- **Columns** = notes carrying the selected tag.
+- **Columns** = all notes that carry that tag (e.g. `#projects`, `#clients`). Column titles display full note names and tag color badges matching your Amplenote account palette.
 - **Collapsible Heading Blocks** = within each note column, each heading is rendered as a collapsible section (`▼ / ▶`) showing the section title, card count, and action buttons.
 - **Full Header Management on Every Section**:
   - **Move Header Up / Down** (`chevronUp` / `chevronDown`): Reorders the heading in the note's markdown.
@@ -230,13 +233,15 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 - **✓ Done Timestamp**: Displays exact completed date and time formatted to your settings (e.g. `✓ done 2026-08-22 17:05`).
 - **🔥 Urgent** / **⭐ Important**: Eisenhower priority quadrant badges.
-- **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`).
-- **📋 Subtasks**: Displayed when a task has child subtasks (`isParent`).
+- **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`), shown only when modified and different from the default `1.0`.
+- **📋 Parent Task**: Displayed when a task has child subtasks (`isParent`).
+- **↳ Child Task**: Displayed when a task is an indented child task (with `↳↳ Child Task` for nested levels and a left accent border).
+- **🏷️ Tag & Label Chips**: Inline `#tag` and `#parent/subtag` hashtags, alongside `[[Note Name]]` labels, rendered as color-coordinated chips matching your Amplenote account palette.
 - **🕒 Time Block**: Displayed when both start and end times are set (e.g. `🕒 2026-08-21 10:00-11:30`).
 - **▶ Start Date** / **⏰ Due Date**: Scheduled start date or deadline timestamp.
 - **🙈 Snoozed**: Displayed when a task has a future `hideUntil` snooze timestamp.
 - **🔁 Repeat**: Displays recurrence frequency (e.g. `🔁 daily`, `🔁 weekly`).
-- **Rich Editor Content**: Supports bold, italics, Rich Footnotes, inline images, and clickable URLs.
+- **Rich Editor Content**: Supports bold, italics, Rich Footnotes, inline images (with 1-click Lightbox zoom), and clickable Amplenote note links.
 
 ### Dynamic Sorting & Persisting to Note
 
