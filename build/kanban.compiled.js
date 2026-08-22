@@ -974,7 +974,15 @@ function buildClientScript() {
         addBtn.appendChild(svg("plus"));
         addBtn.addEventListener("click", function (e) {
           e.stopPropagation();
-          callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, columnName: col.name });
+          var p = callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, columnName: col.name });
+          if (p && typeof p.then === "function") {
+            p.then(function (res) {
+              if (res && res.board && res.tabId) {
+                STATE.boards[res.tabId] = res.board;
+                renderBoard();
+              }
+            });
+          }
         });
         actionsWrap.appendChild(addBtn);
       }
@@ -1043,7 +1051,15 @@ function buildClientScript() {
           secAdd.appendChild(svg("plus"));
           secAdd.addEventListener("click", function (e) {
             e.stopPropagation();
-            callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
+            var p = callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
+            if (p && typeof p.then === "function") {
+              p.then(function (res) {
+                if (res && res.board && res.tabId) {
+                  STATE.boards[res.tabId] = res.board;
+                  renderBoard();
+                }
+              });
+            }
           });
           secActions.appendChild(secAdd);
 
@@ -1250,7 +1266,7 @@ function buildClientScript() {
     var hasMeta = card.completedAt || card.startAt || card.deadline || card.repeat || card.isRepeating || (card.hideUntil && card.hideUntil > nowSec);
     if (hasMeta) {
       var bits = [];
-      if (card.completedAt) bits.push("\\u2713 done");
+      if (card.completedAt) bits.push("\\u2713 " + formatCompletedStamp(card.completedAt));
       if (card.startAt && card.endAt) {
         bits.push("\\uD83D\\uDD52 " + formatTimeRange(card.startAt, card.endAt));
       } else if (card.startAt) {
@@ -1467,6 +1483,13 @@ function buildClientScript() {
       pad(d.getHours()) + ":" + pad(d.getMinutes());
   }
 
+  function formatCompletedStamp(unixSeconds) {
+    if (!unixSeconds) return "done";
+    var d = new Date(unixSeconds * 1000);
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    return "done " + formatStamp(unixSeconds) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
   function formatTaskRepeat(repeatString) {
     if (!repeatString || typeof repeatString !== "string") return "Recurring";
     var m = repeatString.match(/FREQ=([^;\\s]+)/i);
@@ -1629,12 +1652,15 @@ function buildClientScript() {
     if (refreshTabBtn) {
       refreshTabBtn.addEventListener("click", function () {
         setBusy("kb-refresh-tab", true);
+        sortMode = "none";
+        setLocalSetting("sortMode", "none");
+        updateSortUi();
         callPlugin("refreshTab", { tabId: STATE.activeTabId }).then(function (res) {
           setBusy("kb-refresh-tab", false);
           if (res && res.board && res.tabId) {
             STATE.boards[res.tabId] = res.board;
             renderBoard();
-            showToast("Tab refreshed");
+            showToast("Tab refreshed (default order)");
           }
         }).catch(function () {
           setBusy("kb-refresh-tab", false);
@@ -1647,6 +1673,9 @@ function buildClientScript() {
       refreshAllBtn.addEventListener("click", function () {
         setBusy("kb-refresh-all", true);
         setProgress(0.2);
+        sortMode = "none";
+        setLocalSetting("sortMode", "none");
+        updateSortUi();
         callPlugin("refreshAll").then(function (res) {
           setBusy("kb-refresh-all", false);
           setProgress(1.0);
@@ -1654,7 +1683,7 @@ function buildClientScript() {
             STATE.boards = res.boards;
             if (res.config) STATE.config = res.config;
             renderAll();
-            showToast("All boards refreshed");
+            showToast("All boards refreshed (default order)");
           }
         }).catch(function () {
           setBusy("kb-refresh-all", false);
@@ -3606,10 +3635,26 @@ async function createTaskInColumn(app, noteUUID, target, content) {
     return taskUuid;
   }
   try {
-    await moveTaskToColumn(app, noteUUID, taskUuid, {
+    const res = await moveTaskToColumn(app, noteUUID, taskUuid, {
       columnId: target?.columnId,
       columnName: targetName
     });
+    if (res === "no-task") {
+      const { markdown } = await readNote(app, noteUUID);
+      const { columns } = buildColumnSpans(markdown);
+      const span = resolveSpan(columns, target.columnId, targetName);
+      if (span) {
+        let lines = markdown.split("\n");
+        const cleanContent = String(content || "").trim();
+        const preambleIndex = lines.findIndex((l, i) => i < span.startLine && (l.includes(taskUuid) || cleanContent && l.includes(cleanContent)));
+        if (preambleIndex !== -1) {
+          lines.splice(preambleIndex, 1);
+        }
+        const taskLine = `- [ ] ${content} <!-- {"uuid":"${taskUuid}"} -->`;
+        lines = insertUnderHeading(lines, span, taskLine);
+        await app.replaceNoteContent({ uuid: noteUUID }, lines.join("\n"));
+      }
+    }
   } catch (error) {
     console.error("createTaskInColumn relocate failed:", error);
   }
@@ -4325,32 +4370,96 @@ async function handleMoveCard(app, payload) {
 }
 async function handleCreateCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  if (!tab || !payload.columnId) return;
+  if (!tab || !payload?.columnId) return { ok: false };
   if (tab.kind === "tag" || tab.kind === "notes") {
     const targetUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : payload.columnId;
-    if (!targetUUID) return;
+    if (!targetUUID) return { ok: false };
     const content2 = firstValue(await app.prompt("New task", {
       inputs: [{ label: "Task content (markdown):", type: "text" }]
     }));
-    if (!content2) return;
-    const taskUuid = await app.insertTask({ uuid: targetUUID }, { content: content2 });
-    if (taskUuid && payload.sectionId && payload.sectionId !== "unsorted" && payload.sectionId !== "main") {
+    if (!content2) return { ok: false, canceled: true };
+    const taskUuid2 = await app.insertTask({ uuid: targetUUID }, { content: content2 });
+    if (taskUuid2 && payload.sectionId && payload.sectionId !== "unsorted" && payload.sectionId !== "main") {
       try {
-        await moveTaskToColumn(app, targetUUID, taskUuid, { columnId: payload.sectionId });
+        await moveTaskToColumn(app, targetUUID, taskUuid2, { columnId: payload.sectionId });
       } catch (err) {
         console.error("Failed to position new task under section:", err);
       }
     }
-    await rerender(app);
-    return;
+    const board2 = await buildSingleBoard(app, tab);
+    if (taskUuid2 && board2 && Array.isArray(board2.columns)) {
+      const alreadyInBoard = board2.columns.some((col) => (col.cards || []).some((c) => c.id === taskUuid2 || c.uuid === taskUuid2) || (col.sections || []).some((sec) => (sec.cards || []).some((c) => c.id === taskUuid2 || c.uuid === taskUuid2)));
+      if (!alreadyInBoard) {
+        const targetCol = board2.columns.find((c) => c.id === payload.columnId || c.noteUUID === targetUUID) || board2.columns[0];
+        if (targetCol) {
+          const newCard = {
+            id: taskUuid2,
+            uuid: taskUuid2,
+            title: content2,
+            content: content2,
+            completedAt: null,
+            startAt: null,
+            endAt: null,
+            deadline: null,
+            hideUntil: null,
+            repeat: null,
+            important: false,
+            urgent: false,
+            score: 0,
+            tags: [],
+            labels: []
+          };
+          if (payload.sectionId && Array.isArray(targetCol.sections)) {
+            const sec = targetCol.sections.find((s) => s.id === payload.sectionId) || targetCol.sections[0];
+            if (sec) {
+              sec.cards = sec.cards || [];
+              sec.cards.unshift(newCard);
+            }
+          } else {
+            targetCol.cards = targetCol.cards || [];
+            targetCol.cards.unshift(newCard);
+          }
+        }
+      }
+    }
+    if (payload && payload.forceRerender) await rerender(app);
+    return { ok: true, tabId: tab.id, board: board2 };
   }
   const result = await app.prompt("New card", {
     inputs: [{ label: "Card content (markdown):", type: "text" }]
   });
   const content = firstValue(result);
-  if (!content) return;
-  await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId, columnName: payload.columnName }, content);
-  await rerender(app);
+  if (!content) return { ok: false, canceled: true };
+  const taskUuid = await createTaskInColumn(app, tab.noteUUID, { columnId: payload.columnId, columnName: payload.columnName }, content);
+  const board = await buildSingleBoard(app, tab);
+  if (taskUuid && board && Array.isArray(board.columns)) {
+    const alreadyInBoard = board.columns.some((col) => (col.cards || []).some((c) => c.id === taskUuid || c.uuid === taskUuid));
+    if (!alreadyInBoard) {
+      const targetCol = board.columns.find((c) => c.id === payload.columnId || c.name === payload.columnName) || board.columns[0];
+      if (targetCol) {
+        targetCol.cards = targetCol.cards || [];
+        targetCol.cards.unshift({
+          id: taskUuid,
+          uuid: taskUuid,
+          title: content,
+          content,
+          completedAt: null,
+          startAt: null,
+          endAt: null,
+          deadline: null,
+          hideUntil: null,
+          repeat: null,
+          important: false,
+          urgent: false,
+          score: 0,
+          tags: [],
+          labels: []
+        });
+      }
+    }
+  }
+  if (payload && payload.forceRerender) await rerender(app);
+  return { ok: true, tabId: tab.id, board };
 }
 async function handleOpenCard(app, payload) {
   const noteUUID = payload?.noteUUID || payload?.cardId;
@@ -4362,6 +4471,8 @@ async function handleEditTaskDetails(app, payload) {
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
+  const isDone = !!(task.completedAt || task.completed);
+  const isDismissed = !!task.dismissedAt;
   let sections = [];
   try {
     sections = await app.getNoteSections({ uuid: task.noteUUID }) || [];
@@ -4375,6 +4486,57 @@ async function handleEditTaskDetails(app, payload) {
       value: s.heading.text
     }))
   ];
+  if (isDone || isDismissed) {
+    const result2 = await app.prompt("Completed Task Details", {
+      inputs: [
+        { label: "Task content (markdown):", type: "text", value: task.content || "" },
+        { label: "Relocate under Heading (on reopen):", type: "select", options: sectionOptions },
+        {
+          label: "Status Action:",
+          type: "radio",
+          options: [
+            { label: "Keep completed", value: "keep" },
+            { label: "Reopen / Active (remove strikethrough)", value: "reopen" },
+            { label: isDismissed ? "Un-dismiss task (reopen)" : "Dismiss / Archive", value: "dismiss" }
+          ]
+        },
+        { label: "Important:", type: "checkbox", value: !!task.important },
+        { label: "Urgent:", type: "checkbox", value: !!task.urgent }
+      ]
+    });
+    if (!result2) return;
+    const [content2, targetSection2, statusChoice2, important2, urgent2] = result2;
+    const updates2 = {};
+    if (content2 !== void 0 && content2 !== task.content) {
+      updates2.content = String(content2);
+    }
+    if (typeof important2 === "boolean" && important2 !== !!task.important) {
+      updates2.important = important2;
+    }
+    if (typeof urgent2 === "boolean" && urgent2 !== !!task.urgent) {
+      updates2.urgent = urgent2;
+    }
+    const now2 = Math.floor(Date.now() / 1e3);
+    if (statusChoice2 === "reopen") {
+      updates2.completedAt = null;
+      updates2.dismissedAt = null;
+    } else if (statusChoice2 === "dismiss") {
+      updates2.dismissedAt = isDismissed ? null : now2;
+      updates2.completedAt = null;
+    }
+    if (Object.keys(updates2).length > 0) {
+      await app.updateTask(cardId, updates2);
+    }
+    if (statusChoice2 === "reopen" && targetSection2 && targetSection2 !== "__top__") {
+      try {
+        await moveTaskToColumn(app, task.noteUUID, cardId, { columnName: targetSection2 });
+      } catch (err) {
+        console.error("Failed to relocate reopened task:", err);
+      }
+    }
+    await rerender(app);
+    return;
+  }
   const result = await app.prompt("Edit Task Details", {
     inputs: [
       { label: "Task content (markdown):", type: "text", value: task.content || "" },
@@ -4387,11 +4549,10 @@ async function handleEditTaskDetails(app, payload) {
         label: "Mark Status:",
         type: "radio",
         options: [
-          { label: "Keep current", value: "keep" },
+          { label: "Keep active", value: "keep" },
           { label: "Started (startAt now)", value: "started" },
-          { label: "Completed", value: "completed" },
-          { label: "Dismissed", value: "dismissed" },
-          { label: "Reopen / Active", value: "reopen" }
+          { label: "Mark as Completed", value: "completed" },
+          { label: "Dismiss / Archive", value: "dismissed" }
         ]
       }
     ]
@@ -4421,9 +4582,6 @@ async function handleEditTaskDetails(app, payload) {
   } else if (statusChoice === "dismissed") {
     updates.dismissedAt = now;
     updates.completedAt = null;
-  } else if (statusChoice === "reopen") {
-    updates.completedAt = null;
-    updates.dismissedAt = null;
   }
   const targetNoteUUID = targetNote?.uuid || task.noteUUID;
   if (targetNoteUUID && targetNoteUUID !== task.noteUUID) {
@@ -4669,29 +4827,42 @@ async function handleCardMenu(app, payload) {
   const task = await app.getTask(cardId);
   if (!task) return;
   const isDone = !!(task.completedAt || task.completed);
-  const choice = firstValue(await app.prompt("Card Actions", {
+  const isDismissed = !!task.dismissedAt;
+  const options = isDone || isDismissed ? [
+    { label: "Reopen task (mark active)", value: "uncomplete" },
+    { label: isDismissed ? "Un-dismiss task (reopen)" : "Dismiss / Archive task", value: "dismiss" },
+    { label: "Edit task details (full dialog)", value: "edit_details" },
+    { label: "Add label (note link)", value: "label" },
+    { label: "Create note from card", value: "note" }
+  ] : [
+    { label: "Mark as completed", value: "complete" },
+    { label: "Edit task details (full dialog)", value: "edit_details" },
+    { label: "Add label (note link)", value: "label" },
+    { label: "Set start date / time", value: "date" },
+    { label: "Snooze / Hide Until (set date)", value: "snooze" },
+    { label: "Schedule Time Block (start & end time)", value: "timeblock" },
+    { label: "Create note from card", value: "note" }
+  ];
+  const choice = firstValue(await app.prompt(isDone || isDismissed ? "Completed Card Actions" : "Card Actions", {
     inputs: [{
       label: "Choose action:",
       type: "radio",
-      options: [
-        { label: isDone ? "Reopen task (mark uncompleted)" : "Mark as completed", value: isDone ? "uncomplete" : "complete" },
-        { label: "Edit task details (full dialog)", value: "edit_details" },
-        { label: "Add label (note link)", value: "label" },
-        { label: "Set start date / time", value: "date" },
-        { label: "Snooze / Hide Until (set date)", value: "snooze" },
-        { label: "Schedule Time Block (start & end time)", value: "timeblock" },
-        { label: "Create note from card", value: "note" }
-      ]
+      options
     }]
   }));
   if (!choice) return;
   if (choice === "complete") {
-    await app.updateTask(cardId, { completedAt: Math.floor(Date.now() / 1e3) });
+    await app.updateTask(cardId, { completedAt: Math.floor(Date.now() / 1e3), dismissedAt: null });
     await rerender(app);
     return;
   }
   if (choice === "uncomplete") {
-    await app.updateTask(cardId, { completedAt: null });
+    await app.updateTask(cardId, { completedAt: null, dismissedAt: null });
+    await rerender(app);
+    return;
+  }
+  if (choice === "dismiss") {
+    await app.updateTask(cardId, { dismissedAt: isDismissed ? null : Math.floor(Date.now() / 1e3), completedAt: null });
     await rerender(app);
     return;
   }

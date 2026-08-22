@@ -1,3 +1,20 @@
+## v0.0.26 (2026-08-22) — Dedicated Task Dialogs, Completed Metadata & Instant Card Sync
+
+### 🚀 New Features & Enhancements
+- **Dedicated Task Dialog on Card Click**: Clicking directly on a card body opens a tailored modal:
+  - **Active Tasks**: Full properties editor (Markdown content, Important/Urgent priority quadrant, move to note / heading dropdown, task score, and mark status: `Started`, `Completed`, `Dismissed`).
+  - **Completed Tasks**: Completed task review modal (Markdown content, target heading dropdown to choose where the card returns when reopened, and lifecycle actions: `Reopen / Active`, `Dismiss / Archive`, `Keep completed`).
+- **Context-Aware 3-Dots Action Menus (`...`)**: The card context menu automatically filters choices based on task state:
+  - **Active Tasks**: `Mark as completed`, `Edit details`, `Add label`, `Set start date/time`, `Snooze / Hide Until`, `Schedule Time Block`, `Create note from card`.
+  - **Completed Tasks**: `Reopen task (mark active)`, `Dismiss / Archive task`, `Edit details`, `Add label`, `Create note from card`.
+- **Completed Date & Time Timestamp Badges**: Completed cards render exact completion timestamps formatted according to the user's date format settings (e.g. `✓ done 2026-08-22 17:05`).
+- **Natural Document Order on Refresh**: Clicking `Refresh Tab` or `Refresh All` automatically clears temporary client sorting (`sortMode = "none"`), ensuring the board displays the source note's natural line order.
+
+### 🐛 Bug Fixes & Reliability
+- **Instant Card Creation Sync**: Fixed an issue where newly created tasks via `+` did not appear immediately due to asynchronous Amplenote database/markdown comment indexing. The plugin now provides resilient heading line insertion and guaranteed optimistic card injection directly into the returned board snapshot.
+
+---
+
 ## v0.0.19 (2026-08-22) — Column Adders, Tag Board Header Tools & Note Lifecycle
 
 ### 🚀 New Features & Enhancements

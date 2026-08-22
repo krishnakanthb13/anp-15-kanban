@@ -180,11 +180,16 @@ A note board maps one single note onto the board:
 - **Columns** = the note's headings at the shallowest heading level present (H1s if the note uses H1s, etc.). Deeper sub-headings stay inside their parent column.
 - **Cards** = tasks under each heading, in document order. Tasks above the first heading appear in an implicit **Unsorted** column.
 - **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note markdown.
-- **Drop into the last column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
+- **Drop into the Completed / Done column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
 - **`+ Add Header` card at the right end of the board**: Click to instantly create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
-- **Click a card** opens the rich task editor dialog (markdown content, Important/Urgent quadrant, target note & heading section, task score, and lifecycle status).
+- **Click a card** opens the dedicated task editor dialog:
+  - **On Active Tasks**: Full Task Details modal (markdown content, Important/Urgent quadrants, move to note / heading dropdown, task score, and mark status: `Started`, `Completed`, `Dismissed`).
+  - **On Completed Tasks**: Specialized Completed Details modal (markdown content, target heading dropdown for where to relocate on reopen, and lifecycle actions: `Reopen / Active`, `Dismiss / Archive`, `Keep completed`).
 - **`ℹ` button on a card** toggles an inline task details inspector showing all non-empty properties (Start At, End At, Deadline, Hide Until, Repeat schedule, Completed/Dismissed status, and Note link).
+- **`...` 3-dots button on a card** opens a context-aware action menu:
+  - **Active Tasks**: `Mark as completed`, `Edit details`, `Add label`, `Set start date/time`, `Snooze / Hide Until`, `Schedule Time Block`, `Create note from card`.
+  - **Completed Tasks**: `Reopen task (mark active)`, `Dismiss / Archive task`, `Edit details`, `Add label`, `Create note from card`.
 
 ### 2. Tag Boards (`tag`)
 
@@ -222,6 +227,7 @@ The third kind maps a tag where notes act as columns and all tasks inside each n
 
 Task cards dynamically display badges and metadata chips **only when those values are present**:
 
+- **✓ Done Timestamp**: Displays exact completed date and time formatted to your settings (e.g. `✓ done 2026-08-22 17:05`).
 - **🔥 Urgent** / **⭐ Important**: Eisenhower priority quadrant badges.
 - **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`).
 - **📋 Subtasks**: Displayed when a task has child subtasks (`isParent`).
@@ -242,6 +248,7 @@ Task cards dynamically display badges and metadata chips **only when those value
   *Visual dashboard sorting is non-destructive and does not rewrite the note.*
 - **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
 - **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task order.
+- **🔄 Tab & All Refresh**: Clicking **Refresh Tab** or **Refresh All** pulls fresh data and automatically resets sort to natural document order so you always see the true, un-sorted note layout.
 
 ### View Toolbar Controls (Density, Empty Columns, Expand Info, Quick @ Date)
 

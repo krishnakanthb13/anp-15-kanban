@@ -248,7 +248,7 @@ describe("embedActions", () => {
   });
 
   describe("handleCreateCard", () => {
-    it("prompts, creates, relocates and re-renders", async () => {
+    it("prompts, creates, relocates and returns fresh in-memory board snapshot without calling renderEmbed", async () => {
       // Simulate insertTask having placed the new task at the top of the note.
       const mdWithNew = [
         "- [ ] typed content <!-- {\"uuid\":\"new-task\"} -->",
@@ -256,11 +256,23 @@ describe("embedActions", () => {
         "# Beta",
       ].join("\n");
       const app = withNoteTab(makeApp(mdWithNew));
-      await handleCreateCard(app, { tabId: "t1", columnId: "2" });
+      const res = await handleCreateCard(app, { tabId: "t1", columnId: "2" });
 
       expect(app.prompt).toHaveBeenCalled();
       expect(app.insertTask).toHaveBeenCalledWith({ uuid: "n1" }, { content: "typed content" });
       expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "t1", board: expect.any(Object) }));
+    });
+
+    it("calls renderEmbed if forceRerender is true", async () => {
+      const mdWithNew = [
+        "- [ ] typed content <!-- {\"uuid\":\"new-task\"} -->",
+        "# Alpha",
+        "# Beta",
+      ].join("\n");
+      const app = withNoteTab(makeApp(mdWithNew));
+      await handleCreateCard(app, { tabId: "t1", columnId: "2", forceRerender: true });
       expect(app.context.renderEmbed).toHaveBeenCalled();
     });
 
@@ -275,23 +287,31 @@ describe("embedActions", () => {
   });
 
   describe("handleEditCard", () => {
-    it("saves edited markdown and re-renders", async () => {
+    it("saves edited task details and re-renders", async () => {
       const app = makeApp();
-      app.prompt.mockResolvedValue(["**edited**"]);
+      app.prompt.mockResolvedValue(["**edited**", true, false, null, null, "5", "keep"]);
       await handleEditCard(app, { cardId: "u1" });
-      expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "**edited**" });
+      expect(app.updateTask).toHaveBeenCalledWith("u1", expect.objectContaining({ content: "**edited**", important: true, score: 5 }));
       expect(app.context.renderEmbed).toHaveBeenCalled();
+    });
+
+    it("handles completed task details dialog and reopening", async () => {
+      const app = makeApp();
+      app.getTask.mockResolvedValueOnce({ uuid: "u1", content: "done one", completedAt: 1700000000 });
+      app.prompt.mockResolvedValue(["done one updated", "__top__", "reopen", false, false]);
+      await handleEditCard(app, { cardId: "u1" });
+      expect(app.updateTask).toHaveBeenCalledWith("u1", expect.objectContaining({ content: "done one updated", completedAt: null, dismissedAt: null }));
     });
 
     it("skips writes when unchanged, cancelled, or task missing", async () => {
       const app = makeApp();
-      app.prompt.mockResolvedValue(["one"]); // unchanged
+      app.prompt.mockResolvedValue(["one", false, false, null, null, "", "keep"]); // unchanged
       await handleEditCard(app, { cardId: "u1" });
       app.prompt.mockResolvedValue(null);
       await handleEditCard(app, { cardId: "u1" });
       expect(app.updateTask).not.toHaveBeenCalled();
 
-      app.prompt.mockResolvedValue(["changed"]);
+      app.prompt.mockResolvedValue(["changed", false, false, null, null, "", "keep"]);
       app.getTask.mockResolvedValue(null);
       await handleEditCard(app, { cardId: "ghost" });
       expect(app.updateTask).not.toHaveBeenCalled();
@@ -583,7 +603,7 @@ describe("embedActions", () => {
         app.getTask.mockResolvedValueOnce({ uuid: "u1", content: "one", completedAt: 123456 });
         app.prompt.mockResolvedValueOnce("uncomplete");
         await handleCardMenu(app, { cardId: "u1" });
-        expect(app.updateTask).toHaveBeenLastCalledWith("u1", { completedAt: null });
+        expect(app.updateTask).toHaveBeenLastCalledWith("u1", { completedAt: null, dismissedAt: null });
       });
 
       it("does nothing on cancel or missing task", async () => {
@@ -757,11 +777,12 @@ describe("embedActions", () => {
       expect(app.updateTask).not.toHaveBeenCalled();
     });
 
-    it("createCard inserts a task directly into the target note", async () => {
+    it("createCard inserts a task directly into the target note and returns in-memory board snapshot", async () => {
       const app = notesApp();
-      await handleCreateCard(app, { tabId: "tn", columnId: "note:nb" });
+      const res = await handleCreateCard(app, { tabId: "tn", columnId: "note:nb" });
       expect(app.insertTask).toHaveBeenCalledWith({ uuid: "nb" }, { content: "typed content" });
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tn", board: expect.any(Object) }));
     });
 
     it("renameNote renames the column's note", async () => {

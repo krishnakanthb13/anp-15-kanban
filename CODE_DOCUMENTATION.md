@@ -198,13 +198,13 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `reorderTabs` | `handleReorderTabs` | Persists drag-and-drop tab ordering to settings |
 | `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string in unified settings |
 | `moveCard` | `handleMoveCard` | Moves tasks across headings, sections, or notes |
-| `createCard` | `handleCreateCard` | Inserts task in column heading or note |
-| `editCard` | `handleEditCard` | Quick raw-markdown task editor |
-| `editTaskDetails`| `handleEditTaskDetails` | Full task properties editor dialog |
+| `createCard` | `handleCreateCard` | Inserts task in column heading or note (flicker-free with immediate optimistic board update) |
+| `editCard` | `handleEditCard` | Opens dedicated task details modal (routes to `handleEditTaskDetails`) |
+| `editTaskDetails`| `handleEditTaskDetails` | Dedicated task modal: Active tasks (quadrant, move, score, status) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive) |
 | `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
 | `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks |
 | `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
-| `cardMenu` | `handleCardMenu` | Context menu (edit details, label, date & time, snooze, timeblock, create note) |
+| `cardMenu` | `handleCardMenu` | Context-aware menu: Active (complete, details, label, date, snooze, timeblock, note) vs Completed (reopen, dismiss/archive, details, label, note) |
 | `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (powered by universal `combineDateAndTime`) |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
 | `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board or note in tag board |

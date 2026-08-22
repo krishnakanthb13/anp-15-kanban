@@ -153,3 +153,14 @@ Active work and finished artifacts belong in distinct cognitive spaces:
 - **Frictionless Reopening**: Dragging any card out of the Completed column into a heading column immediately clears the completion timestamp and splices the active task back under that heading in the note.
 
 **Why:** Mixing completed tasks with active sprint items clutters board visibility and distorts column WIP limits. Isolating finished tasks into a dedicated completion space keeps columns actionable while preserving quick access to recently completed work.
+
+---
+
+## 18. Context-Aware Task Dialogs & Lifecycle Ergonomics
+
+Card interactions dynamically adapt their modal interfaces and action menus based on the task's active vs completed lifecycle state:
+- **Active Task Dialog**: Focuses on execution properties — markdown content, Eisenhower quadrants (Important / Urgent), task score, target note/heading assignment, and status milestones (`Started`, `Completed`, `Dismissed`).
+- **Completed Task Dialog**: Focuses on review and restoration — displays completion metadata, provides a target heading selector for where to relocate the card when reopened, and offers clean status transitions (`Keep completed`, `Reopen / Active`, `Dismiss / Archive`).
+- **Contextual 3-Dots Action Menus**: Menu options on active tasks highlight scheduling (Start Date, Snooze, Time-block) and completion, while completed tasks highlight reopening and archiving.
+
+**Why:** Asking users to configure future start dates or snooze timers on already completed tasks is cognitive friction. Tailoring prompts to the task's exact lifecycle phase keeps workflows intuitive, purposeful, and free of irrelevant inputs.

@@ -1,4 +1,4 @@
-﻿# YouTube Video Preparation (PREP.md)
+# YouTube Video Preparation (PREP.md)
 
 This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** in Amplenote.
 
@@ -65,7 +65,7 @@ NOTE BOARDS
 
 DRAG & DROP
 * Move Between Columns: Drag a card onto another column and the task physically moves under that heading in the underlying note.
-* Drop-to-Done: Dropping into the last column completes the task. Drag it back out to reopen it. Same-column drops are safe no-ops.
+* Drop-to-Done: Dropping into the Completed / Done column completes the task. Drag it back out to reopen it. Same-column drops are safe no-ops.
 
 CREATE & EDIT
 * + Button: Adds a new task directly at the top of the chosen column via a markdown prompt.
@@ -125,7 +125,7 @@ TABS, REFRESH & THEMES
 ### **Section 3: Drag & Drop That Writes Back**
 > **Speaker**: "Let's drag this task from Backlog to In Progress. Watch the note behind the board - the task physically moved under the right heading. This isn't a visual trick; the board and the note are always the same data.
 >
-> Now watch what happens when I drop a card into the last column: it gets completed - the real Amplenote strikethrough. And if I drag it back out of the done column, it reopens. Dropping a card back into its own column? Safe no-op."
+> Now watch what happens when I drop a card into the Completed column: it gets completed - the real Amplenote strikethrough. And if I drag it back out of the done column, it reopens. Dropping a card back into its own column? Safe no-op."
 
 ---
 

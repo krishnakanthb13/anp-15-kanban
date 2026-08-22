@@ -1,4 +1,4 @@
-﻿# Released: Kanban Plugin — The Big Rebuild Begins
+# Released: Kanban Plugin — The Big Rebuild Begins
 
 ## LinkedIn
 🚀 The Kanban Plugin for Amplenote just got its biggest upgrade yet!
@@ -7,7 +7,7 @@ I rebuilt the plugin from the ground up. The board is no longer an inline note e
 
 You can now:
 ✅ Drag & drop tasks between columns — the underlying note updates instantly.
-✅ Drop a card into the last column to complete it; drag it back out to reopen.
+✅ Drop a card into the Completed / Done column to complete it; drag it back out to reopen.
 ✅ Create and edit cards in raw markdown without leaving the board.
 ✅ Choose from 8 curated themes (light & dark parity) — press T to cycle.
 
@@ -20,14 +20,14 @@ GitHub: https://github.com/krishnakanthb13/anp-15-kanban
 ## Twitter/X
 🚀 The rebuilt Kanban Plugin for Amplenote is here — a full rebuild!
 
-Your notes ARE the board now: headings = columns, tasks = draggable cards. Drop into the last column to complete, edit markdown in place, 8 cycling themes (press T).
+Your notes ARE the board now: headings = columns, tasks = draggable cards. Drop into the Completed column to complete, edit markdown in place, 8 cycling themes (press T).
 
 Check it out: https://github.com/krishnakanthb13/anp-15-kanban
 
 ## Bluesky
 🚀 The rebuilt Kanban Plugin for Amplenote is here — a full rebuild!
 
-Your notes ARE the board now: headings = columns, tasks = draggable cards. Drop into the last column to complete, edit markdown in place, 8 cycling themes (press T).
+Your notes ARE the board now: headings = columns, tasks = draggable cards. Drop into the Completed column to complete, edit markdown in place, 8 cycling themes (press T).
 
 Check it out: https://github.com/krishnakanthb13/anp-15-kanban
 #Amplenote #Productivity #Kanban
@@ -57,7 +57,7 @@ The board runs as a persistent full-screen plugin section inside Amplenote. Card
 
 **Features in this milestone:**
 *   **Drag & drop**: moving a card between columns physically relocates the task under the right heading in the note.
-*   **Drop-to-done**: the last column completes tasks (native strikethrough); drag back out to reopen.
+*   **Drop-to-done**: the Completed / Done column completes tasks (native strikethrough); drag back out to reopen.
 *   **Quick create / edit**: `+` adds a task to a column; clicking a card opens a raw-markdown editor.
 *   **Unsorted column**: tasks above the first heading don't get lost — they show up in their own column.
 *   **8 cycling themes** with proper light/dark parity (press T).
