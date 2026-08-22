@@ -97,9 +97,9 @@ Amplenote tasks map into rich card objects with all native metadata:
 
 | Tab Kind | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
 | :--- | :--- | :--- | :--- | :--- |
-| **`note`** | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`, `# Done`) | Tasks under each heading | Markdown line movement via `replaceNoteContent` |
-| **`tag`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Heading relocation or note reassignment |
-| **`notes`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | All tasks in note (flat list) | Native parent note update via `updateTask({ noteUUID })` |
+| **`note`** | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`, `# Done`) | Tasks under each heading | Moves task markdown line between headings or reorders within the same heading |
+| **`tag`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Relocates under heading or migrates task across notes |
+| **`notes`** | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | All tasks in note (flat list) | Migrates task across notes via markdown splice & insertTask |
 
 ```
 1. Note Board (`kind: "note"`):
@@ -117,6 +117,44 @@ Amplenote tasks map into rich card objects with all native metadata:
                                                   ──► [ Flat Task 2 ]
                       ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
 ```
+
+---
+
+## Drag-and-Drop Engine & Relative Placement (`ui/clientScript.js` & `api/taskOps.js`)
+
+1. **Visual Insertion Indicator Lines**:
+   - **Cards**: `clientY` midpoint thresholding (`e.clientY > rect.top + rect.height / 2`) toggles `.kb-card-drop-before` or `.kb-card-drop-after`, displaying a 3px glowing accent line directly above or below the target card.
+   - **Columns**: `clientX` midpoint thresholding toggles `.kb-col-drop-before` or `.kb-col-drop-after`, showing a vertical accent bar in the board gap.
+   - **Tabs**: `clientX` midpoint thresholding toggles `.kb-tab-drop-before` or `.kb-tab-drop-after`, displaying a vertical boundary line on the tab chip.
+
+2. **Cross-Header & Intra-Header Relative Splicing (`moveTaskToColumn`)**:
+   - Accepts `{ columnId, columnName, targetCardId, position: "before" | "after" | "top" | "bottom" }`.
+   - Locates both the moving task line and the reference `targetCardId` line in the note markdown using [`findTaskLines`](lib/api/markdownIndex.js).
+   - Strips the task line and re-inserts it directly before or after the reference task line.
+   - Saves the updated note markdown via `app.replaceNoteContent`.
+
+3. **Cross-Note Task Migration in Tag & Multi-Note Boards (`handleMoveCard`)**:
+   - Removes task line from source note markdown via `replaceNoteContent`.
+   - Inserts task into target note via `app.insertTask({ uuid: targetNoteUUID }, taskDetails)`.
+   - Relocates under destination heading inside target note if specified.
+
+4. **Physical Note Line Order by Default (`assignTasksToColumns`)**:
+   - Rather than relying on `app.getNoteTasks` API database return order, tasks in every column and section are sorted strictly by their physical `lineIndex` in the note markdown, matching the author's note sequence 1-to-1.
+
+5. **Semantic Completion Targeting (`isDoneTarget` / `isLastColumn`)**:
+   - Only marks tasks completed when dragged into an explicitly designated completion column (e.g. named `Done`, `Completed`, `Finished`, `Closed`, `Archive`), avoiding false completion when moving between general custom note headings.
+
+6. **Task State & Lifecycle Routing (`assignTasksToColumns`)**:
+   - **Completed & Dismissed Tasks** (`task.completedAt`, `task.completed`, `task.dismissedAt`): In single note boards, these tasks are isolated and routed into the dedicated **"Completed"** column at the far right of the board.
+   - **Snoozed Tasks** (`task.hideUntil`): Kept active under their respective physical column with a `💤 Hide Until` badge.
+   - **Recurring Tasks** (`task.repeat`): Kept active under their respective physical column with a `🔁 Repeat` badge.
+   - **Preamble Tasks**: Placed into the **"Unsorted"** column at index 0.
+
+7. **Resilient Task Line Indexing & Heading Cleaning (`api/markdownIndex.js`)**:
+   - Sanitizes CRLF (`\r\n`) line endings before line mapping.
+   - Ignores Amplenote auto-generated `<details><summary>Completed tasks</summary>` blocks during heading discovery.
+   - Matches case-insensitive quoted or unquoted metadata UUID comments (`/["']?uuid["']?\s*:\s*["']?${uuid}["']?/i`).
+   - Falls back to clean task content matching if markdown comments are absent before Amplenote server indexing.
 
 ---
 
@@ -196,10 +234,27 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 
 ---
 
+## Architectural Evolution & Safeguards (Legacy Comparison)
+
+The architecture in `anp-15-kanban` solves fundamental data safety and performance bottlenecks identified from the legacy implementations ([`kanban-board.js`](./kanban-board.js) and [`kanban-old.js`](./kanban-old.js)):
+
+1. **Non-Destructive Line Diff Mutations ([`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
+   - Instead of replacing the entire note text (which wiped preambles and non-task text in legacy versions), [`markdownIndex.js`](./lib/api/markdownIndex.js) partitions notes into **Column Spans** (`[startLine, contentStart, contentEnd)`). Moving tasks uses index-shifted line replacements, preserving note preambles, formatting, and sub-headings.
+2. **Robust Task Identification ([`lib/api/markdownIndex.js`](./lib/api/markdownIndex.js))**:
+   - Replaces brittle regexes with [`UUID_IN_LINE_RE`](./lib/api/markdownIndex.js). Fetches all tasks via a single bulk `app.getNoteTasks` query instead of $N$ synchronous `app.getTask` roundtrips.
+3. **Two-Phase Column Transfers & Zero-Loss Deletions ([`lib/api/columnOps.js`](./lib/api/columnOps.js))**:
+   - Column transfers append to the target note before removing from the source note, ensuring network drops leave a recoverable duplicate rather than lost data.
+   - Column deletions lift existing tasks to the top of the note (above all headings) before deleting the heading line.
+
+For full live validation steps, see [`checklist.md`](./checklist.md).
+
+---
+
 ## Testing Strategy
 
 ```bash
-npx jest "anp-15-kanban/test"     # Jest unit and integration suites (19 suites, 214 tests)
-node esbuild.js 15                # Compiles bundle to build/kanban.compiled.js
+npm test -- anp-15-kanban          # Jest unit and integration suites (19 suites, 214 tests)
+node esbuild.js 15                 # Compiles bundle to build/kanban.compiled.js
 node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
 ```
+

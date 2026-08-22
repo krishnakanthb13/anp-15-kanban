@@ -79,3 +79,13 @@ and
 
 ---
 
+I am going to start testing all the features how they work and everything.
+[anp-15-kanban](./)
+- before I do that, the UI and UX and everything looks and works good
+- add, remove, move, create, rename, weather its a note, header or task in any tag, note, notes tab and all the buttons, I want you to check with amplenotes documentation online or [amplenote_references](../amplenote_references/)
+- if it does what is says and what it is suppose to do
+- once you check, give me a check list that you think that covers all the things I need to manually test in live env, I will be curious and explore all possiblilites and will get back with feedback for changes or fine tweaking
+- and around 1000 active users are using [kanban-board.js](./kanban-board.js) and it seems be working fine for them, it is a very basic one, see if you can pick up any tips and tricks when making the above mentioned check.
+= My main focus now is to check and validate all features that interact with the amplenote backend, to check if all are well integrated.
+
+---

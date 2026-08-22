@@ -44,11 +44,88 @@ describe("taskOps", () => {
       expect(written).toBe(["# Alpha", "- [ ] two <!-- {\"uuid\":\"u2\"} -->", "# Beta"].join("\n"));
     });
 
-    it("reports same-column drops without writing", async () => {
+    it("reports same-column drops without writing when no targetCardId is provided", async () => {
       const app = makeApp();
       const status = await moveTaskToColumn(app, "n1", "u1", { columnId: "0" });
       expect(status).toBe("same-column");
       expect(app.replaceNoteContent).not.toHaveBeenCalled();
+    });
+
+    it("reorders tasks within the same column when targetCardId is provided", async () => {
+      const multiMd = [
+        "# Alpha",
+        "- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->",
+        "- [ ] task 2 <!-- {\"uuid\":\"u2\"} -->",
+        "- [ ] task 3 <!-- {\"uuid\":\"u3\"} -->",
+      ].join("\n");
+      const app = makeApp(multiMd);
+      // Move task 3 before task 1
+      const status = await moveTaskToColumn(app, "n1", "u3", {
+        columnId: "0",
+        targetCardId: "u1",
+        position: "before",
+      });
+      expect(status).toBe("moved");
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toBe([
+        "# Alpha",
+        "- [ ] task 3 <!-- {\"uuid\":\"u3\"} -->",
+        "- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->",
+        "- [ ] task 2 <!-- {\"uuid\":\"u2\"} -->",
+      ].join("\n"));
+    });
+
+    it("reorders tasks after a target card within the same column", async () => {
+      const multiMd = [
+        "# Alpha",
+        "- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->",
+        "- [ ] task 2 <!-- {\"uuid\":\"u2\"} -->",
+        "- [ ] task 3 <!-- {\"uuid\":\"u3\"} -->",
+      ].join("\n");
+      const app = makeApp(multiMd);
+      // Move task 1 after task 2
+      const status = await moveTaskToColumn(app, "n1", "u1", {
+        columnId: "0",
+        targetCardId: "u2",
+        position: "after",
+      });
+      expect(status).toBe("moved");
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toBe([
+        "# Alpha",
+        "- [ ] task 2 <!-- {\"uuid\":\"u2\"} -->",
+        "- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->",
+        "- [ ] task 3 <!-- {\"uuid\":\"u3\"} -->",
+      ].join("\n"));
+    });
+
+    it("moves a task from one header to a specific card position in another header", async () => {
+      const multiMd = [
+        "# Alpha",
+        "- [ ] alpha 1 <!-- {\"uuid\":\"a1\"} -->",
+        "# Beta",
+        "- [ ] beta 1 <!-- {\"uuid\":\"b1\"} -->",
+        "- [ ] beta 2 <!-- {\"uuid\":\"b2\"} -->",
+        "- [ ] beta 3 <!-- {\"uuid\":\"b3\"} -->",
+      ].join("\n");
+      const app = makeApp(multiMd);
+      // Move alpha 1 into Beta after beta 2 (position 3 under Beta)
+      const status = await moveTaskToColumn(app, "n1", "a1", {
+        columnId: "2",
+        columnName: "Beta",
+        targetCardId: "b2",
+        position: "after",
+      });
+      expect(status).toBe("moved");
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toBe([
+        "# Alpha",
+        "# Beta",
+        "- [ ] beta 1 <!-- {\"uuid\":\"b1\"} -->",
+        "- [ ] beta 2 <!-- {\"uuid\":\"b2\"} -->",
+        "- [ ] alpha 1 <!-- {\"uuid\":\"a1\"} -->",
+        "- [ ] beta 3 <!-- {\"uuid\":\"b3\"} -->",
+      ].join("\n"));
     });
 
     it("reports no-task / no-target / no-columns without writing", async () => {

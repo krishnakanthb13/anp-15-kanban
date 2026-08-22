@@ -1,4 +1,174 @@
 (() => {
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// anp-15-kanban/lib/api/markdownIndex.js
+var markdownIndex_exports = {};
+__export(markdownIndex_exports, {
+  assignTasksToColumns: () => assignTasksToColumns,
+  buildColumnSpans: () => buildColumnSpans,
+  findColumnLevel: () => findColumnLevel,
+  findTaskLines: () => findTaskLines,
+  insertUnderHeading: () => insertUnderHeading,
+  parseHeadings: () => parseHeadings,
+  removeLine: () => removeLine,
+  resolveSpan: () => resolveSpan,
+  sectionContent: () => sectionContent
+});
+function parseHeadings(markdown) {
+  const headings = [];
+  const lines = String(markdown || "").split("\n");
+  lines.forEach((line, i) => {
+    const clean = line.replace(/\r/g, "").trim();
+    if (!clean) return;
+    if (/^<details/i.test(clean) || /^<summary/i.test(clean) || /^<!--/i.test(clean)) return;
+    const m = clean.match(HEADING_RE);
+    if (m) {
+      const text = m[2].replace(/<[^>]+>/g, "").trim();
+      if (/^completed\s+tasks/i.test(text)) return;
+      headings.push({ lineIndex: i, level: m[1].length, text });
+    }
+  });
+  return headings;
+}
+function findColumnLevel(headings) {
+  if (!headings.length) return null;
+  const levelCounts = {};
+  headings.forEach((h) => {
+    levelCounts[h.level] = (levelCounts[h.level] || 0) + 1;
+  });
+  const minLevel = Math.min(...headings.map((h) => h.level));
+  if (minLevel === 1 && levelCounts[1] === 1 && (levelCounts[2] || 0) >= 2) {
+    return 2;
+  }
+  return minLevel;
+}
+function buildColumnSpans(markdown, columnLevel) {
+  const headings = parseHeadings(markdown);
+  const level = columnLevel ?? findColumnLevel(headings);
+  if (level === null) return { columns: [], preambleEnd: 0 };
+  const columnHeadings = headings.filter((h) => h.level === level);
+  const totalLines = String(markdown || "").split("\n").length;
+  const columns = columnHeadings.map((h, i) => {
+    const next = columnHeadings[i + 1];
+    const contentEnd = next ? next.lineIndex : totalLines;
+    return {
+      id: String(h.lineIndex),
+      name: h.text,
+      startLine: h.lineIndex,
+      contentStart: h.lineIndex + 1,
+      contentEnd
+    };
+  });
+  const preambleEnd = columns.length ? columns[0].contentStart : 0;
+  return { columns, preambleEnd };
+}
+function findTaskLines(lines, tasks) {
+  const result = /* @__PURE__ */ new Map();
+  if (!Array.isArray(lines) || !Array.isArray(tasks)) return result;
+  for (const task of tasks) {
+    const uuid = task.uuid || task.id;
+    const re = uuid ? UUID_IN_LINE_RE(uuid) : null;
+    let found = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = String(lines[i] || "").replace(/\r/g, "");
+      if (re && re.test(line)) {
+        found = i;
+        break;
+      }
+      if (uuid && line.indexOf(uuid) !== -1) {
+        found = i;
+        break;
+      }
+      if (task.content) {
+        const cleanTaskContent = String(task.content).trim();
+        const cleanLineContent = line.replace(/^[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
+        if (cleanTaskContent && (cleanLineContent === cleanTaskContent || line.indexOf(cleanTaskContent) !== -1)) {
+          found = i;
+          break;
+        }
+      }
+    }
+    result.set(uuid || task.content, found);
+  }
+  return result;
+}
+function assignTasksToColumns(columns, lines, tasks, options = {}) {
+  const { separateCompleted = false } = options;
+  const taskLines = findTaskLines(lines, tasks);
+  const columnCards = new Map(columns.map((c) => [c.id, []]));
+  const unsorted = [];
+  const completed = [];
+  for (const task of tasks) {
+    if (separateCompleted && (task.completedAt || task.completed || task.dismissedAt)) {
+      completed.push(task);
+      continue;
+    }
+    const lineIndex = taskLines.get(task.uuid || task.id);
+    if (lineIndex === void 0 || lineIndex < 0) continue;
+    const owner = columns.find((c) => lineIndex >= c.contentStart && lineIndex < c.contentEnd);
+    if (owner) columnCards.get(owner.id).push(task);
+    else unsorted.push(task);
+  }
+  for (const [colId, cardList] of columnCards.entries()) {
+    cardList.sort((a, b) => {
+      const lineA = taskLines.get(a.uuid || a.id) ?? 0;
+      const lineB = taskLines.get(b.uuid || b.id) ?? 0;
+      return lineA - lineB;
+    });
+  }
+  unsorted.sort((a, b) => {
+    const lineA = taskLines.get(a.uuid || a.id) ?? 0;
+    const lineB = taskLines.get(b.uuid || b.id) ?? 0;
+    return lineA - lineB;
+  });
+  completed.sort((a, b) => {
+    const timeA = typeof a.completedAt === "number" ? a.completedAt : 0;
+    const timeB = typeof b.completedAt === "number" ? b.completedAt : 0;
+    return timeB - timeA;
+  });
+  return { columnCards, unsorted, completed };
+}
+function sectionContent(lines, span) {
+  return lines.slice(span.contentStart, span.contentEnd).join("\n");
+}
+function removeLine(lines, taskLineIndex) {
+  return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
+}
+function insertUnderHeading(lines, span, taskLine) {
+  return [...lines.slice(0, span.startLine + 1), taskLine, ...lines.slice(span.startLine + 1)];
+}
+function resolveSpan(spans, columnId, columnName) {
+  if (!spans || !spans.length) return null;
+  const colStr = String(columnId || "");
+  const byId = spans.find((s) => s.id === colStr);
+  if (byId) return byId;
+  if (columnName) {
+    const cleanName = String(columnName).trim().toLowerCase();
+    const byName = spans.find((s) => s.name.trim().toLowerCase() === cleanName);
+    if (byName) return byName;
+  }
+  const idx = parseInt(colStr, 10);
+  if (!Number.isNaN(idx) && idx >= 0 && idx < spans.length) {
+    return spans[idx];
+  }
+  return null;
+}
+var HEADING_RE, UUID_IN_LINE_RE;
+var init_markdownIndex = __esm({
+  "anp-15-kanban/lib/api/markdownIndex.js"() {
+    HEADING_RE = /^(#{1,6})\s+(.*)$/;
+    UUID_IN_LINE_RE = (uuid) => new RegExp(`["']?uuid["']?\\s*:\\s*["']?${uuid}["']?`, "i");
+  }
+});
+
 // anp-15-kanban/lib/core/constants.js
 var SETTINGS_KEYS = {
   tabs: "Kanban Tabs",
@@ -388,25 +558,37 @@ function buildClientScript() {
       chip.addEventListener("dragend", function () {
         dragType = null;
         dragTabIndex = null;
-        chip.classList.remove("kb-tab-dragging");
+        chip.classList.remove("kb-tab-dragging", "kb-tab-drop-before", "kb-tab-drop-after");
+        var allChips = host.querySelectorAll(".kb-tab");
+        allChips.forEach(function (c) { c.classList.remove("kb-tab-drop-before", "kb-tab-drop-after"); });
       });
       chip.addEventListener("dragover", function (e) {
         if (dragType !== "tab") return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
-        chip.classList.add("kb-tab-drop-hover");
+        var rect = chip.getBoundingClientRect();
+        var isAfter = e.clientX > (rect.left + rect.width / 2);
+        chip.classList.toggle("kb-tab-drop-before", !isAfter);
+        chip.classList.toggle("kb-tab-drop-after", isAfter);
       });
       chip.addEventListener("dragleave", function () {
-        chip.classList.remove("kb-tab-drop-hover");
+        chip.classList.remove("kb-tab-drop-before", "kb-tab-drop-after");
       });
       chip.addEventListener("drop", function (e) {
         if (dragType !== "tab") return;
         e.preventDefault();
-        chip.classList.remove("kb-tab-drop-hover");
-        if (dragTabIndex === null || dragTabIndex === tabIdx) return;
+        var rect = chip.getBoundingClientRect();
+        var isAfter = e.clientX > (rect.left + rect.width / 2);
+        chip.classList.remove("kb-tab-drop-before", "kb-tab-drop-after");
+        if (dragTabIndex === null) return;
 
         var fromIdx = dragTabIndex;
         var toIdx = tabIdx;
+        if (isAfter && fromIdx > toIdx) toIdx++;
+        else if (!isAfter && fromIdx < toIdx) toIdx--;
+        toIdx = Math.max(0, Math.min(STATE.tabs.length - 1, toIdx));
+        if (fromIdx === toIdx) return;
+
         var movedTab = STATE.tabs.splice(fromIdx, 1)[0];
         STATE.tabs.splice(toIdx, 0, movedTab);
         renderTabs();
@@ -673,24 +855,38 @@ function buildClientScript() {
         dragType = null;
         dragColId = null;
         colEl.classList.remove("kb-col-dragging");
+        var board = document.getElementById("kb-board");
+        if (board) {
+          board.querySelectorAll(".kb-column").forEach(function (c) {
+            c.classList.remove("kb-col-drop-before", "kb-col-drop-after");
+          });
+        }
       });
       colEl.addEventListener("dragover", function (e) {
         if (dragType !== "column") return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
-        colEl.classList.add("kb-col-drop-hover");
+        var rect = colEl.getBoundingClientRect();
+        var isAfter = e.clientX > (rect.left + rect.width / 2);
+        colEl.classList.toggle("kb-col-drop-before", !isAfter);
+        colEl.classList.toggle("kb-col-drop-after", isAfter);
       });
       colEl.addEventListener("dragleave", function () {
-        colEl.classList.remove("kb-col-drop-hover");
+        colEl.classList.remove("kb-col-drop-before", "kb-col-drop-after");
       });
       colEl.addEventListener("drop", function (e) {
         if (dragType !== "column") return;
         e.preventDefault();
-        colEl.classList.remove("kb-col-drop-hover");
+        var rect = colEl.getBoundingClientRect();
+        var isAfter = e.clientX > (rect.left + rect.width / 2);
+        colEl.classList.remove("kb-col-drop-before", "kb-col-drop-after");
         if (!dragColId || dragColId === col.id) return;
 
         var fromIdx = columns.findIndex(function (c) { return c.id === dragColId; });
         var toIdx = colIndex;
+        if (isAfter && fromIdx > toIdx) toIdx++;
+        else if (!isAfter && fromIdx < toIdx) toIdx--;
+        toIdx = Math.max(0, Math.min(columns.length - 1, toIdx));
         if (fromIdx === -1 || fromIdx === toIdx) return;
 
         var moved = columns.splice(fromIdx, 1)[0];
@@ -709,7 +905,7 @@ function buildClientScript() {
       var actionsWrap = el("div", "kb-col-actions");
 
       // Column tools with crisp SVGs
-      if (data.kind === "note") {
+      if (data.kind === "note" && col.id !== "unsorted" && col.id !== "completed") {
         var tools = el("div", "kb-col-tools");
         addColToolSvg(tools, "chevronLeft", "Move column left", function (e) {
           e.stopPropagation();
@@ -758,7 +954,7 @@ function buildClientScript() {
       var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
       var count = el("span", "kb-count" + (over ? " kb-over" : ""),
         over ? visibleCards.length + " / " + col.wipLimit : String(visibleCards.length));
-      if (data.kind === "note") {
+      if (data.kind === "note" && col.id !== "completed" && col.id !== "unsorted") {
         count.title = "Set WIP limit";
         count.addEventListener("click", function (e) {
           e.stopPropagation();
@@ -767,15 +963,17 @@ function buildClientScript() {
       }
       actionsWrap.appendChild(count);
 
-      var addBtn = el("button", "kb-add-card");
-      addBtn.type = "button";
-      addBtn.title = "Add card to " + col.name;
-      addBtn.appendChild(svg("plus"));
-      addBtn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, columnName: col.name });
-      });
-      actionsWrap.appendChild(addBtn);
+      if (col.id !== "completed") {
+        var addBtn = el("button", "kb-add-card");
+        addBtn.type = "button";
+        addBtn.title = "Add card to " + col.name;
+        addBtn.appendChild(svg("plus"));
+        addBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, columnName: col.name });
+        });
+        actionsWrap.appendChild(addBtn);
+      }
 
       head.appendChild(actionsWrap);
       colEl.appendChild(head);
@@ -855,7 +1053,7 @@ function buildClientScript() {
           secEl.appendChild(secHead);
 
           var secList = el("div", "kb-section-cards" + (isCollapsed ? " kb-collapsed" : ""));
-          wireDropZone(secList, col.id, sec.id);
+          wireDropZone(secList, col.id, sec.id, col.name, sec.name);
           applySort(secCards).forEach(function (card) {
             secList.appendChild(buildCardEl(card));
           });
@@ -879,7 +1077,7 @@ function buildClientScript() {
         colEl.appendChild(sectionsHost);
       } else {
         var list = el("div", "kb-cards");
-        wireDropZone(list, col.id, null);
+        wireDropZone(list, col.id, null, col.name, null);
         applySort(visibleCards).forEach(function (card) {
           list.appendChild(buildCardEl(card));
         });
@@ -1126,34 +1324,98 @@ function buildClientScript() {
 
   /* ---------------- drop zone for cards ---------------- */
 
-  function wireDropZone(listEl, columnId, sectionId) {
+  function wireDropZone(listEl, columnId, sectionId, columnName, sectionName) {
     listEl.addEventListener("dragover", function (e) {
       if (dragType && dragType !== "card") return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      listEl.classList.add("kb-drop-hover");
+
+      var targetCard = e.target && e.target.closest ? e.target.closest(".kb-card") : null;
+      var allCards = listEl.querySelectorAll(".kb-card");
+      allCards.forEach(function (c) {
+        if (c !== targetCard) {
+          c.classList.remove("kb-card-drop-before", "kb-card-drop-after");
+        }
+      });
+
+      if (targetCard && targetCard.getAttribute("data-card-id") !== dragCardId) {
+        var rect = targetCard.getBoundingClientRect();
+        var isAfter = e.clientY > (rect.top + rect.height / 2);
+        targetCard.classList.toggle("kb-card-drop-before", !isAfter);
+        targetCard.classList.toggle("kb-card-drop-after", isAfter);
+        listEl.classList.remove("kb-drop-hover");
+      } else {
+        listEl.classList.add("kb-drop-hover");
+      }
     });
-    listEl.addEventListener("dragleave", function () {
-      listEl.classList.remove("kb-drop-hover");
+
+    listEl.addEventListener("dragleave", function (e) {
+      if (!listEl.contains(e.relatedTarget)) {
+        listEl.classList.remove("kb-drop-hover");
+        var allCards = listEl.querySelectorAll(".kb-card");
+        allCards.forEach(function (c) {
+          c.classList.remove("kb-card-drop-before", "kb-card-drop-after");
+        });
+      }
     });
+
     listEl.addEventListener("drop", function (e) {
       if (dragType && dragType !== "card") return;
       e.preventDefault();
       listEl.classList.remove("kb-drop-hover");
+      var allCards = listEl.querySelectorAll(".kb-card");
+      allCards.forEach(function (c) {
+        c.classList.remove("kb-card-drop-before", "kb-card-drop-after");
+      });
+
       var raw = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || ("card::" + dragCardId);
       var cardId = raw.indexOf("card::") === 0 ? raw.slice(6) : (dragCardId || raw);
       if (!cardId) return;
 
       var board = document.getElementById("kb-board");
       var cardEl = board && board.querySelector('[data-card-id="' + cssEscape(cardId) + '"]');
-      if (cardEl && cardEl.parentElement !== listEl) {
-        listEl.insertBefore(cardEl, listEl.firstChild);
+
+      var targetCard = e.target && e.target.closest ? e.target.closest(".kb-card") : null;
+      var targetCardId = null;
+      var position = "top";
+
+      if (cardEl) {
+        if (targetCard && targetCard !== cardEl) {
+          targetCardId = targetCard.getAttribute("data-card-id");
+          var rect = targetCard.getBoundingClientRect();
+          var isAfter = e.clientY > (rect.top + rect.height / 2);
+          position = isAfter ? "after" : "before";
+          if (isAfter) {
+            listEl.insertBefore(cardEl, targetCard.nextSibling);
+          } else {
+            listEl.insertBefore(cardEl, targetCard);
+          }
+        } else if (cardEl.parentElement !== listEl) {
+          listEl.appendChild(cardEl);
+          position = "bottom";
+        }
       }
+
       callPlugin("moveCard", {
         tabId: STATE.activeTabId,
         cardId: cardId,
         toColumnId: columnId,
+        toColumnName: columnName,
         toSectionId: sectionId,
+        toSectionName: sectionName,
+        targetCardId: targetCardId,
+        position: position,
+      }).then(function (res) {
+        if (res && res.newCardId && cardEl) {
+          cardEl.setAttribute("data-card-id", res.newCardId);
+        }
+        if (res && res.taskCompleted !== undefined && cardEl) {
+          if (res.taskCompleted) {
+            cardEl.classList.add("kb-card-done");
+          } else {
+            cardEl.classList.remove("kb-card-done");
+          }
+        }
       });
     });
   }
@@ -1863,6 +2125,30 @@ function buildBaseCss() {
         background: color-mix(in srgb, var(--kb-accent) 15%, var(--kb-bg-column));
         transform: translateY(-2px);
     }
+    .kb-tab.kb-tab-drop-before::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: var(--kb-accent);
+        box-shadow: 0 0 8px var(--kb-accent);
+        z-index: 10;
+        pointer-events: none;
+    }
+    .kb-tab.kb-tab-drop-after::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: var(--kb-accent);
+        box-shadow: 0 0 8px var(--kb-accent);
+        z-index: 10;
+        pointer-events: none;
+    }
     .kb-tab-badge {
         font-size: 9px;
         font-weight: 700;
@@ -2081,6 +2367,32 @@ function buildBaseCss() {
     .kb-column.kb-col-drop-hover {
         outline: 2px dashed var(--kb-accent);
         outline-offset: 3px;
+    }
+    .kb-column.kb-col-drop-before::before {
+        content: "";
+        position: absolute;
+        left: calc(var(--kb-board-gap) * -0.5 - 2px);
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--kb-accent);
+        border-radius: 2px;
+        box-shadow: 0 0 10px var(--kb-accent);
+        z-index: 20;
+        pointer-events: none;
+    }
+    .kb-column.kb-col-drop-after::after {
+        content: "";
+        position: absolute;
+        right: calc(var(--kb-board-gap) * -0.5 - 2px);
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--kb-accent);
+        border-radius: 2px;
+        box-shadow: 0 0 10px var(--kb-accent);
+        z-index: 20;
+        pointer-events: none;
     }
     .kb-column-head {
         display: flex;
@@ -2461,6 +2773,32 @@ function buildBaseCss() {
         opacity: 0.45;
         transform: scale(0.98) rotate(1deg);
         cursor: grabbing;
+    }
+    .kb-card.kb-card-drop-before::before {
+        content: "";
+        position: absolute;
+        top: calc(var(--kb-card-gap) * -0.5 - 1px);
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--kb-accent);
+        border-radius: 2px;
+        box-shadow: 0 0 8px var(--kb-accent);
+        z-index: 15;
+        pointer-events: none;
+    }
+    .kb-card.kb-card-drop-after::after {
+        content: "";
+        position: absolute;
+        bottom: calc(var(--kb-card-gap) * -0.5 - 1px);
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--kb-accent);
+        border-radius: 2px;
+        box-shadow: 0 0 8px var(--kb-accent);
+        z-index: 15;
+        pointer-events: none;
     }
     .kb-cards.kb-drop-hover,
     .kb-section-cards.kb-drop-hover {
@@ -3151,83 +3489,8 @@ async function savePluginSettings(app, updates) {
   return merged;
 }
 
-// anp-15-kanban/lib/api/markdownIndex.js
-var HEADING_RE = /^(#{1,6})\s+(.*)$/;
-var UUID_IN_LINE_RE = (uuid) => new RegExp(`["']uuid["']\\s*:\\s*["']${uuid}["']`);
-function parseHeadings(markdown) {
-  const headings = [];
-  const lines = markdown.split("\n");
-  lines.forEach((line, i) => {
-    const m = line.match(HEADING_RE);
-    if (m) headings.push({ lineIndex: i, level: m[1].length, text: m[2].trim() });
-  });
-  return headings;
-}
-function findColumnLevel(headings) {
-  if (!headings.length) return null;
-  return Math.min(...headings.map((h) => h.level));
-}
-function buildColumnSpans(markdown, columnLevel) {
-  const headings = parseHeadings(markdown);
-  const level = columnLevel ?? findColumnLevel(headings);
-  if (level === null) return { columns: [], preambleEnd: 0 };
-  const columnHeadings = headings.filter((h) => h.level === level);
-  const columns = columnHeadings.map((h, i) => {
-    const next = columnHeadings[i + 1];
-    const contentEnd = next ? next.lineIndex : markdown.split("\n").length;
-    return {
-      id: String(h.lineIndex),
-      name: h.text,
-      startLine: h.lineIndex,
-      contentStart: h.lineIndex + 1,
-      contentEnd
-    };
-  });
-  const preambleEnd = columns.length ? columns[0].contentStart : 0;
-  return { columns, preambleEnd };
-}
-function findTaskLines(lines, tasks) {
-  const result = /* @__PURE__ */ new Map();
-  for (const task of tasks) {
-    const re = UUID_IN_LINE_RE(task.uuid);
-    let found = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (re.test(lines[i])) {
-        found = i;
-        break;
-      }
-    }
-    result.set(task.uuid, found);
-  }
-  return result;
-}
-function assignTasksToColumns(columns, lines, tasks) {
-  const taskLines = findTaskLines(lines, tasks);
-  const columnCards = new Map(columns.map((c) => [c.id, []]));
-  const unsorted = [];
-  for (const task of tasks) {
-    const lineIndex = taskLines.get(task.uuid);
-    if (lineIndex === void 0 || lineIndex < 0) continue;
-    const owner = columns.find((c) => lineIndex >= c.contentStart && lineIndex < c.contentEnd);
-    if (owner) columnCards.get(owner.id).push(task);
-    else unsorted.push(task);
-  }
-  return { columnCards, unsorted };
-}
-function removeLine(lines, taskLineIndex) {
-  return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
-}
-function insertUnderHeading(lines, span, taskLine) {
-  return [...lines.slice(0, span.startLine + 1), taskLine, ...lines.slice(span.startLine + 1)];
-}
-function resolveSpan(spans, columnId, columnName) {
-  const byId = spans.find((s) => s.id === String(columnId));
-  if (byId) return byId;
-  if (columnName) return spans.find((s) => s.name === columnName) || null;
-  return null;
-}
-
 // anp-15-kanban/lib/api/taskOps.js
+init_markdownIndex();
 function nowSeconds() {
   return Math.floor(Date.now() / 1e3);
 }
@@ -3235,20 +3498,58 @@ async function readNote(app, noteUUID) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   return { markdown, lines: markdown.split("\n") };
 }
-async function moveTaskToColumn(app, noteUUID, taskUuid, target) {
+async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   const { markdown, lines } = await readNote(app, noteUUID);
-  const { columns } = buildColumnSpans(markdown);
+  const cleanLines = lines.map((l) => String(l || "").replace(/\r/g, ""));
+  const { columns } = buildColumnSpans(cleanLines.join("\n"));
   if (!columns.length) return "no-columns";
+  let taskObj = null;
+  try {
+    taskObj = await app.getTask(taskUuid);
+  } catch {
+    taskObj = null;
+  }
+  const [taskLineIndex] = findTaskLines(cleanLines, [{ uuid: taskUuid, content: taskObj?.content }]).values();
+  if (taskLineIndex === void 0 || taskLineIndex < 0) return "no-task";
+  const taskLine = cleanLines[taskLineIndex];
+  if (target.targetCardId && target.targetCardId !== taskUuid) {
+    let targetTaskObj = null;
+    try {
+      targetTaskObj = await app.getTask(target.targetCardId);
+    } catch {
+    }
+    const [targetLineIndex] = findTaskLines(cleanLines, [{ uuid: target.targetCardId, content: targetTaskObj?.content }]).values();
+    if (targetLineIndex !== void 0 && targetLineIndex >= 0 && targetLineIndex !== taskLineIndex) {
+      let next2 = removeLine(cleanLines, taskLineIndex);
+      const shiftedTargetIdx = targetLineIndex > taskLineIndex ? targetLineIndex - 1 : targetLineIndex;
+      const insertAt = target.position === "after" ? shiftedTargetIdx + 1 : shiftedTargetIdx;
+      next2.splice(insertAt, 0, taskLine);
+      await app.replaceNoteContent({ uuid: noteUUID }, next2.join("\n"));
+      return "moved";
+    }
+  }
+  let next = removeLine(cleanLines, taskLineIndex);
+  if (target.columnId === "completed" || target.columnName === "Completed") {
+    try {
+      await app.updateTask(taskUuid, { completedAt: Date.now() });
+    } catch {
+    }
+    return "moved";
+  }
+  if (target.columnId === "unsorted" || target.columnName === "Unsorted") {
+    const insertAt = columns[0] ? Math.max(0, columns[0].startLine) : 0;
+    next.splice(insertAt, 0, taskLine);
+    await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
+    return "moved";
+  }
   const destSpan = resolveSpan(columns, target.columnId, target.columnName);
   if (!destSpan) return "no-target";
-  const [taskLineIndex] = findTaskLines(lines, [{ uuid: taskUuid }]).values();
-  if (taskLineIndex < 0) return "no-task";
   const sourceSpan = columns.find(
     (s) => taskLineIndex >= s.contentStart && taskLineIndex < s.contentEnd
   );
-  if (sourceSpan && sourceSpan.id === destSpan.id) return "same-column";
-  const taskLine = lines[taskLineIndex];
-  let next = removeLine(lines, taskLineIndex);
+  if (sourceSpan && sourceSpan.id === destSpan.id && !target.targetCardId) {
+    return "same-column";
+  }
   const shiftedDest = {
     ...destSpan,
     startLine: destSpan.startLine > taskLineIndex ? destSpan.startLine - 1 : destSpan.startLine
@@ -3341,7 +3642,11 @@ async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
   return true;
 }
 
+// anp-15-kanban/lib/features/embedActions.js
+init_markdownIndex();
+
 // anp-15-kanban/lib/api/columnOps.js
+init_markdownIndex();
 var HEADING_LINE_RE = /^(#{1,6})\s+(.*)$/;
 async function readLines(app, noteUUID) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
@@ -3429,7 +3734,11 @@ ${trimmed}
   return "moved";
 }
 
+// anp-15-kanban/lib/api/tagBoard.js
+init_markdownIndex();
+
 // anp-15-kanban/lib/api/noteBoard.js
+init_markdownIndex();
 async function buildNoteBoard(app, noteUUID, options = {}) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   if (typeof markdown !== "string") {
@@ -3447,7 +3756,7 @@ async function buildNoteBoard(app, noteUUID, options = {}) {
   }
   const { columns } = buildColumnSpans(markdown);
   const lines = markdown.split("\n");
-  const { columnCards, unsorted } = assignTasksToColumns(columns, lines, tasks);
+  const { columnCards, unsorted, completed = [] } = assignTasksToColumns(columns, lines, tasks, { separateCompleted: true });
   const limits = options.columnLimits || {};
   const makeColumn = (span, cards) => ({
     id: span.id,
@@ -3464,6 +3773,16 @@ async function buildNoteBoard(app, noteUUID, options = {}) {
       name: "Unsorted",
       wipLimit: null,
       cards: unsorted.map(toCardModel)
+    });
+  }
+  if (completed && completed.length > 0) {
+    boardColumns.push({
+      id: "completed",
+      name: "Completed",
+      wipLimit: null,
+      cards: completed.map(toCardModel),
+      isDoneColumn: true,
+      isSystemColumn: true
     });
   }
   const allCards = boardColumns.flatMap((c) => c.cards);
@@ -3792,40 +4111,103 @@ async function resolveNoteTab(app, payload) {
   if ((tab.kind === "tag" || tab.kind === "notes") && !tab.tag) return null;
   return tab;
 }
-async function isLastColumn(app, noteUUID, columnId) {
+async function isLastColumn(app, noteUUID, columnId, columnName) {
+  if (columnName && /^(done|completed|finished|closed|archive)/i.test(String(columnName).trim())) {
+    return true;
+  }
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   const { columns } = buildColumnSpans(markdown);
-  return columns.length > 0 && columns[columns.length - 1].id === String(columnId);
+  const targetSpan = resolveSpan(columns, columnId, columnName);
+  if (targetSpan && /^(done|completed|finished|closed|archive)/i.test(String(targetSpan.name).trim())) {
+    return true;
+  }
+  if (columns.length > 0) {
+    const lastCol = columns[columns.length - 1];
+    if (lastCol && (lastCol.id === String(columnId) || lastCol.name === columnName)) {
+      return /^(done|completed|finished|closed|archive)/i.test(String(lastCol.name).trim());
+    }
+  }
+  return false;
 }
 async function handleMoveCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  if (!tab || !payload.cardId || !payload.toColumnId) return;
+  if (!tab || !payload.cardId || !payload.toColumnId) return { ok: false };
   if (tab.kind === "tag" || tab.kind === "notes") {
     const targetUUID = String(payload.toColumnId).startsWith(NOTE_PREFIX) ? payload.toColumnId.slice(NOTE_PREFIX.length) : payload.toColumnId;
-    if (!targetUUID) return;
+    if (!targetUUID) return { ok: false };
     const task = await app.getTask(payload.cardId);
-    if (!task) return;
-    if (task.noteUUID !== targetUUID) {
-      await app.updateTask(payload.cardId, { noteUUID: targetUUID });
-    }
-    if (payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+    if (!task) return { ok: false };
+    if (task.noteUUID && task.noteUUID !== targetUUID) {
       try {
-        await moveTaskToColumn(app, targetUUID, payload.cardId, { columnId: payload.toSectionId });
+        const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
+        if (sourceMarkdown) {
+          const srcLines = sourceMarkdown.split("\n");
+          const [srcIdx] = findTaskLines(srcLines, [{ uuid: payload.cardId, content: task.content }]).values();
+          if (srcIdx !== void 0 && srcIdx >= 0) {
+            const nextSrc = removeLine(srcLines, srcIdx);
+            await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+          }
+        }
       } catch (err) {
-        console.error("Failed to relocate task to section:", err);
+        console.error("Failed to remove task from source note:", err);
       }
+      try {
+        await app.updateTask(payload.cardId, { noteUUID: targetUUID });
+      } catch {
+      }
+      let newTaskUuid = null;
+      try {
+        newTaskUuid = await app.insertTask({ uuid: targetUUID }, {
+          content: task.content,
+          important: !!task.important,
+          urgent: !!task.urgent,
+          startAt: task.startAt,
+          endAt: task.endAt,
+          hideUntil: task.hideUntil,
+          deadline: task.deadline,
+          score: task.score,
+          repeat: task.repeat
+        });
+      } catch (err) {
+        console.error("Failed to insert task into target note:", err);
+      }
+      if (newTaskUuid && payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+        try {
+          await moveTaskToColumn(app, targetUUID, newTaskUuid, {
+            columnId: payload.toSectionId,
+            columnName: payload.toSectionName
+          });
+        } catch (err) {
+          console.error("Failed to relocate task to section in target note:", err);
+        }
+      }
+      if (payload.forceRerender) await rerender(app);
+      return { ok: true, newCardId: newTaskUuid };
+    } else if (payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+      await moveTaskToColumn(app, targetUUID, payload.cardId, {
+        columnId: payload.toSectionId,
+        columnName: payload.toSectionName
+      });
+      if (payload.forceRerender) await rerender(app);
+      return { ok: true };
     }
-    await rerender(app);
-    return;
+    if (payload.forceRerender) await rerender(app);
+    return { ok: true };
   }
-  const doneTarget = await isLastColumn(app, tab.noteUUID, payload.toColumnId);
+  const doneTarget = await isLastColumn(app, tab.noteUUID, payload.toColumnId, payload.toColumnName);
   const status = await moveTaskToColumn(app, tab.noteUUID, payload.cardId, {
-    columnId: payload.toColumnId
+    columnId: payload.toColumnId,
+    columnName: payload.toColumnName,
+    targetCardId: payload.targetCardId,
+    position: payload.position
   });
   if (status === "moved") {
     await setTaskCompleted(app, payload.cardId, doneTarget);
+  }
+  if (payload.forceRerender) {
     await rerender(app);
   }
+  return { ok: true, status, taskCompleted: doneTarget };
 }
 async function handleCreateCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -4172,11 +4554,13 @@ async function handleCardMenu(app, payload) {
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
+  const isDone = !!(task.completedAt || task.completed);
   const choice = firstValue(await app.prompt("Card Actions", {
     inputs: [{
       label: "Choose action:",
       type: "radio",
       options: [
+        { label: isDone ? "Reopen task (mark uncompleted)" : "Mark as completed", value: isDone ? "uncomplete" : "complete" },
         { label: "Edit task details (full dialog)", value: "edit_details" },
         { label: "Add label (note link)", value: "label" },
         { label: "Set start date / time", value: "date" },
@@ -4187,6 +4571,16 @@ async function handleCardMenu(app, payload) {
     }]
   }));
   if (!choice) return;
+  if (choice === "complete") {
+    await app.updateTask(cardId, { completedAt: Math.floor(Date.now() / 1e3) });
+    await rerender(app);
+    return;
+  }
+  if (choice === "uncomplete") {
+    await app.updateTask(cardId, { completedAt: null });
+    await rerender(app);
+    return;
+  }
   if (choice === "edit_details") {
     await handleEditTaskDetails(app, { cardId });
     return;
@@ -4502,6 +4896,19 @@ async function buildNotesBoard(app, tag) {
   const allCards = [];
   for (const note of notes) {
     const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
+    try {
+      const md = await app.getNoteContent({ uuid: note.uuid });
+      if (typeof md === "string") {
+        const { findTaskLines: findTaskLines2 } = await Promise.resolve().then(() => (init_markdownIndex(), markdownIndex_exports));
+        const taskLines = findTaskLines2(md.split("\n"), tasks);
+        tasks.sort((a, b) => {
+          const lineA = taskLines.get(a.uuid || a.id) ?? 0;
+          const lineB = taskLines.get(b.uuid || b.id) ?? 0;
+          return lineA - lineB;
+        });
+      }
+    } catch {
+    }
     const cards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled note" }));
     allCards.push(...cards);
     columns.push({

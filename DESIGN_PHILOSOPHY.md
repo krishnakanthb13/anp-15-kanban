@@ -122,3 +122,34 @@ The visual board adapts to diverse monitor sizes, information volumes, and user 
 - **Flexible Parent Bounding**: Board containers utilize flexible height clamping (`flex: 1 1 0; min-height: 0`) rather than rigid viewport percentages (`100vh`), ensuring cards and scrollbars are never sliced off by embedded iframe boundaries.
 
 **Why:** A world-class Kanban tool must feel comfortable across varied display environments — from compact laptops to ultrawide workstations — with predictable, standard input mechanics that never fight the user's natural muscle memory.
+
+---
+
+## 15. Tactile Spatial Feedback & Precision Indicator Lines
+
+When dragging cards, columns, or tabs across the canvas, the interface renders explicit **3px glowing accent indicator lines** before or after the hovered item:
+- **Cards**: Top / bottom boundary lines show the exact relative insertion slot (both across columns and within the same heading).
+- **Columns**: Vertical boundary lines in the canvas gap show where the column will dock.
+- **Tabs**: Vertical accent lines on the tab chip show the new tab sequence.
+
+**Why:** Vague drop targets or whole-container highlights create spatial ambiguity — users cannot tell whether their card will land at the top, bottom, or middle of a list. Direct midpoint thresholding and crisp insertion lines eliminate guesswork, giving users 100% confidence before releasing the mouse.
+
+## 16. Flicker-Free Optimistic UI with Authoritative Markdown Persistence
+
+Visual interactions (moving a card, reordering a column, toggling a section) update the client DOM instantaneously in 0ms while sending background mutation commands to Amplenote:
+- **No Iframe Tearing**: Mutations do not trigger whole-embed re-renders, preventing screen flashes or scroll jumpiness.
+- **Authoritative Markdown Splicing**: The backend splices the physical markdown line directly before or after the target task line, ensuring that when the note is opened in Amplenote, the exact visual layout is permanently preserved.
+
+**Why:** Desktop-grade productivity tools must feel instant. Eliminating full-iframe rebuilds during continuous user workflows keeps the experience buttery smooth while guaranteeing that Amplenote markdown remains the clean, authoritative source of truth.
+
+---
+
+## 17. Dedicated Lifecycle Isolation & Clean Task State Separation
+
+Active work and finished artifacts belong in distinct cognitive spaces:
+- **Active Heading Focus**: Columns representing note headings contain only active, actionable tasks.
+- **Dedicated "Completed" Container**: All completed and dismissed tasks are automatically separated and grouped into a dedicated **"Completed"** column at the far right of the board.
+- **Amplenote End-of-Note Native Alignment**: When tasks are completed, Amplenote natively moves them to `<details><summary>Completed tasks</summary>` at the bottom of the note. Gathering completed tasks into a dedicated column mirrors Amplenote's native document architecture without polluting active heading columns.
+- **Frictionless Reopening**: Dragging any card out of the Completed column into a heading column immediately clears the completion timestamp and splices the active task back under that heading in the note.
+
+**Why:** Mixing completed tasks with active sprint items clutters board visibility and distorts column WIP limits. Isolating finished tasks into a dedicated completion space keeps columns actionable while preserving quick access to recently completed work.

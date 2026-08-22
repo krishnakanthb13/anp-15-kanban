@@ -31,13 +31,14 @@ function makeApp() {
 
 describe("noteBoard", () => {
   describe("buildNoteBoard", () => {
-    it("builds columns from headings and assigns tasks, including done ones", async () => {
+    it("builds columns from headings and routes completed tasks to dedicated Completed column", async () => {
       const board = await buildNoteBoard(makeApp(), "note-1");
 
       expect(board).toMatchObject({ kind: "note", noteUUID: "note-1", hasHeadings: true });
-      expect(board.columns.map(c => c.name)).toEqual(["Unsorted", "Alpha", "Beta"]);
-      expect(board.columns[1].cards.map(c => c.id)).toEqual(["u1", "u2"]);
+      expect(board.columns.map(c => c.name)).toEqual(["Unsorted", "Alpha", "Beta", "Completed"]);
+      expect(board.columns[1].cards.map(c => c.id)).toEqual(["u1"]);
       expect(board.columns[2].cards.map(c => c.id)).toEqual(["u3"]);
+      expect(board.columns[3].cards.map(c => c.id)).toEqual(["u2"]);
     });
 
     it("requests completed tasks via includeDone", async () => {
@@ -48,7 +49,7 @@ describe("noteBoard", () => {
 
     it("marks completed cards", async () => {
       const board = await buildNoteBoard(makeApp(), "note-1");
-      const done = board.columns[1].cards.find(c => c.id === "u2");
+      const done = board.columns[3].cards.find(c => c.id === "u2");
       expect(done.completedAt).toBe(1700000000);
     });
 

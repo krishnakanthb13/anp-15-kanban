@@ -107,13 +107,40 @@ The tab bar sits above the board:
 
 ---
 
+### Drag & Drop Reordering & Visual Indicator Lines
+
+The Kanban board provides tactile visual feedback with **glowing accent insertion indicator lines** across all board elements:
+
+- **Cards**:
+  - **Visual Indicator**: Hovering over a card shows a horizontal glowing indicator line **above** or **below** the card based on cursor position.
+  - **Across Headers**: Moving a card across different column headings shifts the task markdown under the target heading at the exact slot.
+  - **Within the Same Header**: Dragging a card before or after another card within the same column rewrites the note markdown to persist the exact custom task ordering.
+  - **Auto-Completion & Dedicated Completed Column**: In single note boards, all completed tasks are automatically aggregated into a dedicated **"Completed"** column at the far right of the board. Dragging any active task into "Completed" (or any column named "Done" / "Completed") marks it complete (`completedAt: timestamp`). Dragging a completed task out of "Completed" into any heading reopens the task (`completedAt: null`) directly under that heading in your note. Moving between custom headers preserves active task state.
+- **Columns**: Hovering a column header shows a vertical drop line in the board gap to the left or right, allowing seamless column reordering.
+- **Tabs**: Hovering a tab displays a vertical accent line on the left or right edge, enabling instant tab bar reordering.
+
+### Task States & Lifecycle Handling
+
+Amplenote tasks carry multiple lifecycle states that the Kanban plugin maps natively onto columns and visual badges:
+
+| Task State | Amplenote Native Behavior | Kanban Board Representation |
+| :--- | :--- | :--- |
+| **Active Tasks** (`[ ]`) | Sit physically under a heading in the note markdown. | Displayed in their **exact heading column** in 1-to-1 document line order. |
+| **Completed Tasks** (`completedAt` or `[x]`) | Amplenote automatically moves them to the end of the note inside `<details><summary>Completed tasks</summary>`. | **Aggregated into the dedicated "Completed" column** at the far right of the board, keeping heading columns 100% focused on active work. |
+| **Dismissed / Archived Tasks** (`dismissedAt`) | Crossed out / dismissed at the note level. | **Placed in the "Completed" column** with dismissed/done status. |
+| **Hidden / Snoozed Tasks** (`hideUntil` in future) | Stays under its physical heading, but hidden in normal task views until wake date. | **Remains active under its heading column**, displaying a `💤 Hide Until: [date]` badge so you always know when it wakes up. |
+| **Recurring Tasks** (`repeat` rule) | Stays under its physical heading. When completed, Amplenote creates/schedules the next instance under the same heading. | **Active instance remains under its heading column** with a `🔁 Repeat` badge. When marked complete, the completed instance is logged, and the newly spawned recurrence stays active under the heading. |
+| **Preamble Tasks** (above first heading) | Sit at the very top of the note before any `# Heading`. | **Grouped into the "Unsorted" pseudo-column** on the far left. |
+
+---
+
 ### Board Types: `note` vs `tag` vs `notes`
 
 | Tab Kind | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
 | :--- | :--- | :--- | :--- | :--- |
-| **`note`** *(Single Note Board)* | **1 specific note** (`noteUUID`) | **Headings** inside that note (`# To Do`, `# In Progress`, `# Done`) | **Tasks** under each heading | Moves the task markdown line between headings in that note |
-| **`tag`** *(Tag Hierarchy Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **Tasks** grouped into **collapsible heading sections** within each note | Moves tasks across headings or across notes |
-| **`notes`** *(Multi-Note Project Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **All tasks** in each note (flat card list, no heading breakdown) | Reassigns the task from one note to another natively (`updateTask`) |
+| **`note`** *(Single Note Board)* | **1 specific note** (`noteUUID`) | **Headings** inside that note (`# To Do`, `# In Progress`, `# Done`) | **Tasks** under each heading | Moves task markdown line between headings or reorders within the same heading |
+| **`tag`** *(Tag Hierarchy Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **Tasks** grouped into **collapsible heading sections** within each note | Moves tasks across headings or migrates tasks between notes |
+| **`notes`** *(Multi-Note Project Board)* | **All notes with a tag** (`tag`) | **Notes** with that tag | **All tasks** in each note (flat card list, no heading breakdown) | Migrates the task from one note to another |
 
 ```
 1. Note Board (`note`):

@@ -33,7 +33,7 @@ import {
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
-const NOTE_MD = ["# Alpha", "- [ ] one <!-- {\"uuid\":\"u1\"} -->", "# Beta"].join("\n");
+const NOTE_MD = ["# Alpha", "- [ ] one <!-- {\"uuid\":\"u1\"} -->", "# Done"].join("\n");
 
 function makeApp(markdown = NOTE_MD) {
   const app = {
@@ -187,12 +187,18 @@ describe("embedActions", () => {
       const [, updates] = app.updateTask.mock.calls[0];
       expect(typeof updates.completedAt).toBe("number");
       expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
+    });
+
+    it("triggers re-render when forceRerender is true", async () => {
+      const app = withNoteTab(makeApp());
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "2", forceRerender: true });
+      expect(app.context.renderEmbed).toHaveBeenCalledTimes(1);
     });
 
     it("moves to a non-last column and reopens the task", async () => {
-      // Task sits in Beta (last); moving it to Alpha must reopen it.
-      const md = ["# Alpha", "# Beta", "- [ ] one <!-- {\"uuid\":\"u1\"} -->"].join("\n");
+      // Task sits in Done (last); moving it to Alpha must reopen it.
+      const md = ["# Alpha", "# Done", "- [ ] one <!-- {\"uuid\":\"u1\"} -->"].join("\n");
       const app = withNoteTab(makeApp(md));
       await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "0" });
       expect(app.updateTask).toHaveBeenCalledWith("u1", { completedAt: null });
@@ -293,7 +299,7 @@ describe("embedActions", () => {
       await handleMoveCard(app, { tabId: "tg", cardId: "u1", toColumnId: "note:n2" });
 
       expect(app.updateTask).toHaveBeenCalledWith("u1", { noteUUID: "n2" });
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
     });
 
     it("moveCard is a no-op for same note column drops", async () => {
@@ -548,6 +554,18 @@ describe("embedActions", () => {
         expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one\n[[one]]" });
       });
 
+      it("complete and uncomplete branches toggle completion timestamp", async () => {
+        const app = makeApp();
+        app.prompt.mockResolvedValueOnce("complete");
+        await handleCardMenu(app, { cardId: "u1" });
+        expect(app.updateTask).toHaveBeenCalledWith("u1", expect.objectContaining({ completedAt: expect.any(Number) }));
+
+        app.getTask.mockResolvedValueOnce({ uuid: "u1", content: "one", completedAt: 123456 });
+        app.prompt.mockResolvedValueOnce("uncomplete");
+        await handleCardMenu(app, { cardId: "u1" });
+        expect(app.updateTask).toHaveBeenLastCalledWith("u1", { completedAt: null });
+      });
+
       it("does nothing on cancel or missing task", async () => {
         const app = makeApp();
         app.prompt.mockResolvedValue(null);
@@ -710,7 +728,7 @@ describe("embedActions", () => {
       const app = notesApp();
       await handleMoveCard(app, { tabId: "tn", cardId: "t1", toColumnId: "note:nb" });
       expect(app.updateTask).toHaveBeenCalledWith("t1", { noteUUID: "nb" });
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
     });
 
     it("moveCard is a no-op for same-column drops", async () => {
