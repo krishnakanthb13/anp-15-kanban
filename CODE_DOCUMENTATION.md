@@ -235,10 +235,10 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
   - **Layout Density System**: Defines responsive CSS custom property tokens for three layout modes (`.kb-density-compact`, `.kb-density-cozy`, `.kb-density-spacious`) controlling board gaps, column widths, section padding, card padding, and font sizes.
   - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), cycling sort button (`#kb-sort-btn`), density cycler button (`#kb-density-btn`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
   - Column header layout with wide column title and right-aligned action group (`.kb-col-actions`) hosting count badge (`.kb-count`), `+` button, and micro floating tool palette (`.kb-col-tools`).
-  - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside columns, and right-end add column/note placeholder (`.kb-add-column-card`).
+  - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside columns, stacked single-column right-end action group (`.kb-add-column-group` containing `+ Add Header`/`+ Add Note` and `+ Add Task`), and actionable empty state container (`.kb-empty-actions`).
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
-  - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/note creator, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, and native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal).
+  - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, and native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal).
 
 ---
 

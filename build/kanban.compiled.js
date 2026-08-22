@@ -1122,33 +1122,132 @@ function buildClientScript() {
       board.appendChild(colEl);
     });
 
-    // Add Column / Add Note button at the right end of the board
+    // Add Column / Add Task group at the right end of the board (stacked in one column)
     var isNoteTab = data.kind === "note";
-    var addCardEl = el("div", "kb-add-column-card");
-    addCardEl.title = isNoteTab
+    var addGroupEl = el("div", "kb-add-column-group");
+
+    var addHeaderCardEl = el("div", "kb-add-column-card");
+    addHeaderCardEl.title = isNoteTab
       ? "Add new column / header to note"
       : ("Create new note under tag " + (data.tag ? "#" + data.tag : ""));
 
     var iconWrap = el("div", "kb-add-column-icon");
     iconWrap.appendChild(svg("plus"));
-    addCardEl.appendChild(iconWrap);
+    addHeaderCardEl.appendChild(iconWrap);
 
-    addCardEl.appendChild(el("span", "kb-add-column-label", isNoteTab ? "+ Add Header" : "+ Add Note"));
-    addCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "New column heading" : "New column note"));
+    addHeaderCardEl.appendChild(el("span", "kb-add-column-label", isNoteTab ? "+ Add Header" : "+ Add Note"));
+    addHeaderCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "New column heading" : "New column note"));
 
-    addCardEl.addEventListener("click", function () {
+    addHeaderCardEl.addEventListener("click", function () {
       if (isNoteTab) {
         callPlugin("createColumn", { tabId: STATE.activeTabId });
       } else {
         callPlugin("createColumnNote", { tabId: STATE.activeTabId });
       }
     });
-    board.appendChild(addCardEl);
+    addGroupEl.appendChild(addHeaderCardEl);
+
+    var addTaskCardEl = el("div", "kb-add-column-card kb-add-task-card");
+    addTaskCardEl.title = isNoteTab
+      ? "Add task at top of note (Unsorted)"
+      : "Add task to board";
+
+    var taskIconWrap = el("div", "kb-add-column-icon");
+    taskIconWrap.appendChild(svg("plus"));
+    addTaskCardEl.appendChild(taskIconWrap);
+    addTaskCardEl.appendChild(el("span", "kb-add-column-label", "+ Add Task"));
+    addTaskCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "Add to Unsorted" : "New task"));
+    addTaskCardEl.addEventListener("click", function () {
+      if (isNoteTab) {
+        callPlugin("createCard", { tabId: STATE.activeTabId, columnId: "unsorted", columnName: "Unsorted" }).then(function (res) {
+          if (res && res.board && res.tabId) {
+            STATE.boards[res.tabId] = res.board;
+            renderBoard();
+            showToast("Task added");
+          }
+        });
+      } else {
+        var firstCol = data && data.columns && data.columns[0];
+        if (firstCol) {
+          callPlugin("createCard", { tabId: STATE.activeTabId, columnId: firstCol.id, columnName: firstCol.name }).then(function (res) {
+            if (res && res.board && res.tabId) {
+              STATE.boards[res.tabId] = res.board;
+              renderBoard();
+              showToast("Task added");
+            }
+          });
+        } else {
+          callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+        }
+      }
+    });
+    addGroupEl.appendChild(addTaskCardEl);
+
+    board.appendChild(addGroupEl);
 
     if (!anyVisible) {
-      board.appendChild(el("div", "kb-empty", searchQuery
-        ? "No cards match \\u201C" + searchQuery + "\\u201D."
-        : "No tasks found in this board. Click \\u201C+\\u201D to add a task."));
+      var emptyEl = el("div", "kb-empty");
+      if (searchQuery) {
+        emptyEl.textContent = "No cards match \u201C" + searchQuery + "\u201D.";
+      } else {
+        var msg = el("div", "kb-empty-msg");
+        msg.textContent = "No tasks found in this board. Click \u201CEmpty\u201D in the toolbar to view empty headers, or click \u201C+ Add Task\u201D to create a task.";
+        emptyEl.appendChild(msg);
+
+        var actionsWrap = el("div", "kb-empty-actions");
+
+        var emptyAddTBtn = el("button", "kb-btn kb-empty-btn");
+        emptyAddTBtn.type = "button";
+        emptyAddTBtn.textContent = "+ Add Task";
+        emptyAddTBtn.addEventListener("click", function () {
+          if (isNoteTab) {
+            callPlugin("createCard", { tabId: STATE.activeTabId, columnId: "unsorted", columnName: "Unsorted" }).then(function (res) {
+              if (res && res.board && res.tabId) {
+                STATE.boards[res.tabId] = res.board;
+                renderBoard();
+                showToast("Task added");
+              }
+            });
+          } else {
+            var fCol = data && data.columns && data.columns[0];
+            if (fCol) {
+              callPlugin("createCard", { tabId: STATE.activeTabId, columnId: fCol.id, columnName: fCol.name }).then(function (res) {
+                if (res && res.board && res.tabId) {
+                  STATE.boards[res.tabId] = res.board;
+                  renderBoard();
+                  showToast("Task added");
+                }
+              });
+            } else {
+              callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+            }
+          }
+        });
+        actionsWrap.appendChild(emptyAddTBtn);
+
+        var emptyAddHBtn = el("button", "kb-btn kb-empty-btn");
+        emptyAddHBtn.type = "button";
+        emptyAddHBtn.textContent = isNoteTab ? "+ Add Header" : "+ Add Note";
+        emptyAddHBtn.addEventListener("click", function () {
+          if (isNoteTab) {
+            callPlugin("createColumn", { tabId: STATE.activeTabId });
+          } else {
+            callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+          }
+        });
+        actionsWrap.appendChild(emptyAddHBtn);
+
+        if (!showEmptyColumns) {
+          var toggleEBtn = el("button", "kb-btn kb-empty-btn");
+          toggleEBtn.type = "button";
+          toggleEBtn.textContent = "Show Empty Headers";
+          toggleEBtn.addEventListener("click", toggleEmptyColumns);
+          actionsWrap.appendChild(toggleEBtn);
+        }
+
+        emptyEl.appendChild(actionsWrap);
+      }
+      board.appendChild(emptyEl);
     }
   }
 
@@ -2393,15 +2492,48 @@ function buildBaseCss() {
     .kb-empty {
         margin: 48px auto;
         color: var(--kb-text-muted);
-        font-size: 14px;
+        font-size: 13.5px;
+        line-height: 1.5;
         text-align: center;
         background: var(--kb-bg-column);
-        border: 1px dashed var(--kb-border);
+        border: 1.5px dashed var(--kb-border);
         border-radius: 12px;
         padding: 24px 32px;
-        max-width: 440px;
+        max-width: 480px;
         box-shadow: 0 2px 8px var(--kb-shadow);
         align-self: flex-start;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+    }
+    .kb-empty-msg {
+        color: var(--kb-text);
+        font-weight: 500;
+    }
+    .kb-empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+    .kb-empty-btn {
+        background: color-mix(in srgb, var(--kb-accent) 10%, var(--kb-bg-card));
+        border: 1px solid color-mix(in srgb, var(--kb-accent) 35%, var(--kb-border));
+        color: var(--kb-accent);
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .kb-empty-btn:hover {
+        background: var(--kb-accent);
+        color: var(--kb-bg);
+        border-color: var(--kb-accent);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px var(--kb-shadow);
     }
     .kb-column {
         flex: 0 0 var(--kb-col-w);
@@ -2585,12 +2717,18 @@ function buildBaseCss() {
         color: var(--kb-accent);
     }
 
-    /* ---------- add column / add note placeholder at right end of board ---------- */
-    .kb-add-column-card {
+    /* ---------- add column group at right end of board ---------- */
+    .kb-add-column-group {
         flex: 0 0 clamp(160px, 14vw, 210px);
         width: clamp(160px, 14vw, 210px);
-        min-height: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
         align-self: flex-start;
+    }
+    .kb-add-column-card {
+        width: 100%;
+        min-height: auto;
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -2599,11 +2737,12 @@ function buildBaseCss() {
         background: color-mix(in srgb, var(--kb-bg-column) 50%, transparent);
         border: 1.5px dashed var(--kb-border);
         border-radius: 8px;
-        padding: 6px 12px;
+        padding: 8px 12px;
         cursor: pointer;
         color: var(--kb-text-muted);
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         user-select: none;
+        box-sizing: border-box;
     }
     .kb-add-column-card:hover {
         border-color: var(--kb-accent);
@@ -4435,7 +4574,18 @@ async function handleCreateCard(app, payload) {
   if (taskUuid && board && Array.isArray(board.columns)) {
     const alreadyInBoard = board.columns.some((col) => (col.cards || []).some((c) => c.id === taskUuid || c.uuid === taskUuid));
     if (!alreadyInBoard) {
-      const targetCol = board.columns.find((c) => c.id === payload.columnId || c.name === payload.columnName) || board.columns[0];
+      let targetCol = board.columns.find((c) => c.id === payload.columnId || c.name === payload.columnName);
+      if (!targetCol && (payload.columnId === "unsorted" || payload.columnName === "Unsorted")) {
+        targetCol = {
+          id: "unsorted",
+          name: "Unsorted",
+          level: null,
+          cards: []
+        };
+        board.columns.unshift(targetCol);
+      } else if (!targetCol) {
+        targetCol = board.columns[0];
+      }
       if (targetCol) {
         targetCol.cards = targetCol.cards || [];
         targetCol.cards.unshift({

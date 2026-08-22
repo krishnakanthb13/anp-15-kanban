@@ -182,6 +182,7 @@ A note board maps one single note onto the board:
 - **Drag & drop** a card onto another column to move it — the task physically moves under the target heading in the note markdown.
 - **Drop into the Completed / Done column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
+- **`+ Add Task` card at the right end of the board**: Click to instantly add a task at the top of the note (automatically placed in the **Unsorted** column).
 - **`+ Add Header` card at the right end of the board**: Click to instantly create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
 - **Click a card** opens the dedicated task editor dialog:
   - **On Active Tasks**: Full Task Details modal (markdown content, Important/Urgent quadrants, move to note / heading dropdown, task score, and mark status: `Started`, `Completed`, `Dismissed`).

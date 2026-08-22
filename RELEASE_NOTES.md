@@ -1,6 +1,8 @@
 ## v0.0.26 (2026-08-22) — Dedicated Task Dialogs, Completed Metadata & Instant Card Sync
 
 ### 🚀 New Features & Enhancements
+- **`+ Add Task` Button at Board End**: Added a dedicated `+ Add Task` card alongside `+ Add Header` at the right end of the board, allowing users to add tasks at the top of the note (automatically placed in **Unsorted**).
+- **Interactive Empty State Actions**: When no tasks are found or all columns are empty, the empty state displays informative guidance and instant action buttons (`+ Add Task`, `+ Add Header`, and `Show Empty Headers` if `hideEmptyColumns` is active).
 - **Dedicated Task Dialog on Card Click**: Clicking directly on a card body opens a tailored modal:
   - **Active Tasks**: Full properties editor (Markdown content, Important/Urgent priority quadrant, move to note / heading dropdown, task score, and mark status: `Started`, `Completed`, `Dismissed`).
   - **Completed Tasks**: Completed task review modal (Markdown content, target heading dropdown to choose where the card returns when reopened, and lifecycle actions: `Reopen / Active`, `Dismiss / Archive`, `Keep completed`).
