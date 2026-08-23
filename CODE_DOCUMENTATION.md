@@ -255,6 +255,14 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
   - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating all full-iframe `renderEmbed` reload flashes.
+  - **State-Accurate Notifications & Auto-Rollback**:
+    - `showToast(msg, type)` implements clear visual hierarchy: `success` (green border + `✓`), `error` (red danger border + `⚠️`), and `warning` (amber border + `ℹ️`).
+    - Positive notifications are shown only upon verified backend completion (`res.ok === true`).
+    - If a background mutation fails or rejects, an error alert is displayed and `handlePluginResult` automatically fetches fresh board state via `refreshTab` to rollback the UI to the source note's true state.
+  - **Sequential Write Lock (`withNoteLock` in `columnOps.js`)**:
+    - Serializes concurrent note mutation requests across rapid UI interactions into a Promise chain, eliminating ProseMirror editor selection conflicts and data collisions.
+  - **Dual-Matching Column Resolution (`resolveSpan` in `markdownIndex.js`)**:
+    - Matches column spans by both line ID and normalized column heading names, preventing failed moves when markdown line numbers shift dynamically between rapid reorders.
   - DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
   - **Column Movement Boundary Guardrails**:
     - When `Unsorted` is present at index 0, headers cannot be dropped or moved before it (triggers *"Cannot move column before Unsorted"* toast).

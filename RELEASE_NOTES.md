@@ -1,3 +1,14 @@
+## v0.0.34
+
+### 🚀 New Features & Enhancements
+- **Honest Feedback, Verified State Confirmation & Auto-Rollback**:
+  - Positive toasts (`✓ Column moved left`, `✓ Task added`) are shown only after the backend confirms that changes are saved to the source note.
+  - Failures and rejected actions trigger explicit red danger alerts (`⚠️ Failed to save changes to note`) and initiate an automatic re-sync (`refreshTab`) to roll back the board state so it never drifts from the source note.
+- **Sequential Note Write Queuing (`withNoteLock`)**:
+  - Serializes rapid successive writes to the same note (e.g. clicking move arrows repeatedly) into a sequential Promise queue, eliminating write collisions and ProseMirror selection conflicts.
+- **Dual-Matching Column Resolution (`resolveSpan`)**:
+  - Matches column spans by both line ID and normalized column heading names, preventing failed moves when markdown line numbers shift dynamically between rapid reorders.
+
 ## v0.0.33
 
 ### 🚀 Zero-Flicker Architecture & Optimistic In-Memory Upgrades

@@ -257,19 +257,29 @@ function buildClientScript() {
 
   /* ---------------- toasts ---------------- */
 
-  function showToast(msg) {
+  function showToast(msg, type) {
     var host = document.getElementById("kb-toasts");
     if (!host) return;
     var toast = document.createElement("div");
-    toast.className = "kb-toast";
-    toast.textContent = msg;
+    var cls = "kb-toast";
+    if (type === "success") cls += " kb-toast-success";
+    else if (type === "error") cls += " kb-toast-error";
+    else if (type === "warning") cls += " kb-toast-warning";
+    toast.className = cls;
+
+    var prefix = "";
+    if (type === "success") prefix = "\u2713 ";
+    else if (type === "error") prefix = "\u26A0\uFE0F ";
+    else if (type === "warning") prefix = "\u2139\uFE0F ";
+
+    toast.textContent = prefix + msg;
     host.appendChild(toast);
     setTimeout(function () {
       toast.classList.add("kb-toast-hiding");
       setTimeout(function () {
         if (toast.parentElement) toast.parentElement.removeChild(toast);
       }, 220);
-    }, 2800);
+    }, type === "error" ? 3800 : 2800);
   }
 
   /* ---------------- bridge ---------------- */
@@ -287,10 +297,16 @@ function buildClientScript() {
     return Promise.resolve(null);
   }
 
-  function handlePluginResult(p) {
+  function handlePluginResult(p, successMsg) {
     if (p && typeof p.then === "function") {
       return p.then(function (res) {
-        if (!res) return res;
+        if (res === null || res === undefined) {
+          return res;
+        }
+        if (res && res.ok === false) {
+          showToast(res.error || "Action could not be completed", "error");
+          return res;
+        }
         if (res.board && res.tabId) {
           STATE.boards[res.tabId] = res.board;
         }
@@ -299,9 +315,21 @@ function buildClientScript() {
           if (t) t.columnLimits = res.columnLimits;
         }
         renderAll();
+        if (successMsg) {
+          showToast(successMsg, "success");
+        }
         return res;
       }).catch(function (err) {
         console.error("Action error:", err);
+        showToast("Failed to save changes to note", "error");
+        if (STATE.activeTabId) {
+          callPlugin("refreshTab", { tabId: STATE.activeTabId }).then(function (res) {
+            if (res && res.board) {
+              STATE.boards[STATE.activeTabId] = res.board;
+              renderAll();
+            }
+          });
+        }
       });
     }
     return Promise.resolve(null);
@@ -833,56 +861,86 @@ function buildClientScript() {
           e.stopPropagation();
           var colIdx = columns.findIndex(function (c) { return c.id === col.id; });
           if (colIdx <= 0) {
-            showToast("Column is already at the first position");
+            showToast("Column is already at the first position", "warning");
             return;
           }
           var targetIdx = colIdx - 1;
           if (columns[targetIdx] && columns[targetIdx].id === "unsorted") {
-            showToast("Cannot move column before Unsorted");
+            showToast("Cannot move column before Unsorted", "warning");
             return;
           }
 
           var moved = columns.splice(colIdx, 1)[0];
           columns.splice(targetIdx, 0, moved);
           renderBoard();
-          showToast("Column moved left");
 
           if (data.kind === "note") {
+            var headingNames = columns.filter(function (c) {
+              return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
+            }).map(function (c) { return c.name || c.id; });
             var headingIds = columns.filter(function (c) {
               return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
             }).map(function (c) { return c.id; });
-            callPlugin("reorderColumns", {
+            var p = callPlugin("reorderColumns", {
               tabId: STATE.activeTabId,
-              columnIds: headingIds
+              columnIds: headingIds,
+              columnNames: headingNames
             });
+            if (p && typeof p.then === "function") {
+              p.then(function (res) {
+                if (res && res.board && res.tabId) {
+                  STATE.boards[res.tabId] = res.board;
+                  showToast("Column moved left", "success");
+                } else if (res && res.ok === false) {
+                  showToast("Could not move column in note", "error");
+                }
+              }).catch(function () {
+                showToast("Failed to move column", "error");
+              });
+            }
           }
         });
         addColToolSvg(tools, "chevronRight", "Move column right", function (e) {
           e.stopPropagation();
           var colIdx = columns.findIndex(function (c) { return c.id === col.id; });
           if (colIdx === -1 || colIdx >= columns.length - 1) {
-            showToast("Column is already at the last position");
+            showToast("Column is already at the last position", "warning");
             return;
           }
           var targetIdx = colIdx + 1;
           if (columns[targetIdx] && columns[targetIdx].id === "completed") {
-            showToast("Cannot move column after Completed");
+            showToast("Cannot move column after Completed", "warning");
             return;
           }
 
           var moved = columns.splice(colIdx, 1)[0];
           columns.splice(targetIdx, 0, moved);
           renderBoard();
-          showToast("Column moved right");
 
           if (data.kind === "note") {
+            var headingNames = columns.filter(function (c) {
+              return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
+            }).map(function (c) { return c.name || c.id; });
             var headingIds = columns.filter(function (c) {
               return c.id !== "unsorted" && c.id !== "completed" && !c.isSystemColumn;
             }).map(function (c) { return c.id; });
-            callPlugin("reorderColumns", {
+            var p = callPlugin("reorderColumns", {
               tabId: STATE.activeTabId,
-              columnIds: headingIds
+              columnIds: headingIds,
+              columnNames: headingNames
             });
+            if (p && typeof p.then === "function") {
+              p.then(function (res) {
+                if (res && res.board && res.tabId) {
+                  STATE.boards[res.tabId] = res.board;
+                  showToast("Column moved right", "success");
+                } else if (res && res.ok === false) {
+                  showToast("Could not move column in note", "error");
+                }
+              }).catch(function () {
+                showToast("Failed to move column", "error");
+              });
+            }
           }
         });
         addColToolSvg(tools, "edit", "Rename column", function (e) {
@@ -995,57 +1053,87 @@ function buildClientScript() {
               e.stopPropagation();
               var secIdx = col.sections.findIndex(function (s) { return s.id === sec.id; });
               if (secIdx <= 0) {
-                showToast("Header is already at the top");
+                showToast("Header is already at the top", "warning");
                 return;
               }
               var targetIdx = secIdx - 1;
               if (col.sections[targetIdx] && col.sections[targetIdx].id === "unsorted") {
-                showToast("Cannot move header before Unsorted");
+                showToast("Cannot move header before Unsorted", "warning");
                 return;
               }
 
               var moved = col.sections.splice(secIdx, 1)[0];
               col.sections.splice(targetIdx, 0, moved);
               renderBoard();
-              showToast("Header moved up");
 
+              var headingNames = col.sections.filter(function (s) {
+                return s.id !== "unsorted" && s.id !== "main" && s.id !== "completed";
+              }).map(function (s) { return s.name || s.id; });
               var headingIds = col.sections.filter(function (s) {
                 return s.id !== "unsorted" && s.id !== "main" && s.id !== "completed";
               }).map(function (s) { return s.id; });
 
-              callPlugin("reorderColumns", {
+              var p = callPlugin("reorderColumns", {
                 tabId: STATE.activeTabId,
                 noteUUID: col.noteUUID,
-                columnIds: headingIds
+                columnIds: headingIds,
+                columnNames: headingNames
               });
+              if (p && typeof p.then === "function") {
+                p.then(function (res) {
+                  if (res && res.board && res.tabId) {
+                    STATE.boards[res.tabId] = res.board;
+                    showToast("Header moved up", "success");
+                  } else if (res && res.ok === false) {
+                    showToast("Could not move header in note", "error");
+                  }
+                }).catch(function () {
+                  showToast("Failed to move header", "error");
+                });
+              }
             });
             addColToolSvg(sectools, "chevronDown", "Move header down", function (e) {
               e.stopPropagation();
               var secIdx = col.sections.findIndex(function (s) { return s.id === sec.id; });
               if (secIdx === -1 || secIdx >= col.sections.length - 1) {
-                showToast("Header is already at the bottom");
+                showToast("Header is already at the bottom", "warning");
                 return;
               }
               var targetIdx = secIdx + 1;
               if (col.sections[targetIdx] && col.sections[targetIdx].id === "completed") {
-                showToast("Cannot move header after Completed");
+                showToast("Cannot move header after Completed", "warning");
                 return;
               }
 
               var moved = col.sections.splice(secIdx, 1)[0];
               col.sections.splice(targetIdx, 0, moved);
               renderBoard();
-              showToast("Header moved down");
 
+              var headingNames = col.sections.filter(function (s) {
+                return s.id !== "unsorted" && s.id !== "main" && s.id !== "completed";
+              }).map(function (s) { return s.name || s.id; });
               var headingIds = col.sections.filter(function (s) {
                 return s.id !== "unsorted" && s.id !== "main" && s.id !== "completed";
               }).map(function (s) { return s.id; });
 
-              callPlugin("reorderColumns", {
+              var p = callPlugin("reorderColumns", {
                 tabId: STATE.activeTabId,
                 noteUUID: col.noteUUID,
-                columnIds: headingIds
+                columnIds: headingIds,
+                columnNames: headingNames
               });
+              if (p && typeof p.then === "function") {
+                p.then(function (res) {
+                  if (res && res.board && res.tabId) {
+                    STATE.boards[res.tabId] = res.board;
+                    showToast("Header moved down", "success");
+                  } else if (res && res.ok === false) {
+                    showToast("Could not move header in note", "error");
+                  }
+                }).catch(function () {
+                  showToast("Failed to move header", "error");
+                });
+              }
             });
             addColToolSvg(sectools, "edit", "Rename header", function (e) {
               e.stopPropagation();
@@ -3662,6 +3750,18 @@ function buildBaseCss() {
         opacity: 0;
         transform: translateY(8px);
     }
+    .kb-toast.kb-toast-success {
+        border-color: var(--kb-accent, #10b981);
+    }
+    .kb-toast.kb-toast-error {
+        border-color: var(--kb-danger, #ef4444);
+        color: var(--kb-danger, #ef4444);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
+    }
+    .kb-toast.kb-toast-warning {
+        border-color: #f59e0b;
+        color: #d97706;
+    }
     @keyframes kbToastIn {
         from { opacity: 0; transform: translateY(12px); }
         to { opacity: 1; transform: translateY(0); }
@@ -4187,14 +4287,12 @@ function insertUnderHeading(lines, span, taskLine) {
 }
 function resolveSpan(spans, columnId, columnName) {
   if (!spans || !spans.length) return null;
-  const colStr = String(columnId || "");
+  const colStr = String(columnId || "").trim();
   const byId = spans.find((s) => s.id === colStr);
   if (byId) return byId;
-  if (columnName) {
-    const cleanName = String(columnName).trim().toLowerCase();
-    const byName = spans.find((s) => s.name.trim().toLowerCase() === cleanName);
-    if (byName) return byName;
-  }
+  const targetName = String(columnName || colStr).trim().toLowerCase();
+  const byName = spans.find((s) => s.name.trim().toLowerCase() === targetName);
+  if (byName) return byName;
   const idx = parseInt(colStr, 10);
   if (!Number.isNaN(idx) && idx >= 0 && idx < spans.length) {
     return spans[idx];
@@ -4494,20 +4592,33 @@ async function deleteColumn(app, noteUUID, columnId) {
   await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
   return true;
 }
-async function reorderColumns(app, noteUUID, orderedIds) {
-  const lines = await readLines(app, noteUUID);
-  const markdown = lines.join("\n");
-  const { columns, preambleEnd } = buildColumnSpans(markdown);
-  if (!columns.length || !Array.isArray(orderedIds)) return false;
-  if (orderedIds.length !== columns.length) return false;
-  const spans = orderedIds.map((id) => resolveSpan(columns, id));
-  if (spans.some((s) => !s) || new Set(spans.map((s) => s.id)).size !== columns.length) return false;
-  const rebuilt = [...lines.slice(0, Math.max(preambleEnd - 1, 0))];
-  for (const span of spans) {
-    rebuilt.push(...lines.slice(span.startLine, span.contentEnd));
-  }
-  await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
-  return true;
+var noteLocks = /* @__PURE__ */ new Map();
+async function withNoteLock(noteUUID, fn) {
+  const key = String(noteUUID || "__global__");
+  const previous = noteLocks.get(key) || Promise.resolve();
+  const next = previous.then(fn, fn);
+  noteLocks.set(key, next);
+  return next;
+}
+async function reorderColumns(app, noteUUID, orderedIds, orderedNames) {
+  return withNoteLock(noteUUID, async () => {
+    const lines = await readLines(app, noteUUID);
+    const markdown = lines.join("\n");
+    const { columns, preambleEnd } = buildColumnSpans(markdown);
+    if (!columns.length || !Array.isArray(orderedIds)) return false;
+    if (orderedIds.length !== columns.length) return false;
+    const spans = orderedIds.map((id, idx) => {
+      const name = orderedNames && orderedNames[idx] || id;
+      return resolveSpan(columns, id, name);
+    });
+    if (spans.some((s) => !s) || new Set(spans.map((s) => s.id)).size !== columns.length) return false;
+    const rebuilt = [...lines.slice(0, Math.max(preambleEnd - 1, 0))];
+    for (const span of spans) {
+      rebuilt.push(...lines.slice(span.startLine, span.contentEnd));
+    }
+    await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
+    return true;
+  });
 }
 async function transferColumn(app, sourceUUID, columnId, targetUUID) {
   if (sourceUUID === targetUUID) return "same-note";
@@ -5907,7 +6018,7 @@ async function handleReorderTabs(app, payload) {
   await saveTabsConfig(app, updated);
 }
 async function handleReorderColumns(app, payload) {
-  const { tabId, columnIds } = payload || {};
+  const { tabId, columnIds, columnNames } = payload || {};
   if (!tabId || !Array.isArray(columnIds) || !columnIds.length) return;
   const config = await loadTabsConfig(app);
   const tab = tabById(config, tabId);
@@ -5915,7 +6026,7 @@ async function handleReorderColumns(app, payload) {
   const noteUUID = payload?.noteUUID || (tab.kind === "note" ? tab.noteUUID : null);
   if (!noteUUID) return;
   const cleanIds = columnIds.filter((id) => id !== "unsorted" && id !== "completed" && id !== "main");
-  const ok = await reorderColumns(app, noteUUID, cleanIds);
+  const ok = await reorderColumns(app, noteUUID, cleanIds, columnNames);
   if (ok) {
     const board = await buildSingleBoard(app, tab);
     return { ok: true, board, tabId };

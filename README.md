@@ -82,6 +82,8 @@ The tab bar sits above the board:
 - **0ms Tab Navigation & Reordering**: Click `◀` or `▶` arrows to instantly swap tab chips in-place with **zero screen flicker**, or drag-and-drop tabs to reorder.
 - **Instant Tab Closing**: Closing a tab removes it immediately in local state and smoothly switches to the adjacent board without reloading the embed.
 - **Zero-Flicker Card & Column Management**: All micro-actions (editing task details, setting dates, toggling completion, renaming/deleting columns, setting WIP limits) update the board in-place via smooth in-memory data binding without iframe flashes.
+- **Verified Feedback & Auto-Rollback**: Operations display green confirmation toasts (`✓`) only after the server write is confirmed; if a write fails, a red warning toast (`⚠️`) is shown and the board automatically re-syncs to reflect the true note state.
+- **Sequential Write Lock (`withNoteLock`)**: Rapid successive actions (e.g. clicking move arrows repeatedly) are processed in serial order to eliminate markdown write collisions and race conditions.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐

@@ -234,4 +234,16 @@ Micro-interactions within the embed should never trigger a full iframe tear-down
 
 **Why:** Productivity applications require continuous visual stability. Eliminating screen flickering across all micro-actions and tab transitions ensures the board feels like a native desktop application rather than a web page reloading on every click.
 
+---
+
+## 25. Honest Feedback, Verified Confirmation & Automated State Recovery
+
+A UI should never misrepresent the persistence state of user data:
+- **Verified Positive Feedback**: Optimistic UI gives immediate tactile responsiveness, but positive confirmation messages (`✓`) are only displayed once the backend confirms that the mutation was written to the underlying note.
+- **Explicit Failure Visibility**: If a network request, permission boundary, or parsing error prevents a write from completing, the user is immediately alerted with a high-contrast danger notification (`⚠️`).
+- **Automated State Recovery (Rollback on Error)**: When an operation fails, the board immediately triggers a silent background refresh (`refreshTab`), rolling the DOM back to reflect the actual content of the source note. The interface never stays in a false "successful" state.
+- **Serialized Write Locks (`withNoteLock`)**: Rapid successive interactions (e.g. clicking move arrows repeatedly) are queued sequentially per note to eliminate write collisions, ensuring clean markdown execution under all interaction speeds.
+
+**Why:** Silent write failures or premature success toasts erode user trust. Guaranteeing that every success toast represents verified saved state—and pairing failures with automatic state rollbacks—ensures absolute data integrity.
+
 
