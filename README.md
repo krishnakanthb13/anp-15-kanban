@@ -79,6 +79,9 @@ Until tabs are configured, the board shows a **Demo Board** so you can explore t
 The tab bar sits above the board:
 
 - **+ New tab** opens a clean **2-step progressive disclosure wizard**:
+- **0ms Tab Navigation & Reordering**: Click `◀` or `▶` arrows to instantly swap tab chips in-place with **zero screen flicker**, or drag-and-drop tabs to reorder.
+- **Instant Tab Closing**: Closing a tab removes it immediately in local state and smoothly switches to the adjacent board without reloading the embed.
+- **Zero-Flicker Card & Column Management**: All micro-actions (editing task details, setting dates, toggling completion, renaming/deleting columns, setting WIP limits) update the board in-place via smooth in-memory data binding without iframe flashes.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐

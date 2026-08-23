@@ -288,12 +288,12 @@ describe("embedActions", () => {
   });
 
   describe("handleEditCard", () => {
-    it("saves edited task details and re-renders", async () => {
+    it("saves edited task details and returns updated board", async () => {
       const app = makeApp();
       app.prompt.mockResolvedValue(["**edited**", true, false, null, null, "5", "keep"]);
-      await handleEditCard(app, { cardId: "u1" });
+      const res = await handleEditCard(app, { cardId: "u1" });
       expect(app.updateTask).toHaveBeenCalledWith("u1", expect.objectContaining({ content: "**edited**", important: true, score: 5 }));
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, board: expect.any(Object) }));
     });
 
     it("handles completed task details dialog and reopening", async () => {
@@ -385,22 +385,22 @@ describe("embedActions", () => {
       expect(app.setSetting).not.toHaveBeenCalled();
     });
 
-    it("handleCreateColumnNote creates a new tagged note with custom tags and re-renders", async () => {
+    it("handleCreateColumnNote creates a new tagged note with custom tags and returns board", async () => {
       const app = tagApp();
       app.prompt.mockResolvedValueOnce(["New Project Doc", "projects, active, priority"]);
-      await handleCreateColumnNote(app, { tabId: "tg" });
+      const res = await handleCreateColumnNote(app, { tabId: "tg" });
 
       expect(app.createNote).toHaveBeenCalledWith("New Project Doc", ["projects", "active", "priority"]);
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tg", board: expect.any(Object) }));
     });
 
     it("handleDeleteNote prompts confirmation and deletes note via app.deleteNote", async () => {
       const app = tagApp();
       app.prompt.mockResolvedValueOnce(true); // confirmed checkbox
-      await handleDeleteNote(app, { tabId: "tg", columnId: "note:n1", noteName: "Alpha doc" });
+      const res = await handleDeleteNote(app, { tabId: "tg", columnId: "note:n1", noteName: "Alpha doc" });
 
       expect(app.deleteNote).toHaveBeenCalledWith({ uuid: "n1" });
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tg", board: expect.any(Object) }));
     });
 
     it("handleDeleteNote aborts without confirmation", async () => {
@@ -575,10 +575,10 @@ describe("embedActions", () => {
           .mockResolvedValueOnce("label")                       // menu choice (single value)
           .mockResolvedValueOnce({ uuid: "ln1", name: "My Label" }); // note picker
 
-        await handleCardMenu(app, { cardId: "u1" });
+        const res = await handleCardMenu(app, { cardId: "u1" });
 
         expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one\n[[My Label]]" });
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, board: expect.any(Object) }));
       });
 
       it("set-date branch writes a unix timestamp; blank clears", async () => {
@@ -648,11 +648,11 @@ describe("embedActions", () => {
         app.getTask.mockResolvedValue({ uuid: "u1", startAt: Math.floor(new Date("2026-08-21").getTime() / 1000) });
         app.prompt.mockResolvedValueOnce("2026-08-25");
 
-        await handleQuickSetDate(app, { cardId: "u1" });
+        const res = await handleQuickSetDate(app, { cardId: "u1" });
 
         const [, updates] = app.updateTask.mock.calls[0];
         expect(updates.startAt).toBe(Math.floor(new Date(2026, 7, 25, 0, 0, 0).getTime() / 1000));
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, board: expect.any(Object) }));
       });
 
       it("handles numeric epoch timestamp returns from Amplenote prompt", async () => {
@@ -660,11 +660,11 @@ describe("embedActions", () => {
         app.getTask.mockResolvedValue({ uuid: "u1", startAt: null });
         app.prompt.mockResolvedValueOnce(1787270400);
 
-        await handleQuickSetDate(app, { cardId: "u1" });
+        const res = await handleQuickSetDate(app, { cardId: "u1" });
 
         const [, updates] = app.updateTask.mock.calls[0];
         expect(updates.startAt).toBe(1787270400);
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, board: expect.any(Object) }));
       });
 
       it("clears startAt when prompt submitted blank", async () => {
@@ -731,13 +731,13 @@ describe("embedActions", () => {
           .mockResolvedValueOnce("t2")   // target select
           .mockResolvedValueOnce(true);  // confirm checkbox
 
-        await handleMoveColumnToTab(app, { tabId: "t1", columnId: "0" });
+        const res = await handleMoveColumnToTab(app, { tabId: "t1", columnId: "0" });
 
         expect(app.insertNoteContent).toHaveBeenCalledWith(
           { uuid: "n2" }, expect.stringContaining("# Alpha"), { atEnd: true }
         );
         expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "t1", board: expect.any(Object) }));
       });
 
       it("aborts without confirmation or candidate tabs", async () => {
@@ -806,10 +806,10 @@ describe("embedActions", () => {
       app.setNoteName = jest.fn().mockResolvedValue(true);
       app.prompt.mockResolvedValue(["Project B v2"]);
 
-      await handleRenameNote(app, { tabId: "tn", columnId: "note:nb" });
+      const res = await handleRenameNote(app, { tabId: "tn", columnId: "note:nb" });
 
       expect(app.setNoteName).toHaveBeenCalledWith({ uuid: "nb" }, "Project B v2");
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tn", board: expect.any(Object) }));
     });
 
     it("structural heading actions are rejected on notes boards", async () => {
@@ -826,11 +826,11 @@ describe("embedActions", () => {
     describe("handleCreateColumn", () => {
       it("prompts for a name and appends the heading", async () => {
         const app = withNoteTab(makeApp());
-        await handleCreateColumn(app, { tabId: "t1" });
+        const res = await handleCreateColumn(app, { tabId: "t1" });
         expect(app.insertNoteContent).toHaveBeenCalledWith(
           { uuid: "n1" }, "\n# typed content\n", { atEnd: true }
         );
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "t1", board: expect.any(Object) }));
       });
 
       it("does nothing when cancelled or blank", async () => {
@@ -847,12 +847,12 @@ describe("embedActions", () => {
       it("prefills the current name and writes renames", async () => {
         const app = withNoteTab(makeApp());
         app.prompt.mockResolvedValue(["Alpha Renamed"]);
-        await handleRenameColumn(app, { tabId: "t1", columnId: "0" });
+        const res = await handleRenameColumn(app, { tabId: "t1", columnId: "0" });
 
         const promptArgs = app.prompt.mock.calls[0];
         expect(promptArgs[1].inputs[0].value).toBe("Alpha");
         expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "t1", board: expect.any(Object) }));
       });
 
       it("skips unchanged names", async () => {
@@ -873,9 +873,9 @@ describe("embedActions", () => {
         expect(app.replaceNoteContent).not.toHaveBeenCalled();
 
         app.prompt.mockResolvedValue([true]);
-        await handleDeleteColumn(app, { tabId: "t1", columnId: "0" });
+        const res = await handleDeleteColumn(app, { tabId: "t1", columnId: "0" });
         expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "t1", board: expect.any(Object) }));
       });
     });
 
@@ -923,11 +923,11 @@ describe("embedActions", () => {
       it("saves a positive limit keyed by column name", async () => {
         const app = withLimits(makeApp());
         app.prompt.mockResolvedValue(["4"]);
-        await handleSetWipLimit(app, { tabId: "t1", columnId: "0" });
+        const res = await handleSetWipLimit(app, { tabId: "t1", columnId: "0" });
 
         const written = JSON.parse(app.setSetting.mock.calls[0][1]);
         expect(written.tabs[0].columnLimits).toEqual({ Alpha: 4 });
-        expect(app.context.renderEmbed).toHaveBeenCalled();
+        expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "t1", columnLimits: { Alpha: 4 } }));
       });
 
       it("clears limits with 0 or blank and ignores cancels", async () => {

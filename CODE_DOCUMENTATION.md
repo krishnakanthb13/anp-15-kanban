@@ -209,35 +209,35 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `refreshTab` | `handleRefreshTab` | Re-queries active board data |
 | `refreshAll` | `handleRefreshAll` | Re-queries all tabs |
 | `addTab` | `handleAddTab` | Prompts for Note Board, New Note Board, or Tag Board |
-| `closeTab` | `handleCloseTab` | Removes tab configuration |
-| `moveTabDir` | `handleMoveTabDir` | Moves tab left or right in tab bar |
+| `closeTab` | `handleCloseTab` | Removes tab configuration (optimistic 0ms local tab removal without iframe reload) |
+| `moveTabDir` | `handleMoveTabDir` | Moves tab left or right in tab bar (optimistic 0ms local tab swap without iframe reload) |
 | `reorderTabs` | `handleReorderTabs` | Persists drag-and-drop tab ordering to settings |
 | `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string in unified settings |
 | `moveCard` | `handleMoveCard` | Moves tasks across headings, sections, or notes |
 | `createCard` | `handleCreateCard` | Inserts task in column heading or note (flicker-free with immediate optimistic board update) |
-| `editCard` | `handleEditCard` | Opens dedicated task details modal (routes to `handleEditTaskDetails`) |
-| `editTaskDetails`| `handleEditTaskDetails` | Dedicated task modal: Active tasks (quadrant, move, score, status) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive) |
+| `editCard` | `handleEditCard` | Opens dedicated task details modal (returns fresh board snapshot to render in-place) |
+| `editTaskDetails`| `handleEditTaskDetails` | Dedicated task modal: Active tasks (quadrant, move, score, status) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive) (returns fresh board) |
 | `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
-| `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks |
+| `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks (updates board in-place with toast) |
 | `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
-| `cardMenu` | `handleCardMenu` | Context-aware menu: Active (complete, details, label, date, snooze, timeblock, note) vs Completed (reopen, dismiss/archive, details, label, note) |
-| `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (powered by universal `combineDateAndTime`) |
+| `cardMenu` | `handleCardMenu` | Context-aware menu: Complete, Reopen, Dismiss, Label, Date, Snooze, Timeblock, Note (returns fresh board snapshot for 0ms in-place update) |
+| `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (returns fresh board snapshot) |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
-| `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board or note in tag board |
+| `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board or note in tag board (returns fresh board snapshot) |
 | `moveSectionToNote`| `handleMoveColumnToTab` | Alias for moving heading section to another note |
-| `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown (Note boards or specific note in Tag boards) |
+| `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown (returns fresh board snapshot) |
 | `createSection`| `handleCreateColumn` | Alias for creating heading in note |
-| `createColumnNote`| `handleCreateColumnNote`| Creates new note auto-tagged with board tag for Tag/Notes boards |
+| `createColumnNote`| `handleCreateColumnNote`| Creates new note auto-tagged with board tag for Tag/Notes boards (returns fresh board snapshot) |
 | `createNote` | `handleCreateColumnNote`| Alias for creating tagged column note |
-| `renameColumn` | `handleRenameColumn` | Renames heading in note markdown (Note boards & Tag board sections) |
+| `renameColumn` | `handleRenameColumn` | Renames heading in note markdown (returns fresh board snapshot) |
 | `renameSection`| `handleRenameColumn` | Alias for renaming heading section |
-| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to previous/adjacent header (Note boards & Tag board sections) |
+| `deleteColumn` | `handleDeleteColumn` | Confirms and deletes heading, moving tasks to previous/adjacent header (returns fresh board snapshot) |
 | `deleteSection`| `handleDeleteColumn` | Alias for deleting heading section |
-| `moveColumn` | `handleMoveColumn` | Re-orders headings in note markdown (Note boards & Tag board sections) |
+| `moveColumn` | `handleMoveColumn` | Re-orders headings in note markdown (returns fresh board snapshot) |
 | `moveSection` | `handleMoveColumn` | Alias for re-ordering heading sections |
-| `setWipLimit` | `handleSetWipLimit` | Sets WIP limit for column |
-| `renameNote` | `handleRenameNote` | Renames note on Tag / Notes boards |
-| `deleteNote` | `handleDeleteNote` | Confirms and deletes note to Amplenote Trash via `app.deleteNote` |
+| `setWipLimit` | `handleSetWipLimit` | Sets WIP limit for column (returns fresh board and updated limits) |
+| `renameNote` | `handleRenameNote` | Renames note on Tag / Notes boards (returns fresh board snapshot) |
+| `deleteNote` | `handleDeleteNote` | Confirms and deletes note to Amplenote Trash via `app.deleteNote` (returns fresh board snapshot) |
 
 ---
  
@@ -254,7 +254,8 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
   - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside columns, stacked single-column right-end action group (`.kb-add-column-group` containing `+ Add Header`/`+ Add Note` and `+ Add Task`), actionable empty state container (`.kb-empty-actions`), color-coordinated tag chips (`.kb-label-chip`, `.kb-tag-chip`, `.kb-label-dot`), hierarchical task badges (`.kb-badge-parent`, `.kb-badge-child`, `.kb-card-subtask`), and full-resolution image Lightbox modal (`.kb-lightbox-overlay`).
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
-  - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
+  - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating all full-iframe `renderEmbed` reload flashes.
+  - DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
   - **Column Movement Boundary Guardrails**:
     - When `Unsorted` is present at index 0, headers cannot be dropped or moved before it (triggers *"Cannot move column before Unsorted"* toast).
     - When `Completed` is present at the end, headers cannot be dropped or moved after it (triggers *"Cannot move column after Completed"* toast).

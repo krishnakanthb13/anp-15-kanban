@@ -1,3 +1,13 @@
+## v0.0.33
+
+### 🚀 Zero-Flicker Architecture & Optimistic In-Memory Upgrades
+- **0ms Tab Reordering & Instant Tab Closing**:
+  - Clicking `◀` or `▶` directional arrows on tab chips now swaps positions in local client state (`STATE.tabs`) in **0ms** with zero screen flicker, saving tab configuration quietly in the background.
+  - Closing a tab removes it immediately in local state and smoothly switches to the adjacent tab without reloading the embed iframe.
+- **In-Memory Board Data Binding (`handlePluginResult`)**:
+  - Eliminated full-iframe `renderEmbed()` reloads across all micro-actions and dialogs.
+  - Task dialog edits (`editCard`), context menu actions (`cardMenu`), quick `@` date setting (`quickSetDate`), column operations (`renameColumn`, `deleteColumn`, `setWipLimit`, `moveColumnToTab`), header creation (`createColumn`, `createColumnNote`), note management (`renameNote`, `deleteNote`), and note sorting persistence (`saveSortToNote`) return updated board snapshots directly to the client and re-render board elements in-place with zero screen flash.
+
 ## v0.0.32
 
 ### 🚀 New Features & Enhancements

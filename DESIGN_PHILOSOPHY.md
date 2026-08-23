@@ -223,4 +223,15 @@ Task creation is mapped to direct spatial context across the entire board:
 
 **Why:** Users should have immediate, 1-click precision over where a new task lands without filling out multiple modal dropdowns. Pairing intuitive spatial insertion points with strict text isolation and non-blocking hover controls guarantees a fast, frictionless, and data-safe authoring experience.
 
+---
+
+## 24. Zero-Flicker In-Memory State Binding (Optimistic UI & Silent Cloud Persistence)
+
+Micro-interactions within the embed should never trigger a full iframe tear-down and rebuild:
+- **In-Memory Board Updates Over Full Iframe Reloads**: In an iframe sandbox, invoking `renderEmbed()` forces Amplenote to discard and re-mount the entire DOM, resulting in a visible screen blink/flicker. Instead, action handlers return updated board snapshots directly to the client (`{ ok: true, tabId, board }`), allowing JavaScript to re-render board DOM elements in **0ms** without blinking.
+- **Optimistic Local Tab Operations**: Moving tabs (`◀` / `▶` and drag-and-drop) and closing tabs mutate local state (`STATE.tabs`) instantly and trigger `renderTabs()`, while synchronizing settings to Amplenote cloud storage silently in the background.
+- **Micro-Action Fluidity**: Task dialog submissions (`editCard`), context menu actions (`cardMenu`), quick dates (`quickSetDate`), column operations (`renameColumn`, `deleteColumn`, `setWipLimit`), and note sort persistence (`saveSortToNote`) update the card and column models in-place with instant feedback toasts.
+
+**Why:** Productivity applications require continuous visual stability. Eliminating screen flickering across all micro-actions and tab transitions ensures the board feels like a native desktop application rather than a web page reloading on every click.
+
 

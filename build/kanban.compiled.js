@@ -277,12 +277,34 @@ function buildClientScript() {
   function callPlugin(action, payload) {
     if (typeof window.callAmplenotePlugin === "function") {
       try {
-        return window.callAmplenotePlugin(action, payload);
+        var res = window.callAmplenotePlugin(action, payload);
+        return Promise.resolve(res);
       } catch (err) {
         console.error("callAmplenotePlugin failed:", err);
+        return Promise.reject(err);
       }
     }
-    return null;
+    return Promise.resolve(null);
+  }
+
+  function handlePluginResult(p) {
+    if (p && typeof p.then === "function") {
+      return p.then(function (res) {
+        if (!res) return res;
+        if (res.board && res.tabId) {
+          STATE.boards[res.tabId] = res.board;
+        }
+        if (res.columnLimits && res.tabId) {
+          var t = STATE.tabs.find(function (x) { return x.id === res.tabId; });
+          if (t) t.columnLimits = res.columnLimits;
+        }
+        renderAll();
+        return res;
+      }).catch(function (err) {
+        console.error("Action error:", err);
+      });
+    }
+    return Promise.resolve(null);
   }
 
   /* ---------------- theming ---------------- */
@@ -439,14 +461,39 @@ function buildClientScript() {
       }
       addTabToolSvg(tools, "chevronLeft", "Move tab left", function (e) {
         e.stopPropagation();
+        var fromIdx = STATE.tabs.findIndex(function (t) { return t.id === tab.id; });
+        if (fromIdx <= 0) return;
+        var toIdx = fromIdx - 1;
+        var moved = STATE.tabs.splice(fromIdx, 1)[0];
+        STATE.tabs.splice(toIdx, 0, moved);
+        renderTabs();
         callPlugin("moveTabDir", { tabId: tab.id, direction: "left" });
       });
       addTabToolSvg(tools, "chevronRight", "Move tab right", function (e) {
         e.stopPropagation();
+        var fromIdx = STATE.tabs.findIndex(function (t) { return t.id === tab.id; });
+        if (fromIdx === -1 || fromIdx >= STATE.tabs.length - 1) return;
+        var toIdx = fromIdx + 1;
+        var moved = STATE.tabs.splice(fromIdx, 1)[0];
+        STATE.tabs.splice(toIdx, 0, moved);
+        renderTabs();
         callPlugin("moveTabDir", { tabId: tab.id, direction: "right" });
       });
       addTabToolSvg(tools, "close", "Close tab", function (e) {
         e.stopPropagation();
+        var tabIdx = STATE.tabs.findIndex(function (t) { return t.id === tab.id; });
+        if (tabIdx === -1) return;
+        var wasActive = STATE.activeTabId === tab.id;
+        STATE.tabs.splice(tabIdx, 1);
+        if (wasActive) {
+          if (STATE.tabs.length > 0) {
+            var nextIdx = Math.min(tabIdx, STATE.tabs.length - 1);
+            STATE.activeTabId = STATE.tabs[nextIdx].id;
+          } else {
+            STATE.activeTabId = null;
+          }
+        }
+        renderAll();
         callPlugin("closeTab", { tabId: tab.id });
       });
       chip.appendChild(tools);
@@ -840,15 +887,15 @@ function buildClientScript() {
         });
         addColToolSvg(tools, "edit", "Rename column", function (e) {
           e.stopPropagation();
-          callPlugin("renameColumn", { tabId: STATE.activeTabId, columnId: col.id });
+          handlePluginResult(callPlugin("renameColumn", { tabId: STATE.activeTabId, columnId: col.id }));
         });
         addColToolSvg(tools, "transfer", "Move column to another board tab", function (e) {
           e.stopPropagation();
-          callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, columnId: col.id });
+          handlePluginResult(callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, columnId: col.id }));
         });
         addColToolSvg(tools, "trash", "Delete column (tasks move to previous header)", function (e) {
           e.stopPropagation();
-          callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id });
+          handlePluginResult(callPlugin("deleteColumn", { tabId: STATE.activeTabId, columnId: col.id }));
         });
         head.appendChild(tools);
       } else if (isTagBoard || data.kind === "notes") {
@@ -860,16 +907,16 @@ function buildClientScript() {
         if (isTagBoard) {
           addColToolSvg(ttools, "plus", "Add header to this note", function (e) {
             e.stopPropagation();
-            callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id });
+            handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id }));
           });
         }
         addColToolSvg(ttools, "edit", "Rename note", function (e) {
           e.stopPropagation();
-          callPlugin("renameNote", { tabId: STATE.activeTabId, columnId: col.id });
+          handlePluginResult(callPlugin("renameNote", { tabId: STATE.activeTabId, columnId: col.id }));
         });
         addColToolSvg(ttools, "trash", "Delete note (move to Trash)", function (e) {
           e.stopPropagation();
-          callPlugin("deleteNote", { tabId: STATE.activeTabId, columnId: col.id, noteUUID: col.noteUUID, noteName: col.name });
+          handlePluginResult(callPlugin("deleteNote", { tabId: STATE.activeTabId, columnId: col.id, noteUUID: col.noteUUID, noteName: col.name }));
         });
         head.appendChild(ttools);
       }
@@ -881,7 +928,7 @@ function buildClientScript() {
         count.title = "Set WIP limit";
         count.addEventListener("click", function (e) {
           e.stopPropagation();
-          callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id });
+          handlePluginResult(callPlugin("setWipLimit", { tabId: STATE.activeTabId, columnId: col.id }));
         });
       }
       actionsWrap.appendChild(count);
@@ -1002,15 +1049,15 @@ function buildClientScript() {
             });
             addColToolSvg(sectools, "edit", "Rename header", function (e) {
               e.stopPropagation();
-              callPlugin("renameColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
+              handlePluginResult(callPlugin("renameColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id }));
             });
             addColToolSvg(sectools, "transfer", "Move header to another note / tab", function (e) {
               e.stopPropagation();
-              callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
+              handlePluginResult(callPlugin("moveColumnToTab", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id }));
             });
             addColToolSvg(sectools, "trash", "Delete header (tasks move to previous header)", function (e) {
               e.stopPropagation();
-              callPlugin("deleteColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
+              handlePluginResult(callPlugin("deleteColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id }));
             });
             secHead.appendChild(sectools);
           }
@@ -1112,9 +1159,9 @@ function buildClientScript() {
 
     addHeaderCardEl.addEventListener("click", function () {
       if (isNoteTab) {
-        callPlugin("createColumn", { tabId: STATE.activeTabId });
+        handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId }));
       } else {
-        callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+        handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
       }
     });
     addGroupEl.appendChild(addHeaderCardEl);
@@ -1149,7 +1196,7 @@ function buildClientScript() {
             }
           });
         } else {
-          callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+          handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
         }
       }
     });
@@ -1191,7 +1238,7 @@ function buildClientScript() {
                 }
               });
             } else {
-              callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+              handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
             }
           }
         });
@@ -1202,9 +1249,9 @@ function buildClientScript() {
         emptyAddHBtn.textContent = isNoteTab ? "+ Add Header" : "+ Add Note";
         emptyAddHBtn.addEventListener("click", function () {
           if (isNoteTab) {
-            callPlugin("createColumn", { tabId: STATE.activeTabId });
+            handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId }));
           } else {
-            callPlugin("createColumnNote", { tabId: STATE.activeTabId });
+            handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
           }
         });
         actionsWrap.appendChild(emptyAddHBtn);
@@ -1275,7 +1322,7 @@ function buildClientScript() {
       atBtn.title = "Set task date (@)";
       atBtn.addEventListener("click", function (e) {
         e.stopPropagation();
-        callPlugin("quickSetDate", { cardId: card.id });
+        handlePluginResult(callPlugin("quickSetDate", { cardId: card.id, tabId: STATE.activeTabId }));
       });
       actions.appendChild(atBtn);
     }
@@ -1298,7 +1345,7 @@ function buildClientScript() {
     moreBtn.appendChild(svg("more"));
     moreBtn.addEventListener("click", function (e) {
       e.stopPropagation();
-      callPlugin("cardMenu", { cardId: card.id });
+      handlePluginResult(callPlugin("cardMenu", { cardId: card.id, tabId: STATE.activeTabId }));
     });
     actions.appendChild(moreBtn);
     cardEl.appendChild(actions);
@@ -1465,7 +1512,7 @@ function buildClientScript() {
         return;
       }
 
-      callPlugin("editCard", { cardId: card.id });
+      handlePluginResult(callPlugin("editCard", { cardId: card.id, tabId: STATE.activeTabId }));
     });
 
     return cardEl;
@@ -1797,7 +1844,7 @@ function buildClientScript() {
     var saveSortBtn = document.getElementById("kb-save-sort-btn");
     if (saveSortBtn) {
       saveSortBtn.addEventListener("click", function () {
-        callPlugin("saveSortToNote", { tabId: STATE.activeTabId, sortMode: sortMode });
+        handlePluginResult(callPlugin("saveSortToNote", { tabId: STATE.activeTabId, sortMode: sortMode }));
       });
     }
 
@@ -4937,7 +4984,7 @@ async function handleCloseTab(app, payload) {
   if (!tabId) return;
   const config = removeTab(await loadTabsConfig(app), tabId);
   await saveTabsConfig(app, config);
-  await rerender(app);
+  return { ok: true, tabId };
 }
 async function handleMoveTabDir(app, payload) {
   const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
@@ -4949,7 +4996,6 @@ async function handleMoveTabDir(app, payload) {
   const target = direction === "left" ? index - 1 : index + 1;
   if (target < 0 || target >= config.tabs.length) return;
   await saveTabsConfig(app, moveTab(config, index, target));
-  await rerender(app);
 }
 async function handleSetDateFormat(app) {
   const settings = await loadPluginSettings(app);
@@ -4973,6 +5019,13 @@ async function resolveNoteTab(app, payload) {
   if (tab.kind === "note" && !tab.noteUUID) return null;
   if ((tab.kind === "tag" || tab.kind === "notes") && !tab.tag) return null;
   return tab;
+}
+async function resolveCurrentBoardTab(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (tab) return tab;
+  const config = await loadTabsConfig(app);
+  const targetId = payload?.tabId || config.activeTabId;
+  return config.tabs.find((t) => t.id === targetId) || null;
 }
 async function isLastColumn(app, noteUUID, columnId, columnName) {
   if (columnName && /^(done|completed|finished|closed|archive)/i.test(String(columnName).trim())) {
@@ -5340,7 +5393,9 @@ async function handleEditTaskDetails(app, payload) {
       console.error("Failed to relocate task to heading section:", err);
     }
   }
-  await rerender(app);
+  const tab = await resolveCurrentBoardTab(app, payload);
+  const board = tab ? await buildSingleBoard(app, tab) : null;
+  return { ok: true, tabId: tab?.id, board };
 }
 async function handleEditCard(app, payload) {
   return handleEditTaskDetails(app, payload);
@@ -5400,7 +5455,10 @@ async function handleCreateColumn(app, payload) {
   if (!name || !String(name).trim()) return;
   const level = levelRaw ? parseInt(String(levelRaw), 10) || null : null;
   const created = await createColumn(app, noteUUID, String(name).trim(), level);
-  if (created) await rerender(app);
+  if (created) {
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, tabId: tab.id, board };
+  }
 }
 async function handleCreateColumnNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -5423,25 +5481,29 @@ async function handleCreateColumnNote(app, payload) {
   const tags = String(tagsRaw !== void 0 && tagsRaw !== null ? tagsRaw : defaultTag).split(/[,;\s]+/).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
   const noteUUID = await createTaggedNote(app, String(title).trim(), tags);
   if (noteUUID) {
-    await rerender(app);
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, tabId: tab.id, board };
   }
 }
 async function handleRenameColumn(app, payload) {
   const resolved = await resolveHeading(app, payload);
   if (!resolved) return;
-  const { noteUUID, columnId, columnName } = resolved;
+  const { tab, noteUUID, columnId, columnName } = resolved;
   const result = await app.prompt("Rename Column / Header", {
     inputs: [{ label: "Name:", type: "text", value: columnName }]
   });
   const name = firstValue(result);
   if (!name || !String(name).trim() || String(name) === columnName) return;
   const renamed = await renameColumn(app, noteUUID, columnId, name);
-  if (renamed) await rerender(app);
+  if (renamed) {
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, tabId: tab.id, board };
+  }
 }
 async function handleDeleteColumn(app, payload) {
   const resolved = await resolveHeading(app, payload);
   if (!resolved) return;
-  const { noteUUID, columnId, columnName } = resolved;
+  const { tab, noteUUID, columnId, columnName } = resolved;
   const result = await app.prompt(`Delete "${columnName}"?`, {
     inputs: [
       {
@@ -5453,7 +5515,10 @@ async function handleDeleteColumn(app, payload) {
   });
   if (firstValue(result) !== true) return;
   const deleted = await deleteColumn(app, noteUUID, columnId);
-  if (deleted) await rerender(app);
+  if (deleted) {
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, tabId: tab.id, board };
+  }
 }
 async function handleMoveColumn(app, payload) {
   const resolved = await resolveHeading(app, payload);
@@ -5495,7 +5560,8 @@ async function handleSetWipLimit(app, payload) {
   else delete limits[columnName];
   storedTab.columnLimits = limits;
   await saveTabsConfig(app, config);
-  await rerender(app);
+  const board = await buildSingleBoard(app, storedTab);
+  return { ok: true, tabId: tab.id, board, columnLimits: limits };
 }
 function parseDateToUnixSeconds(val) {
   if (val === null || val === void 0) return null;
@@ -5599,22 +5665,24 @@ async function handleCardMenu(app, payload) {
   if (!choice) return;
   if (choice === "complete") {
     await app.updateTask(cardId, { completedAt: Math.floor(Date.now() / 1e3), dismissedAt: null });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "uncomplete") {
     await app.updateTask(cardId, { completedAt: null, dismissedAt: null });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "dismiss") {
     await app.updateTask(cardId, { dismissedAt: isDismissed ? null : Math.floor(Date.now() / 1e3), completedAt: null });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "edit_details") {
-    await handleEditTaskDetails(app, { cardId });
-    return;
+    return await handleEditTaskDetails(app, { cardId, tabId: payload?.tabId });
   }
   if (choice === "label") {
     const handle = firstValue(await app.prompt("Add label", {
@@ -5622,8 +5690,9 @@ async function handleCardMenu(app, payload) {
     }));
     if (!handle || !handle.name) return;
     await addLabelToTask(app, cardId, handle.name);
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "date") {
     const currentVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
@@ -5638,8 +5707,9 @@ async function handleCardMenu(app, payload) {
     const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
     const startAt = combineDateAndTime(dateRaw, timeRaw);
     await app.updateTask(cardId, { startAt });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "snooze") {
     const currentVal = typeof task.hideUntil === "number" && task.hideUntil > 0 ? Math.floor(task.hideUntil) : null;
@@ -5654,8 +5724,9 @@ async function handleCardMenu(app, payload) {
     const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
     const hideUntil = combineDateAndTime(dateRaw, timeRaw);
     await app.updateTask(cardId, { hideUntil });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "timeblock") {
     const sVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
@@ -5675,8 +5746,9 @@ async function handleCardMenu(app, payload) {
     const startAt = combineDateAndTime(sDate, sT);
     const endAt = combineDateAndTime(eDate, eT);
     await app.updateTask(cardId, { startAt, endAt });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
   if (choice === "note") {
     const defaultTitle = String(task.content || "").replace(/\[\[[^\]]+\]\]/g, "").replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
@@ -5691,8 +5763,9 @@ async function handleCardMenu(app, payload) {
     if (!uuid) return;
     const noteLink = `[${title.trim()}](https://www.amplenote.com/notes/${uuid})`;
     await app.updateTask(cardId, { content: noteLink });
-    await rerender(app);
-    return;
+    const tab = await resolveCurrentBoardTab(app, payload);
+    const board = tab ? await buildSingleBoard(app, tab) : null;
+    return { ok: true, tabId: tab?.id, board };
   }
 }
 async function handleSaveSortToNote(app, payload) {
@@ -5719,7 +5792,8 @@ async function handleSaveSortToNote(app, payload) {
   const ok = await sortTasksInNoteMarkdown(app, tab.noteUUID, sortMode);
   if (ok) {
     await app.alert(`Task order sorted by "${sortMode}" saved to note!`);
-    await rerender(app);
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, tabId: tab.id, board };
   }
 }
 async function handleGlobalSearch(app, payload) {
@@ -5773,7 +5847,10 @@ async function handleMoveColumnToTab(app, payload) {
   }));
   if (confirmed !== true) return;
   const status = await transferColumn(app, noteUUID, columnId, targetUUID);
-  if (status === "moved") await rerender(app);
+  if (status === "moved") {
+    const board = await buildSingleBoard(app, tab);
+    return { ok: true, tabId: tab.id, board };
+  }
 }
 async function handleRenameNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -5787,7 +5864,8 @@ async function handleRenameNote(app, payload) {
   }));
   if (!name || !String(name).trim() || String(name) === current) return;
   await app.setNoteName({ uuid: noteUUID }, String(name).trim());
-  await rerender(app);
+  const board = await buildSingleBoard(app, tab);
+  return { ok: true, tabId: tab.id, board };
 }
 async function handleDeleteNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -5818,7 +5896,8 @@ async function handleDeleteNote(app, payload) {
   } catch (err) {
     console.error("Failed to delete note:", err);
   }
-  await rerender(app);
+  const board = await buildSingleBoard(app, tab);
+  return { ok: true, tabId: tab.id, board };
 }
 async function handleReorderTabs(app, payload) {
   const { fromIndex, toIndex } = payload || {};
@@ -5859,7 +5938,9 @@ async function handleQuickSetDate(app, payload) {
   const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
   const startAt = combineDateAndTime(dateRaw, timeRaw);
   await app.updateTask(cardId, { startAt });
-  await rerender(app);
+  const tab = await resolveCurrentBoardTab(app, payload);
+  const board = tab ? await buildSingleBoard(app, tab) : null;
+  return { ok: true, tabId: tab?.id, board };
 }
 var ACTIONS = {
   ping: handlePing,
