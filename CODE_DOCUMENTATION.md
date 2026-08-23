@@ -176,11 +176,23 @@ Amplenote tasks map into rich card objects with all native metadata:
    - Reads fresh markdown from note.
    - Locates target heading span and source task line.
    - Computes single-line relocation diff and writes back via `app.replaceNoteContent`.
-2. **Markdown Task Sorting (`sortTasksInNoteMarkdown`)**:
+2. **Contextual Task Creation (`createTaskInColumn`) & Content Isolation**:
+   - Handles both note-level (Unsorted) and heading-level task creation across all board types.
+   - **Non-Task Text Safeguard & Strict Syntax Validation**: `findTaskLines` strictly enforces that only genuine markdown task checkbox lines (`^\s*[-*+]\s*\[[ xX]\]`) can be matched for tasks. Regular note text, paragraphs, descriptions, headers, or quotes under headings or at note preambles are **never** matched as tasks, never deleted, and never pulled into task content.
+   - **Blank Line Text Separation (`insertUnderHeading`)**: When creating a task under a heading or at note preamble, if the following line is regular non-task text, the insertion logic automatically injects a blank line (`""`) after the task line. This prevents Amplenote's native markdown parser from interpreting subsequent text as the task's body/description.
+   - **Backend Task Content Enforcement**: `createTaskInColumn` invokes `app.updateTask(taskUuid, { content })` immediately after creation, guaranteeing that the task entity in Amplenote's database strictly matches the user's input.
+   - **Beside Note in Tag/Notes Tab (Guaranteed Line 0 Preamble)**: When inserting at the note level (Unsorted), if the note begins with a heading, `createTaskInColumn` safely relocates the task line to **line 0** (the very start of the note, before any `# Heading`).
+   - **Beside Heading in Tag/Notes/Note Tab**: Resolves target heading span and positions the new task directly underneath the heading line (`insertUnderHeading`), guaranteeing existing text below the heading remains 100% intact.
+   - **Resilient Fallback**: If Amplenote has not indexed the newly inserted task comment in `getNoteContent` yet, the fallback checks strictly for matching task lines or uuid before moving.
+3. **Markdown Task Sorting (`sortTasksInNoteMarkdown`)**:
    - Triggered only via the explicit user action `handleSaveSortToNote`.
    - Reads note markdown and tasks via `app.getNoteTasks`.
    - Groups tasks under each heading section and sorts task lines in place according to `sortMode` (`score`, `startDate`, `important`, `urgent`).
    - Writes sorted markdown back to the note safely.
+4. **Collision-Free Tool Layouts & Hover Overlays (`ui/boardTemplate.js`)**:
+   - `.kb-col-tools` and `.kb-section-tools` use absolute floating placement (`right: 58px` and `right: 32px`), hovering over the right edge of title text on hover.
+   - The card count badges and `+` Add Card buttons at the right of columns and sections remain 100% visible, unblocked, and clickable at all times.
+   - Column titles and section titles use sleek single-line text truncation (`white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`) to prevent tall empty header space, while providing native browser `title` tooltips displaying full note/heading names on hover.
 
 ---
 

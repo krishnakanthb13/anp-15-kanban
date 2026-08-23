@@ -930,10 +930,13 @@ function buildClientScript() {
           var secEl = el("div", "kb-section" + (sec.level ? " kb-section-h" + sec.level : ""));
           var secHead = el("div", "kb-section-head");
           var tw = el("div", "kb-section-titlewrap");
+          tw.title = sec.name;
           var toggleIcon = el("span", "kb-section-toggle");
           toggleIcon.appendChild(svg(isCollapsed ? "chevronRightSolid" : "chevronDownSolid"));
           tw.appendChild(toggleIcon);
-          tw.appendChild(el("span", "kb-section-title", sec.name + " (" + secCards.length + ")"));
+          var secTitleEl = el("span", "kb-section-title", sec.name + " (" + secCards.length + ")");
+          secTitleEl.title = sec.name;
+          tw.appendChild(secTitleEl);
           secHead.appendChild(tw);
 
           var secActions = el("div", "kb-section-actions");
@@ -1019,7 +1022,7 @@ function buildClientScript() {
             secAdd.appendChild(svg("plus"));
             secAdd.addEventListener("click", function (e) {
               e.stopPropagation();
-              var p = callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
+              var p = callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id, sectionName: sec.name });
               if (p && typeof p.then === "function") {
                 p.then(function (res) {
                   if (res && res.board && res.tabId) {
@@ -1242,15 +1245,16 @@ function buildClientScript() {
       cardEl.style.marginLeft = Math.min(depth * 8, 28) + "px";
     }
 
-    // Badges (Urgent, Important, Score [if != 1.0], Parent Subtasks, Child Subtask)
-    var showScore = card.score !== null && card.score !== undefined && !Number.isNaN(Number(card.score)) && Math.abs(Number(card.score) - 1.0) > 0.001;
+    // Badges (Urgent, Important, Score [if != 1.0 and != 0.0], Parent Subtasks, Child Subtask)
+    var numScore = card.score !== null && card.score !== undefined ? Number(card.score) : NaN;
+    var showScore = !Number.isNaN(numScore) && Math.abs(numScore - 1.0) > 0.001 && Math.abs(numScore - 0.0) > 0.001;
     var hasBadges = card.urgent || card.important || showScore || card.isParent || depth > 0;
     if (hasBadges) {
       var badges = el("div", "kb-task-badges");
       if (card.urgent) badges.appendChild(el("span", "kb-badge kb-badge-urgent", "\\uD83D\\uDD25 Urgent"));
       if (card.important) badges.appendChild(el("span", "kb-badge kb-badge-important", "\\u2B50 Important"));
       if (showScore) {
-        badges.appendChild(el("span", "kb-badge kb-badge-score", "\\uD83C\\uDFAF " + Number(card.score).toFixed(1)));
+        badges.appendChild(el("span", "kb-badge kb-badge-score", "\\uD83C\\uDFAF " + numScore.toFixed(1)));
       }
       if (card.isParent) {
         badges.appendChild(el("span", "kb-badge kb-badge-parent", "\\uD83D\\uDCCB Parent Task"));
@@ -2740,7 +2744,7 @@ function buildBaseCss() {
         align-items: center;
         gap: 5px;
         flex-shrink: 0;
-        margin-left: auto;
+        margin-left: 4px;
     }
     .kb-count {
         font-size: 11px;
@@ -2936,13 +2940,15 @@ function buildBaseCss() {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        flex: 1 1 auto;
+        min-width: 0;
     }
     .kb-section-actions {
         display: flex;
         align-items: center;
         gap: 4px;
         flex-shrink: 0;
-        margin-left: auto;
+        margin-left: 4px;
     }
     .kb-section-tools {
         position: absolute;
@@ -4035,10 +4041,10 @@ function findTaskLines(lines, tasks) {
         found = i;
         break;
       }
-      if (task.content) {
+      if (task.content && /^\s*[-*+]\s*\[[ xX]\]/.test(line)) {
         const cleanTaskContent = String(task.content).trim();
-        const cleanLineContent = line.replace(/^[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
-        if (cleanTaskContent && (cleanLineContent === cleanTaskContent || line.indexOf(cleanTaskContent) !== -1)) {
+        const cleanLineContent = line.replace(/^\s*[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
+        if (cleanTaskContent && cleanLineContent === cleanTaskContent) {
           found = i;
           break;
         }
@@ -4125,7 +4131,12 @@ function removeLine(lines, taskLineIndex) {
   return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
 }
 function insertUnderHeading(lines, span, taskLine) {
-  return [...lines.slice(0, span.startLine + 1), taskLine, ...lines.slice(span.startLine + 1)];
+  const insertIndex = span.startLine + 1;
+  const nextLine = lines[insertIndex];
+  if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
+    return [...lines.slice(0, insertIndex), taskLine, "", ...lines.slice(insertIndex)];
+  }
+  return [...lines.slice(0, insertIndex), taskLine, ...lines.slice(insertIndex)];
 }
 function resolveSpan(spans, columnId, columnName) {
   if (!spans || !spans.length) return null;
@@ -4192,7 +4203,12 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   }
   if (target.columnId === "unsorted" || target.columnName === "Unsorted") {
     const insertAt = columns[0] ? Math.max(0, columns[0].startLine) : 0;
-    next.splice(insertAt, 0, taskLine);
+    const nextLine = next[insertAt];
+    if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
+      next.splice(insertAt, 0, taskLine, "");
+    } else {
+      next.splice(insertAt, 0, taskLine);
+    }
     await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
     return "moved";
   }
@@ -4224,9 +4240,56 @@ async function createTaskInColumn(app, noteUUID, target, content) {
       targetName = null;
     }
   }
-  const taskUuid = await app.insertTask({ uuid: noteUUID }, { content: String(content || "") });
+  const cleanInputContent = String(content || "").trim();
+  const taskUuid = await app.insertTask({ uuid: noteUUID }, { content: cleanInputContent });
   if (!taskUuid) return null;
-  if (target?.columnId === "unsorted") {
+  try {
+    await app.updateTask(taskUuid, { content: cleanInputContent });
+  } catch {
+  }
+  const isUnsorted = target?.columnId === "unsorted" || target?.columnName === "Unsorted" || !target?.columnId;
+  if (isUnsorted) {
+    try {
+      const { markdown, lines } = await readNote(app, noteUUID);
+      let cleanLines = lines.map((l) => String(l || "").replace(/\r/g, ""));
+      let taskObj = null;
+      try {
+        taskObj = await app.getTask(taskUuid);
+      } catch {
+        taskObj = null;
+      }
+      const [taskIdx] = findTaskLines(cleanLines, [{ uuid: taskUuid, content: taskObj?.content || cleanInputContent }]).values();
+      const taskLine = `- [ ] ${cleanInputContent} <!-- {"uuid":"${taskUuid}"} -->`;
+      if (taskIdx !== void 0 && taskIdx > 0) {
+        let next = removeLine(cleanLines, taskIdx);
+        const nextLine = next[0];
+        if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
+          next.unshift(taskLine, "");
+        } else {
+          next.unshift(taskLine);
+        }
+        await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
+      } else if (taskIdx === void 0 || taskIdx < 0) {
+        const existingIdx = cleanLines.findIndex((l) => {
+          if (l.includes(taskUuid)) return true;
+          if (!/^\s*[-*+]\s*\[[ xX]\]/.test(l)) return false;
+          const clean = l.replace(/^\s*[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
+          return cleanInputContent && clean === cleanInputContent;
+        });
+        if (existingIdx !== -1) {
+          cleanLines.splice(existingIdx, 1);
+        }
+        const nextLine = cleanLines[0];
+        if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
+          cleanLines.unshift(taskLine, "");
+        } else {
+          cleanLines.unshift(taskLine);
+        }
+        await app.replaceNoteContent({ uuid: noteUUID }, cleanLines.join("\n"));
+      }
+    } catch (error) {
+      console.error("createTaskInColumn unsorted relocate failed:", error);
+    }
     return taskUuid;
   }
   try {
@@ -4234,18 +4297,23 @@ async function createTaskInColumn(app, noteUUID, target, content) {
       columnId: target?.columnId,
       columnName: targetName
     });
-    if (res === "no-task") {
+    if (res === "no-task" || res === "same-column") {
       const { markdown } = await readNote(app, noteUUID);
       const { columns } = buildColumnSpans(markdown);
       const span = resolveSpan(columns, target.columnId, targetName);
       if (span) {
         let lines = markdown.split("\n");
-        const cleanContent = String(content || "").trim();
-        const preambleIndex = lines.findIndex((l, i) => i < span.startLine && (l.includes(taskUuid) || cleanContent && l.includes(cleanContent)));
+        const preambleIndex = lines.findIndex((l, i) => {
+          if (i >= span.startLine) return false;
+          if (l.includes(taskUuid)) return true;
+          if (!/^\s*[-*+]\s*\[[ xX]\]/.test(l)) return false;
+          const clean = l.replace(/^\s*[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
+          return cleanInputContent && clean === cleanInputContent;
+        });
         if (preambleIndex !== -1) {
           lines.splice(preambleIndex, 1);
         }
-        const taskLine = `- [ ] ${content} <!-- {"uuid":"${taskUuid}"} -->`;
+        const taskLine = `- [ ] ${cleanInputContent} <!-- {"uuid":"${taskUuid}"} -->`;
         lines = insertUnderHeading(lines, span, taskLine);
         await app.replaceNoteContent({ uuid: noteUUID }, lines.join("\n"));
       }
@@ -5033,17 +5101,13 @@ async function handleCreateCard(app, payload) {
       inputs: [{ label: "Task content (markdown):", type: "text" }]
     }));
     if (!content2) return { ok: false, canceled: true };
-    const taskUuid2 = await app.insertTask({ uuid: targetUUID }, { content: content2 });
-    if (taskUuid2 && payload.sectionId && payload.sectionId !== "unsorted" && payload.sectionId !== "main") {
-      try {
-        await moveTaskToColumn(app, targetUUID, taskUuid2, { columnId: payload.sectionId });
-      } catch (err) {
-        console.error("Failed to position new task under section:", err);
-      }
-    }
+    const targetSection = payload.sectionId ? { columnId: payload.sectionId, columnName: payload.sectionName } : { columnId: "unsorted", columnName: "Unsorted" };
+    const taskUuid2 = await createTaskInColumn(app, targetUUID, targetSection, content2);
     const board2 = await buildSingleBoard(app, tab);
     if (taskUuid2 && board2 && Array.isArray(board2.columns)) {
-      const alreadyInBoard = board2.columns.some((col) => (col.cards || []).some((c) => c.id === taskUuid2 || c.uuid === taskUuid2) || (col.sections || []).some((sec) => (sec.cards || []).some((c) => c.id === taskUuid2 || c.uuid === taskUuid2)));
+      const alreadyInBoard = board2.columns.some(
+        (col) => (col.cards || []).some((c) => c.id === taskUuid2 || c.uuid === taskUuid2) || (col.sections || []).some((sec) => (sec.cards || []).some((c) => c.id === taskUuid2 || c.uuid === taskUuid2))
+      );
       if (!alreadyInBoard) {
         const targetCol = board2.columns.find((c) => c.id === payload.columnId || c.noteUUID === targetUUID) || board2.columns[0];
         if (targetCol) {
@@ -5064,12 +5128,25 @@ async function handleCreateCard(app, payload) {
             tags: [],
             labels: []
           };
-          if (payload.sectionId && Array.isArray(targetCol.sections)) {
+          if (payload.sectionId && payload.sectionId !== "unsorted" && Array.isArray(targetCol.sections)) {
             const sec = targetCol.sections.find((s) => s.id === payload.sectionId) || targetCol.sections[0];
             if (sec) {
               sec.cards = sec.cards || [];
               sec.cards.unshift(newCard);
             }
+          } else if (Array.isArray(targetCol.sections)) {
+            let unsortedSec = targetCol.sections.find((s) => s.id === "unsorted");
+            if (!unsortedSec) {
+              unsortedSec = {
+                id: "unsorted",
+                name: "Unsorted",
+                level: null,
+                cards: []
+              };
+              targetCol.sections.unshift(unsortedSec);
+            }
+            unsortedSec.cards = unsortedSec.cards || [];
+            unsortedSec.cards.unshift(newCard);
           } else {
             targetCol.cards = targetCol.cards || [];
             targetCol.cards.unshift(newCard);

@@ -210,3 +210,17 @@ Across all three tab modes (**Note**, **Tag**, and **Multi-Note / Notes**), the 
 
 **Why:** Different board paradigms represent different structural groupings of work, not different task data. Maintaining 100% feature and visual parity across all tab kinds ensures a predictable, coherent user experience.
 
+---
+
+## 23. Contextual Creation Affordances & Zero-Collision Controls
+
+Task creation is mapped to direct spatial context across the entire board:
+- **Note-Level Creation Affordance**: Clicking the `+` button on a note column header (in Tag and Multi-Note boards) creates the task at the very top of the note (above all headings), cleanly routing it into the **Unsorted** section / top of the card stream.
+- **Heading-Level Creation Affordance**: Clicking the `+` button beside any heading or section header (in Note, Tag, or Multi-Note boards) places the task directly underneath that specific heading line in the note markdown (with clean text separation), rendering it immediately at the top of that heading's cards (index 0).
+- **Non-Task Text Isolation**: Creating a task never merges, absorbs, or overwrites neighboring note descriptions or paragraph text. Tasks and subsequent paragraphs are separated by newline spacing, preventing Amplenote from treating user notes as task content.
+- **Collision-Free Tool Layouts**: Hover toolbars (`.kb-col-tools` and `.kb-section-tools`) float over title text at `right: 58px` and `right: 32px`, ensuring that toolbars fade into view gracefully without ever masking, clipping, or blocking the `+` Add Card button or card counters.
+- **Zero-Waste Header Density**: Column titles and section headers maintain clean single-line truncation with native title tooltips, preventing excessive vertical blank space while preserving 1-hover full title inspection.
+
+**Why:** Users should have immediate, 1-click precision over where a new task lands without filling out multiple modal dropdowns. Pairing intuitive spatial insertion points with strict text isolation and non-blocking hover controls guarantees a fast, frictionless, and data-safe authoring experience.
+
+

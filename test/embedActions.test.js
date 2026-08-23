@@ -349,10 +349,22 @@ describe("embedActions", () => {
       expect(app.updateTask).not.toHaveBeenCalled();
     });
 
-    it("createCard creates a task in the target note column", async () => {
+    it("createCard beside note creates a task at start of note (unsorted)", async () => {
       const app = tagApp();
-      await handleCreateCard(app, { tabId: "tg", columnId: "note:n2" });
+      const res = await handleCreateCard(app, { tabId: "tg", columnId: "note:n2" });
       expect(app.insertTask).toHaveBeenCalledWith({ uuid: "n2" }, { content: "typed content" });
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tg", board: expect.any(Object) }));
+    });
+
+    it("createCard beside section header creates a task relocated under that header", async () => {
+      const app = tagApp();
+      app.getNoteContent = jest.fn().mockResolvedValue("# Header A\n- [ ] Task 1\n# Header B\n");
+      app.insertTask = jest.fn().mockResolvedValue("new-task-uuid");
+      app.getTask = jest.fn().mockResolvedValue({ uuid: "new-task-uuid", content: "typed content" });
+      const res = await handleCreateCard(app, { tabId: "tg", columnId: "note:n1", sectionId: "3", sectionName: "Header B" });
+      expect(app.insertTask).toHaveBeenCalledWith({ uuid: "n1" }, { content: "typed content" });
+      expect(app.replaceNoteContent).toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tg", board: expect.any(Object) }));
     });
 
     it("openCard navigates to the note", async () => {

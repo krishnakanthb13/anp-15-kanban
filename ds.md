@@ -104,3 +104,9 @@ in note Tab, headers are columns, in tag tab, headers are collapsible sections i
 
 ---
 
+one more set of things we need to implement
+- the + button in different locations needs to do different things
+1. Beside the note in tag, notes Tab - should create a task at the start of the note - will go under unsorted.
+2. Beside the header in tag, notes, note Tab - should create a task under that header - it should be just below the header in the view as well as the markdown file - with a newline.
+
+---

@@ -158,6 +158,38 @@ describe("taskOps", () => {
       expect(written).toContain("# Beta\n- [ ] New card");
     });
 
+    it("relocates task to line 0 (before headers) when target is unsorted", async () => {
+      // Simulate Amplenote placing the task below the first header
+      const mdWithNew = [
+        "# Alpha",
+        "- [ ] New card <!-- {\"uuid\":\"new-task\"} -->",
+        "# Beta",
+      ].join("\n");
+      const app = makeApp(mdWithNew);
+      const uuid = await createTaskInColumn(app, "n1", { columnId: "unsorted" }, "New card");
+
+      expect(uuid).toBe("new-task");
+      expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written.startsWith("- [ ] New card")).toBe(true);
+    });
+
+    it("preserves existing text under header when creating task in column", async () => {
+      const mdWithText = [
+        "- [ ] New card <!-- {\"uuid\":\"new-task\"} -->",
+        "# Alpha",
+        "Here is some testing notes and description.",
+        "# Beta",
+      ].join("\n");
+      const app = makeApp(mdWithText);
+      const uuid = await createTaskInColumn(app, "n1", { columnId: "1" }, "testing");
+
+      expect(uuid).toBe("new-task");
+      expect(app.updateTask).toHaveBeenCalledWith("new-task", { content: "testing" });
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toContain("# Alpha\n- [ ] New card <!-- {\"uuid\":\"new-task\"} -->\n\nHere is some testing notes and description.");
+    });
+
     it("tolerates relocation failure and still returns the uuid", async () => {
       const app = makeApp();
       app.getNoteContent

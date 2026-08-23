@@ -180,7 +180,7 @@ A note board maps one single note onto the board:
 - **Columns** = all headings in the note (`# H1`, `## H2`, `### H3`, etc.) are recognized as distinct columns with clean color-coded level indicator accents (H1 = Theme Accent, H2 = Purple, H3 = Cyan/Teal, H4+ = Emerald) preserving maximum horizontal space for title text.
 - **Cards** = tasks under each heading, in document order. Tasks above the first heading appear in an implicit **Unsorted** column.
 - **Parent & Child Task Hierarchy**: Indented subtasks (4-space standard) render with progressive left tree lines and depth-aware labels (`↳ Child Task`, `↳↳ Child Task`), while containing tasks display `📋 Parent Task`.
-- **Clean Score Badges**: Task score badges (`🎯 Score`) are cleanly hidden for default unscored tasks (`score: 1.0`) and only display when a custom score is assigned.
+- **Clean Score Badges**: Task score badges (`🎯 Score`) are cleanly hidden for default or zero-score tasks (`score: 1.0` and `score: 0.0`) and only display when a custom score is assigned.
 - **Drag & Drop Reordering**:
   - **Cards**: Drag and drop cards across or within columns to physically reposition tasks under target headings in note markdown.
   - **Columns**: Freely drag and drop column headers across any number of positions across the entire board (with zero screen flickering and automatic guardrails protecting `Unsorted` and `Completed`).
@@ -195,7 +195,7 @@ A note board maps one single note onto the board:
   - **Rename Column** (`edit`): Renames the heading text in note markdown.
   - **Move Column to Tab** (`transfer`): Moves heading and its tasks to another note board tab.
   - **Open Note in Amplenote** (`externalLink`): Directly navigates to the source note in Amplenote. Also available via the top toolbar **`↗ Open Note`** button and the tab chip.
-- **`+` on a column header** creates a new task at the top of that column (prompted for markdown content).
+- **`+` on a column header (Note Board)**: Creates a new task directly under that specific heading, placed immediately below the header line in markdown and at the top of that column.
 - **`+ Add Task` card at the right end of the board**: Click to instantly add a task at the top of the note (automatically placed in the **Unsorted** column).
 - **`+ Add Header` card at the right end of the board**: Click to create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
 - **Click a card** opens the dedicated task editor dialog:
@@ -218,6 +218,9 @@ The second kind groups notes by an Amplenote tag:
   1. **Unsorted Section**: Automatically captures active tasks above the first heading in that note.
   2. **Active Heading Sections**: Each heading in the note renders as an individual collapsible section (`▼ / ▶`) with color-coded level indicators (`H1`, `H2`, `H3`), section title, card count, and action buttons.
   3. **Completed Section**: Gathers all completed/dismissed tasks from the note into a pinned bottom section. Dragging a card into this section marks it completed; dragging it back out reopens it.
+- **Contextual Task Creation (`+`)**:
+  - **Beside the Note Title (`+` on Note Column Header)**: Creates a new task at the very start of the note (above all headings), automatically landing under **Unsorted**.
+  - **Beside a Heading Section (`+` on Section Header)**: Inserts a task directly under that specific heading, placed right below the header line in the note's markdown and positioned at the top of that section's cards.
 - **Full Header Management on Every Section**:
   - **Move Header Up / Down** (`chevronUp` / `chevronDown`): Reorders the heading in the note's markdown with instant update and zero screen flash (with Unsorted/Completed boundary guardrails).
   - **Rename Header** (`edit`): Renames the heading line in place.
@@ -225,7 +228,8 @@ The second kind groups notes by an Amplenote tag:
   - **Delete Header** (`trash`): Confirms and deletes the heading line, safely relocating all its tasks to the previous heading in that note.
   - **Add Task** (`+`): Inserts a task directly under that specific heading section.
 - **Column Header Actions**:
-  - **Add Header to Note** (`+`): Appends a new heading section to that note with heading level selection (H1, H2, H3).
+  - **Add Task to Note (`+`)**: Inserts a task at the top of the note (placed under Unsorted).
+  - **Add Header to Note** (`plus` tool): Appends a new heading section to that note with heading level selection (H1, H2, H3).
   - **Rename Note** (`edit`): Renames the note title in Amplenote.
   - **Open Note in Amplenote** (`externalLink`): Navigates to the note in the main editor.
   - **Delete Note** (`trash`): Safely moves the note to Amplenote Trash with confirmation.
@@ -239,8 +243,11 @@ The third kind maps a tag where notes act as columns and active tasks inside eac
 - **Columns** = notes carrying the selected tag (one column per project/client note).
 - **Cards** = all **active tasks** inside that note listed flatly without heading breakdown (completed tasks are omitted to keep project pipelines clean and actionable).
 - **Drag & drop** between columns moves the task to that note natively (`app.updateTask({ noteUUID })`), without touching markdown formatting.
-- **Column Header Actions**: rename note (✎), delete note to Trash (🗑), or open note in Amplenote (↗).
-- **`+` on a column header** inserts a task directly into the target note.
+- **Column Header Actions**:
+  - **Add Task to Note (`+`)**: Inserts a task at the start of the note (top of the column).
+  - **Rename Note** (`edit`): Renames the note title.
+  - **Open Note in Amplenote** (`externalLink`): Navigates to the note in Amplenote.
+  - **Delete Note** (`trash`): Moves note to Trash with confirmation.
 - **Inline `Add Header +` Card in Each Note Column**: Add headings directly to individual project notes from the board.
 - **`+ Add Note` card at the right end of the board**: Click to create a new project/client note with customizable tags.
 
@@ -250,7 +257,7 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 - **✓ Done Timestamp**: Displays exact completed date and time formatted to your settings (e.g. `✓ done 2026-08-22 17:05`).
 - **🔥 Urgent** / **⭐ Important**: Eisenhower priority quadrant badges.
-- **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`), shown only when modified and different from the default `1.0`.
+- **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`), shown only when modified and different from default/zero (`1.0` or `0.0`).
 - **📋 Parent Task**: Displayed when a task has child subtasks (`isParent`).
 - **↳ Child Task**: Displayed when a task is an indented child task (with `↳↳ Child Task` for nested levels and a left accent border).
 - **🏷️ Tag & Label Chips**: Inline `#tag` and `#parent/subtag` hashtags, alongside `[[Note Name]]` labels, rendered as color-coordinated chips matching your Amplenote account palette.

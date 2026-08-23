@@ -104,6 +104,16 @@ describe("markdownIndex", () => {
       expect(columnCards.get("0")).toEqual([]);
       expect(unsorted).toEqual([]);
     });
+
+    it("never matches non-task text/paragraphs as task lines in content fallback", () => {
+      const lines = [
+        "# Header",
+        "Here is some testing notes and description text.",
+        "- [ ] Real Task",
+      ];
+      const taskLines = findTaskLines(lines, [{ uuid: "non-uuid", content: "testing" }]);
+      expect(taskLines.get("non-uuid")).toBe(-1);
+    });
   });
 
   describe("sectionContent / removeLine / insertUnderHeading", () => {
@@ -122,9 +132,12 @@ describe("markdownIndex", () => {
       expect(next).toEqual(["a", "c"]);
     });
 
-    it("insertUnderHeading inserts directly below the heading line", () => {
-      const next = insertUnderHeading(["# A", "x", "# B"], { startLine: 0 }, "NEW");
-      expect(next).toEqual(["# A", "NEW", "x", "# B"]);
+    it("insertUnderHeading inserts directly below the heading line with text separation", () => {
+      const nextWithText = insertUnderHeading(["# A", "x", "# B"], { startLine: 0 }, "NEW");
+      expect(nextWithText).toEqual(["# A", "NEW", "", "x", "# B"]);
+
+      const nextWithTask = insertUnderHeading(["# A", "- [ ] existing", "# B"], { startLine: 0 }, "NEW");
+      expect(nextWithTask).toEqual(["# A", "NEW", "- [ ] existing", "# B"]);
     });
   });
 

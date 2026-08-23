@@ -1,3 +1,14 @@
+## v0.0.32
+
+### 🚀 New Features & Enhancements
+- **Contextual Task Creation (`+`) & Non-Task Text Isolation**:
+  - **Beside Note in Tag / Notes Tab**: Clicking the `+` button on a note column header creates a new task at the very start of the note (line 0, above all headings in markdown), guaranteeing it automatically places under **Unsorted** even if the note begins with a heading.
+  - **Beside Heading in Tag, Notes, Note Tab**: Clicking the `+` button beside any heading or section header inserts the task directly underneath that specific heading in markdown, rendering it immediately at the top of that column/section.
+  - **Non-Task Text Isolation**: Automatically inserts clean blank line separation between new tasks and subsequent paragraph text, preventing Amplenote's native parser from merging user descriptions into task content.
+  - **Backend Content Enforcement**: Immediately updates task content via `app.updateTask` upon creation to guarantee 1-to-1 data fidelity.
+- **Unblocked Action Controls & Floating Tool Overlays**: Refactored `.kb-col-tools` and `.kb-section-tools` to float over title text on hover (`right: 58px` and `right: 32px`), ensuring tools fade into view cleanly without ever masking or blocking the `+` Add Card button or card counters.
+- **Zero-Waste Header Density**: Column titles and section headers maintain clean single-line truncation with native title tooltips, eliminating wasted vertical space.
+
 ## v0.0.29
 
 ### 🚀 New Features & Enhancements
