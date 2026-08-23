@@ -16,10 +16,10 @@ function makeApp(tasksByNote) {
 }
 
 describe("notesBoard", () => {
-  it("builds one column per tagged note, cards from its tasks", async () => {
+  it("builds one column per tagged note, cards from its active tasks", async () => {
     const app = makeApp({
       na: [{ uuid: "t1", content: "task [[urgent-label]]" }],
-      nb: [{ uuid: "t2", content: "other", completedAt: 1700000000 }],
+      nb: [{ uuid: "t2", content: "active task" }, { uuid: "t3", content: "done", completedAt: 1700000000 }],
     });
     const board = await buildNotesBoard(app, "kanban");
 
@@ -27,7 +27,7 @@ describe("notesBoard", () => {
     expect(board.columns.map(c => c.name)).toEqual(["Project A", "Project B"]);
     expect(board.columns[0].id).toBe(NOTE_PREFIX + "na");
     expect(board.columns[0].cards.map(c => c.id)).toEqual(["t1"]);
-    expect(board.columns[1].cards[0].completedAt).toBe(1700000000);
+    expect(board.columns[1].cards.map(c => c.id)).toEqual(["t2"]);
   });
 
   it("enriches cards with rich HTML and colored labels", async () => {
@@ -42,6 +42,35 @@ describe("notesBoard", () => {
     const app = makeApp({});
     await buildNotesBoard(app, "kanban");
     expect(app.filterNotes).toHaveBeenCalledWith({ tag: "kanban" });
+  });
+
+  it("detects parent and child task hierarchy from markdown indentation", async () => {
+    const app = makeApp({
+      na: [
+        { uuid: "p1", content: "Parent task" },
+        { uuid: "c1", content: "Child task level 1" },
+        { uuid: "c2", content: "Child task level 2" },
+      ],
+    });
+    app.getNoteContent = jest.fn().mockResolvedValue(
+      "- [ ] Parent task <!-- {\"uuid\":\"p1\"} -->\n" +
+      "    - [ ] Child task level 1 <!-- {\"uuid\":\"c1\"} -->\n" +
+      "        - [ ] Child task level 2 <!-- {\"uuid\":\"c2\"} -->\n"
+    );
+
+    const board = await buildNotesBoard(app, "kanban");
+    const cards = board.columns[0].cards;
+    expect(cards[0].isParent).toBe(true);
+    expect(cards[0].subtaskDepth).toBe(0);
+    expect(cards[0].isSubtask).toBe(false);
+
+    expect(cards[1].isParent).toBe(true);
+    expect(cards[1].subtaskDepth).toBe(1);
+    expect(cards[1].isSubtask).toBe(true);
+
+    expect(cards[2].isParent).toBe(false);
+    expect(cards[2].subtaskDepth).toBe(2);
+    expect(cards[2].isSubtask).toBe(true);
   });
 
   it("returns an empty board for a missing tag", async () => {

@@ -1,189 +1,4 @@
 (() => {
-var __defProp = Object.defineProperty;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-
-// anp-15-kanban/lib/api/markdownIndex.js
-var markdownIndex_exports = {};
-__export(markdownIndex_exports, {
-  assignTasksToColumns: () => assignTasksToColumns,
-  buildColumnSpans: () => buildColumnSpans,
-  findColumnLevel: () => findColumnLevel,
-  findTaskLines: () => findTaskLines,
-  insertUnderHeading: () => insertUnderHeading,
-  parseHeadings: () => parseHeadings,
-  removeLine: () => removeLine,
-  resolveSpan: () => resolveSpan,
-  sectionContent: () => sectionContent
-});
-function parseHeadings(markdown) {
-  const headings = [];
-  const lines = String(markdown || "").split("\n");
-  lines.forEach((line, i) => {
-    const clean = line.replace(/\r/g, "").trim();
-    if (!clean) return;
-    if (/^<details/i.test(clean) || /^<summary/i.test(clean) || /^<!--/i.test(clean)) return;
-    const m = clean.match(HEADING_RE);
-    if (m) {
-      const text = m[2].replace(/<[^>]+>/g, "").trim();
-      if (/^completed\s+tasks/i.test(text)) return;
-      headings.push({ lineIndex: i, level: m[1].length, text });
-    }
-  });
-  return headings;
-}
-function findColumnLevel(headings) {
-  if (!headings.length) return null;
-  const levelCounts = {};
-  headings.forEach((h) => {
-    levelCounts[h.level] = (levelCounts[h.level] || 0) + 1;
-  });
-  const minLevel = Math.min(...headings.map((h) => h.level));
-  if (minLevel === 1 && levelCounts[1] === 1 && (levelCounts[2] || 0) >= 2) {
-    return 2;
-  }
-  return minLevel;
-}
-function buildColumnSpans(markdown, columnLevel) {
-  const headings = parseHeadings(markdown);
-  if (!headings.length) return { columns: [], preambleEnd: 0 };
-  const columnHeadings = columnLevel !== void 0 && columnLevel !== null ? headings.filter((h) => h.level === columnLevel) : headings;
-  const totalLines = String(markdown || "").split("\n").length;
-  const columns = columnHeadings.map((h, i) => {
-    const next = columnHeadings[i + 1];
-    const contentEnd = next ? next.lineIndex : totalLines;
-    return {
-      id: String(h.lineIndex),
-      name: h.text,
-      level: h.level,
-      startLine: h.lineIndex,
-      contentStart: h.lineIndex + 1,
-      contentEnd
-    };
-  });
-  const preambleEnd = columns.length ? columns[0].contentStart : 0;
-  return { columns, preambleEnd };
-}
-function findTaskLines(lines, tasks) {
-  const result = /* @__PURE__ */ new Map();
-  if (!Array.isArray(lines) || !Array.isArray(tasks)) return result;
-  for (const task of tasks) {
-    const uuid = task.uuid || task.id;
-    const re = uuid ? UUID_IN_LINE_RE(uuid) : null;
-    let found = -1;
-    for (let i = 0; i < lines.length; i++) {
-      const line = String(lines[i] || "").replace(/\r/g, "");
-      if (re && re.test(line)) {
-        found = i;
-        break;
-      }
-      if (uuid && line.indexOf(uuid) !== -1) {
-        found = i;
-        break;
-      }
-      if (task.content) {
-        const cleanTaskContent = String(task.content).trim();
-        const cleanLineContent = line.replace(/^[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
-        if (cleanTaskContent && (cleanLineContent === cleanTaskContent || line.indexOf(cleanTaskContent) !== -1)) {
-          found = i;
-          break;
-        }
-      }
-    }
-    result.set(uuid || task.content, found);
-  }
-  return result;
-}
-function assignTasksToColumns(columns, lines, tasks, options = {}) {
-  const { separateCompleted = false } = options;
-  const taskLines = findTaskLines(lines, tasks);
-  const columnCards = new Map(columns.map((c) => [c.id, []]));
-  const unsorted = [];
-  const completed = [];
-  for (const task of tasks) {
-    const lineIndex = taskLines.get(task.uuid || task.id);
-    if (lineIndex !== void 0 && lineIndex >= 0) {
-      const rawLine = String(lines[lineIndex] || "");
-      const indentMatch = rawLine.match(/^(\s+)[-*+]\s*\[/);
-      if (indentMatch) {
-        const spaces = indentMatch[1].replace(/\t/g, "    ").length;
-        task.subtaskDepth = spaces >= 4 ? Math.floor(spaces / 4) : 1;
-        task.isSubtask = true;
-      } else {
-        task.subtaskDepth = 0;
-        task.isSubtask = false;
-      }
-    } else {
-      task.subtaskDepth = 0;
-      task.isSubtask = false;
-    }
-    if (separateCompleted && (task.completedAt || task.completed || task.dismissedAt)) {
-      completed.push(task);
-      continue;
-    }
-    if (lineIndex === void 0 || lineIndex < 0) continue;
-    const owner = columns.find((c) => lineIndex >= c.contentStart && lineIndex < c.contentEnd);
-    if (owner) columnCards.get(owner.id).push(task);
-    else unsorted.push(task);
-  }
-  for (const [colId, cardList] of columnCards.entries()) {
-    cardList.sort((a, b) => {
-      const lineA = taskLines.get(a.uuid || a.id) ?? 0;
-      const lineB = taskLines.get(b.uuid || b.id) ?? 0;
-      return lineA - lineB;
-    });
-  }
-  unsorted.sort((a, b) => {
-    const lineA = taskLines.get(a.uuid || a.id) ?? 0;
-    const lineB = taskLines.get(b.uuid || b.id) ?? 0;
-    return lineA - lineB;
-  });
-  completed.sort((a, b) => {
-    const timeA = typeof a.completedAt === "number" ? a.completedAt : 0;
-    const timeB = typeof b.completedAt === "number" ? b.completedAt : 0;
-    return timeB - timeA;
-  });
-  return { columnCards, unsorted, completed };
-}
-function sectionContent(lines, span) {
-  return lines.slice(span.contentStart, span.contentEnd).join("\n");
-}
-function removeLine(lines, taskLineIndex) {
-  return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
-}
-function insertUnderHeading(lines, span, taskLine) {
-  return [...lines.slice(0, span.startLine + 1), taskLine, ...lines.slice(span.startLine + 1)];
-}
-function resolveSpan(spans, columnId, columnName) {
-  if (!spans || !spans.length) return null;
-  const colStr = String(columnId || "");
-  const byId = spans.find((s) => s.id === colStr);
-  if (byId) return byId;
-  if (columnName) {
-    const cleanName = String(columnName).trim().toLowerCase();
-    const byName = spans.find((s) => s.name.trim().toLowerCase() === cleanName);
-    if (byName) return byName;
-  }
-  const idx = parseInt(colStr, 10);
-  if (!Number.isNaN(idx) && idx >= 0 && idx < spans.length) {
-    return spans[idx];
-  }
-  return null;
-}
-var HEADING_RE, UUID_IN_LINE_RE;
-var init_markdownIndex = __esm({
-  "anp-15-kanban/lib/api/markdownIndex.js"() {
-    HEADING_RE = /^(#{1,6})\s+(.*)$/;
-    UUID_IN_LINE_RE = (uuid) => new RegExp(`["']?uuid["']?\\s*:\\s*["']?${uuid}["']?`, "i");
-  }
-});
-
 // anp-15-kanban/lib/core/constants.js
 var SETTINGS_KEYS = {
   tabs: "Kanban Tabs",
@@ -843,6 +658,11 @@ function buildClientScript() {
 
       // Column drag-and-drop
       head.addEventListener("dragstart", function (e) {
+        if (col.id === "unsorted" || col.id === "completed") {
+          e.preventDefault();
+          showToast("Moving " + (col.id === "unsorted" ? "Unsorted" : "Completed") + " column is not allowed");
+          return;
+        }
         dragType = "column";
         dragColId = col.id;
         e.dataTransfer.setData("text/plain", "col::" + col.id);
@@ -885,8 +705,18 @@ function buildClientScript() {
         var rect = colEl.getBoundingClientRect();
         var isAfter = e.clientX > (rect.left + rect.width / 2);
         colEl.classList.remove("kb-col-drop-before", "kb-col-drop-after");
-        if (col.id === "unsorted" && !isAfter) return;
-        if (col.id === "completed" && isAfter) return;
+        if (col.id === "unsorted" && !isAfter) {
+          showToast("Cannot move column before Unsorted");
+          return;
+        }
+        if (col.id === "completed" && isAfter) {
+          showToast("Cannot move column after Completed");
+          return;
+        }
+        if (dragColId === "unsorted" || dragColId === "completed") {
+          showToast("Moving " + (dragColId === "unsorted" ? "Unsorted" : "Completed") + " column is not allowed");
+          return;
+        }
 
         var fromIdx = columns.findIndex(function (c) { return c.id === dragColId; });
         if (fromIdx === -1) return;
@@ -897,12 +727,16 @@ function buildClientScript() {
 
         // Ensure moved column never lands before Unsorted (index 0 if Unsorted exists)
         if (columns[0] && columns[0].id === "unsorted" && insertIdx < 1) {
-          insertIdx = 1;
+          columns.splice(fromIdx, 0, moved);
+          showToast("Cannot move column before Unsorted");
+          return;
         }
         // Ensure moved column never lands after Completed (last index if Completed exists)
         var lastCol = columns[columns.length - 1];
         if (lastCol && lastCol.id === "completed" && insertIdx > columns.length - 1) {
-          insertIdx = columns.length - 1;
+          columns.splice(fromIdx, 0, moved);
+          showToast("Cannot move column after Completed");
+          return;
         }
 
         insertIdx = Math.max(0, Math.min(columns.length, insertIdx));
@@ -951,9 +785,15 @@ function buildClientScript() {
         addColToolSvg(tools, "chevronLeft", "Move column left", function (e) {
           e.stopPropagation();
           var colIdx = columns.findIndex(function (c) { return c.id === col.id; });
-          if (colIdx <= 0) return;
+          if (colIdx <= 0) {
+            showToast("Column is already at the first position");
+            return;
+          }
           var targetIdx = colIdx - 1;
-          if (columns[targetIdx].id === "unsorted") return;
+          if (columns[targetIdx] && columns[targetIdx].id === "unsorted") {
+            showToast("Cannot move column before Unsorted");
+            return;
+          }
 
           var moved = columns.splice(colIdx, 1)[0];
           columns.splice(targetIdx, 0, moved);
@@ -973,9 +813,15 @@ function buildClientScript() {
         addColToolSvg(tools, "chevronRight", "Move column right", function (e) {
           e.stopPropagation();
           var colIdx = columns.findIndex(function (c) { return c.id === col.id; });
-          if (colIdx === -1 || colIdx >= columns.length - 1) return;
+          if (colIdx === -1 || colIdx >= columns.length - 1) {
+            showToast("Column is already at the last position");
+            return;
+          }
           var targetIdx = colIdx + 1;
-          if (columns[targetIdx].id === "completed") return;
+          if (columns[targetIdx] && columns[targetIdx].id === "completed") {
+            showToast("Cannot move column after Completed");
+            return;
+          }
 
           var moved = columns.splice(colIdx, 1)[0];
           columns.splice(targetIdx, 0, moved);
@@ -1093,14 +939,20 @@ function buildClientScript() {
           var secActions = el("div", "kb-section-actions");
 
           // Header tools for Tag tab sections (available for actual note headings)
-          if (sec.id !== "unsorted" && sec.id !== "main") {
+          if (sec.id !== "unsorted" && sec.id !== "main" && sec.id !== "completed") {
             var sectools = el("div", "kb-section-tools");
             addColToolSvg(sectools, "chevronUp", "Move header up", function (e) {
               e.stopPropagation();
               var secIdx = col.sections.findIndex(function (s) { return s.id === sec.id; });
-              if (secIdx <= 0) return;
+              if (secIdx <= 0) {
+                showToast("Header is already at the top");
+                return;
+              }
               var targetIdx = secIdx - 1;
-              if (col.sections[targetIdx].id === "unsorted") return;
+              if (col.sections[targetIdx] && col.sections[targetIdx].id === "unsorted") {
+                showToast("Cannot move header before Unsorted");
+                return;
+              }
 
               var moved = col.sections.splice(secIdx, 1)[0];
               col.sections.splice(targetIdx, 0, moved);
@@ -1108,7 +960,7 @@ function buildClientScript() {
               showToast("Header moved up");
 
               var headingIds = col.sections.filter(function (s) {
-                return s.id !== "unsorted" && s.id !== "main";
+                return s.id !== "unsorted" && s.id !== "main" && s.id !== "completed";
               }).map(function (s) { return s.id; });
 
               callPlugin("reorderColumns", {
@@ -1120,9 +972,15 @@ function buildClientScript() {
             addColToolSvg(sectools, "chevronDown", "Move header down", function (e) {
               e.stopPropagation();
               var secIdx = col.sections.findIndex(function (s) { return s.id === sec.id; });
-              if (secIdx === -1 || secIdx >= col.sections.length - 1) return;
+              if (secIdx === -1 || secIdx >= col.sections.length - 1) {
+                showToast("Header is already at the bottom");
+                return;
+              }
               var targetIdx = secIdx + 1;
-              if (col.sections[targetIdx].id === "completed") return;
+              if (col.sections[targetIdx] && col.sections[targetIdx].id === "completed") {
+                showToast("Cannot move header after Completed");
+                return;
+              }
 
               var moved = col.sections.splice(secIdx, 1)[0];
               col.sections.splice(targetIdx, 0, moved);
@@ -1130,7 +988,7 @@ function buildClientScript() {
               showToast("Header moved down");
 
               var headingIds = col.sections.filter(function (s) {
-                return s.id !== "unsorted" && s.id !== "main";
+                return s.id !== "unsorted" && s.id !== "main" && s.id !== "completed";
               }).map(function (s) { return s.id; });
 
               callPlugin("reorderColumns", {
@@ -1151,26 +1009,28 @@ function buildClientScript() {
               e.stopPropagation();
               callPlugin("deleteColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id, sectionId: sec.id });
             });
-            secActions.appendChild(sectools);
+            secHead.appendChild(sectools);
           }
 
-          var secAdd = el("button", "kb-col-btn");
-          secAdd.type = "button";
-          secAdd.title = "Add task in " + sec.name;
-          secAdd.appendChild(svg("plus"));
-          secAdd.addEventListener("click", function (e) {
-            e.stopPropagation();
-            var p = callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
-            if (p && typeof p.then === "function") {
-              p.then(function (res) {
-                if (res && res.board && res.tabId) {
-                  STATE.boards[res.tabId] = res.board;
-                  renderBoard();
-                }
-              });
-            }
-          });
-          secActions.appendChild(secAdd);
+          if (sec.id !== "completed") {
+            var secAdd = el("button", "kb-col-btn");
+            secAdd.type = "button";
+            secAdd.title = "Add task in " + sec.name;
+            secAdd.appendChild(svg("plus"));
+            secAdd.addEventListener("click", function (e) {
+              e.stopPropagation();
+              var p = callPlugin("createCard", { tabId: STATE.activeTabId, columnId: col.id, sectionId: sec.id });
+              if (p && typeof p.then === "function") {
+                p.then(function (res) {
+                  if (res && res.board && res.tabId) {
+                    STATE.boards[res.tabId] = res.board;
+                    renderBoard();
+                  }
+                });
+              }
+            });
+            secActions.appendChild(secAdd);
+          }
 
           secHead.appendChild(secActions);
 
@@ -2932,7 +2792,7 @@ function buildBaseCss() {
     }
     .kb-col-tools {
         position: absolute;
-        right: 6px;
+        right: 58px;
         top: 50%;
         transform: translateY(-50%);
         display: flex;
@@ -3048,6 +2908,7 @@ function buildBaseCss() {
         flex-shrink: 0;
     }
     .kb-section-head {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -3084,6 +2945,10 @@ function buildBaseCss() {
         margin-left: auto;
     }
     .kb-section-tools {
+        position: absolute;
+        right: 32px;
+        top: 50%;
+        transform: translateY(-50%);
         display: flex;
         align-items: center;
         gap: 1px;
@@ -3095,8 +2960,10 @@ function buildBaseCss() {
         background: var(--kb-bg-card);
         border: 1px solid var(--kb-border);
         box-shadow: 0 1px 3px var(--kb-shadow);
+        z-index: 10;
     }
-    .kb-section:hover .kb-section-tools {
+    .kb-section:hover .kb-section-tools,
+    .kb-section-head:hover .kb-section-tools {
         opacity: 1;
         pointer-events: auto;
     }
@@ -4112,8 +3979,172 @@ async function savePluginSettings(app, updates) {
   return merged;
 }
 
+// anp-15-kanban/lib/api/markdownIndex.js
+var HEADING_RE = /^(#{1,6})\s+(.*)$/;
+var UUID_IN_LINE_RE = (uuid) => new RegExp(`["']?uuid["']?\\s*:\\s*["']?${uuid}["']?`, "i");
+function parseHeadings(markdown) {
+  const headings = [];
+  const lines = String(markdown || "").split("\n");
+  lines.forEach((line, i) => {
+    const clean = line.replace(/\r/g, "").trim();
+    if (!clean) return;
+    if (/^<details/i.test(clean) || /^<summary/i.test(clean) || /^<!--/i.test(clean)) return;
+    const m = clean.match(HEADING_RE);
+    if (m) {
+      const text = m[2].replace(/<[^>]+>/g, "").trim();
+      if (/^completed\s+tasks/i.test(text)) return;
+      headings.push({ lineIndex: i, level: m[1].length, text });
+    }
+  });
+  return headings;
+}
+function buildColumnSpans(markdown, columnLevel) {
+  const headings = parseHeadings(markdown);
+  if (!headings.length) return { columns: [], preambleEnd: 0 };
+  const columnHeadings = columnLevel !== void 0 && columnLevel !== null ? headings.filter((h) => h.level === columnLevel) : headings;
+  const totalLines = String(markdown || "").split("\n").length;
+  const columns = columnHeadings.map((h, i) => {
+    const next = columnHeadings[i + 1];
+    const contentEnd = next ? next.lineIndex : totalLines;
+    return {
+      id: String(h.lineIndex),
+      name: h.text,
+      level: h.level,
+      startLine: h.lineIndex,
+      contentStart: h.lineIndex + 1,
+      contentEnd
+    };
+  });
+  const preambleEnd = columns.length ? columns[0].contentStart : 0;
+  return { columns, preambleEnd };
+}
+function findTaskLines(lines, tasks) {
+  const result = /* @__PURE__ */ new Map();
+  if (!Array.isArray(lines) || !Array.isArray(tasks)) return result;
+  for (const task of tasks) {
+    const uuid = task.uuid || task.id;
+    const re = uuid ? UUID_IN_LINE_RE(uuid) : null;
+    let found = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = String(lines[i] || "").replace(/\r/g, "");
+      if (re && re.test(line)) {
+        found = i;
+        break;
+      }
+      if (uuid && line.indexOf(uuid) !== -1) {
+        found = i;
+        break;
+      }
+      if (task.content) {
+        const cleanTaskContent = String(task.content).trim();
+        const cleanLineContent = line.replace(/^[-*+]\s*\[[ xX]\]\s*/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
+        if (cleanTaskContent && (cleanLineContent === cleanTaskContent || line.indexOf(cleanTaskContent) !== -1)) {
+          found = i;
+          break;
+        }
+      }
+    }
+    result.set(uuid || task.content, found);
+  }
+  return result;
+}
+function detectTaskHierarchy(lines, tasks, taskLines) {
+  if (!tasks || tasks.length === 0) return;
+  const lookup = taskLines || (lines ? findTaskLines(lines, tasks) : /* @__PURE__ */ new Map());
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    const lineIndex = lookup.get(task.uuid || task.id);
+    if (lineIndex !== void 0 && lineIndex >= 0 && lines && lines[lineIndex] !== void 0) {
+      const rawLine = String(lines[lineIndex] || "");
+      const indentMatch = rawLine.match(/^(\s+)[-*+]\s*\[/);
+      if (indentMatch) {
+        const spaces = indentMatch[1].replace(/\t/g, "    ").length;
+        task.subtaskDepth = spaces >= 4 ? Math.floor(spaces / 4) : 1;
+        task.isSubtask = true;
+      } else {
+        task.subtaskDepth = 0;
+        task.isSubtask = false;
+      }
+    } else {
+      task.subtaskDepth = typeof task.subtaskDepth === "number" ? task.subtaskDepth : task.isSubtask ? 1 : 0;
+      task.isSubtask = !!task.isSubtask || task.subtaskDepth > 0;
+    }
+  }
+  for (let i = 0; i < tasks.length; i++) {
+    const current = tasks[i];
+    const currentDepth = current.subtaskDepth || 0;
+    let hasChildren = !!current.hasChildren || !!current.isParent;
+    if (!hasChildren && i + 1 < tasks.length) {
+      const next = tasks[i + 1];
+      const nextDepth = next.subtaskDepth || 0;
+      if (nextDepth > currentDepth) {
+        hasChildren = true;
+      }
+    }
+    current.isParent = hasChildren;
+  }
+}
+function assignTasksToColumns(columns, lines, tasks, options = {}) {
+  const { separateCompleted = false } = options;
+  const taskLines = findTaskLines(lines, tasks);
+  detectTaskHierarchy(lines, tasks, taskLines);
+  const columnCards = new Map(columns.map((c) => [c.id, []]));
+  const unsorted = [];
+  const completed = [];
+  for (const task of tasks) {
+    const lineIndex = taskLines.get(task.uuid || task.id);
+    if (separateCompleted && (task.completedAt || task.completed || task.dismissedAt)) {
+      completed.push(task);
+      continue;
+    }
+    if (lineIndex === void 0 || lineIndex < 0) continue;
+    const owner = columns.find((c) => lineIndex >= c.contentStart && lineIndex < c.contentEnd);
+    if (owner) columnCards.get(owner.id).push(task);
+    else unsorted.push(task);
+  }
+  for (const [colId, cardList] of columnCards.entries()) {
+    cardList.sort((a, b) => {
+      const lineA = taskLines.get(a.uuid || a.id) ?? 0;
+      const lineB = taskLines.get(b.uuid || b.id) ?? 0;
+      return lineA - lineB;
+    });
+  }
+  unsorted.sort((a, b) => {
+    const lineA = taskLines.get(a.uuid || a.id) ?? 0;
+    const lineB = taskLines.get(b.uuid || b.id) ?? 0;
+    return lineA - lineB;
+  });
+  completed.sort((a, b) => {
+    const timeA = typeof a.completedAt === "number" ? a.completedAt : 0;
+    const timeB = typeof b.completedAt === "number" ? b.completedAt : 0;
+    return timeB - timeA;
+  });
+  return { columnCards, unsorted, completed };
+}
+function removeLine(lines, taskLineIndex) {
+  return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
+}
+function insertUnderHeading(lines, span, taskLine) {
+  return [...lines.slice(0, span.startLine + 1), taskLine, ...lines.slice(span.startLine + 1)];
+}
+function resolveSpan(spans, columnId, columnName) {
+  if (!spans || !spans.length) return null;
+  const colStr = String(columnId || "");
+  const byId = spans.find((s) => s.id === colStr);
+  if (byId) return byId;
+  if (columnName) {
+    const cleanName = String(columnName).trim().toLowerCase();
+    const byName = spans.find((s) => s.name.trim().toLowerCase() === cleanName);
+    if (byName) return byName;
+  }
+  const idx = parseInt(colStr, 10);
+  if (!Number.isNaN(idx) && idx >= 0 && idx < spans.length) {
+    return spans[idx];
+  }
+  return null;
+}
+
 // anp-15-kanban/lib/api/taskOps.js
-init_markdownIndex();
 function nowSeconds() {
   return Math.floor(Date.now() / 1e3);
 }
@@ -4281,11 +4312,7 @@ async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
   return true;
 }
 
-// anp-15-kanban/lib/features/embedActions.js
-init_markdownIndex();
-
 // anp-15-kanban/lib/api/columnOps.js
-init_markdownIndex();
 var HEADING_LINE_RE = /^(#{1,6})\s+(.*)$/;
 async function readLines(app, noteUUID) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
@@ -4384,11 +4411,7 @@ ${trimmed}
   return "moved";
 }
 
-// anp-15-kanban/lib/api/tagBoard.js
-init_markdownIndex();
-
 // anp-15-kanban/lib/api/noteBoard.js
-init_markdownIndex();
 async function buildNoteBoard(app, noteUUID, options = {}) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   if (typeof markdown !== "string") {
@@ -4548,7 +4571,7 @@ async function buildTagBoard(app, tag) {
     const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
     const { columns: headingSpans } = buildColumnSpans(markdown);
     const lines = markdown.split("\n");
-    const { columnCards, unsorted } = assignTasksToColumns(headingSpans, lines, tasks);
+    const { columnCards, unsorted, completed = [] } = assignTasksToColumns(headingSpans, lines, tasks, { separateCompleted: true });
     const sections = [];
     if (unsorted.length > 0) {
       const unsortedCards = unsorted.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
@@ -4571,7 +4594,7 @@ async function buildTagBoard(app, tag) {
         });
         allCards.push(...spanCards);
       }
-    } else if (unsorted.length === 0) {
+    } else if (unsorted.length === 0 && (!completed || completed.length === 0)) {
       const noteCards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
       sections.push({
         id: "main",
@@ -4579,6 +4602,17 @@ async function buildTagBoard(app, tag) {
         cards: noteCards
       });
       allCards.push(...noteCards);
+    }
+    if (completed && completed.length > 0) {
+      const completedCards = completed.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled" }));
+      sections.push({
+        id: "completed",
+        name: "Completed",
+        cards: completedCards,
+        isDoneSection: true,
+        isSystemSection: true
+      });
+      allCards.push(...completedCards);
     }
     const flatCards = sections.flatMap((s) => s.cards || []);
     columns.push({
@@ -4638,19 +4672,24 @@ async function buildNotesBoard(app, tag) {
   const columns = [];
   const allCards = [];
   for (const note of notes) {
-    const tasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: true }) || [];
+    const rawTasks = await app.getNoteTasks({ uuid: note.uuid }, { includeDone: false }) || [];
+    const tasks = rawTasks.filter((t) => !t.completedAt && !t.completed && !t.dismissedAt);
     try {
       const md = await app.getNoteContent({ uuid: note.uuid });
       if (typeof md === "string") {
-        const { findTaskLines: findTaskLines2 } = await Promise.resolve().then(() => (init_markdownIndex(), markdownIndex_exports));
-        const taskLines = findTaskLines2(md.split("\n"), tasks);
+        const lines = md.split("\n");
+        const taskLines = findTaskLines(lines, tasks);
+        detectTaskHierarchy(lines, tasks, taskLines);
         tasks.sort((a, b) => {
           const lineA = taskLines.get(a.uuid || a.id) ?? 0;
           const lineB = taskLines.get(b.uuid || b.id) ?? 0;
           return lineA - lineB;
         });
+      } else {
+        detectTaskHierarchy([], tasks, /* @__PURE__ */ new Map());
       }
     } catch {
+      detectTaskHierarchy([], tasks, /* @__PURE__ */ new Map());
     }
     const cards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled note" }));
     allCards.push(...cards);
@@ -4927,23 +4966,42 @@ async function handleMoveCard(app, payload) {
       } catch (err) {
         console.error("Failed to insert task into target note:", err);
       }
-      if (newTaskUuid && payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
-        try {
-          await moveTaskToColumn(app, targetUUID, newTaskUuid, {
-            columnId: payload.toSectionId,
-            columnName: payload.toSectionName
-          });
-        } catch (err) {
-          console.error("Failed to relocate task to section in target note:", err);
+      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed";
+      if (isDoneSection) {
+        await setTaskCompleted(app, newTaskUuid || payload.cardId, true);
+      } else {
+        if (newTaskUuid && payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+          try {
+            await moveTaskToColumn(app, targetUUID, newTaskUuid, {
+              columnId: payload.toSectionId,
+              columnName: payload.toSectionName
+            });
+          } catch (err) {
+            console.error("Failed to relocate task to section in target note:", err);
+          }
         }
+        await setTaskCompleted(app, newTaskUuid || payload.cardId, false);
       }
       if (payload.forceRerender) await rerender(app);
       return { ok: true, newCardId: newTaskUuid };
-    } else if (payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
-      await moveTaskToColumn(app, targetUUID, payload.cardId, {
-        columnId: payload.toSectionId,
-        columnName: payload.toSectionName
-      });
+    } else if (payload.toSectionId) {
+      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed";
+      if (isDoneSection) {
+        await setTaskCompleted(app, payload.cardId, true);
+      } else {
+        if (payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+          await moveTaskToColumn(app, targetUUID, payload.cardId, {
+            columnId: payload.toSectionId,
+            columnName: payload.toSectionName
+          });
+        } else if (payload.toSectionId === "unsorted" || payload.toSectionId === "main") {
+          await moveTaskToColumn(app, targetUUID, payload.cardId, {
+            columnId: "unsorted",
+            columnName: "Unsorted"
+          });
+        }
+        await setTaskCompleted(app, payload.cardId, false);
+      }
       if (payload.forceRerender) await rerender(app);
       return { ok: true };
     }

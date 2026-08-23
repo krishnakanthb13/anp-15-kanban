@@ -40,11 +40,13 @@ describe("tagBoard", () => {
       const col1 = board.columns[0];
       expect(col1.id).toBe(NOTE_PREFIX + "n1");
       expect(col1.name).toBe("Alpha Project");
-      expect(col1.sections.length).toBe(2);
+      expect(col1.sections.length).toBe(3);
       expect(col1.sections[0].name).toBe("To Do");
       expect(col1.sections[0].cards.map(c => c.id)).toEqual(["t1"]);
       expect(col1.sections[1].name).toBe("Done");
-      expect(col1.sections[1].cards.map(c => c.id)).toEqual(["t2"]);
+      expect(col1.sections[1].cards).toEqual([]);
+      expect(col1.sections[2].name).toBe("Completed");
+      expect(col1.sections[2].cards.map(c => c.id)).toEqual(["t2"]);
 
       const col2 = board.columns[1];
       expect(col2.id).toBe(NOTE_PREFIX + "n2");

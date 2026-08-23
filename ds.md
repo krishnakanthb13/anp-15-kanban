@@ -89,3 +89,18 @@ I am going to start testing all the features how they work and everything.
 = My main focus now is to check and validate all features that interact with the amplenote backend, to check if all are well integrated.
 
 ---
+
+- do you see that we coded, any header cannot be moved to the first. Make it like it cannot be moved to the first if there is unsorted header, meaning there is no header on the top with tasks.
+- also do you see that we coded, any header can be moved to the last. Make it like it cannot be moved to the last if there is completed headerr, meaning there are completed tasks in the note.
+do you get this requirement? - if the user tries to move a header before unsorted or after completed, or move the headers unsorted or completed itself, it should say a notification that this move of Unsorted or Completed Columns cannot happen.
+
+---
+
+- how all the headers are handled - Unsorted, Active with Headers, Completed. in note Tab
+- Same way it should show up for tag Tab - for each note column with collapsable headers.
+they both are exactly same, just the formatting is different, that the approach.
+in note Tab, headers are columns, in tag tab, headers are collapsible sections in a column.
+- also the + button gets hidden when hovered on the header in the columns.
+
+---
+

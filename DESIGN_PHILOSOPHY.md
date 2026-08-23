@@ -97,7 +97,7 @@ All user preferences and top-bar button states (Theme, Date format, Empty column
 The Kanban plugin embraces three distinct, purpose-built board models to reflect how knowledge workers organize information:
 1. **Single Note Boards (`note`)**: Headings = columns, tasks = cards. Ideal for sprint backlogs, daily planners, and self-contained document workflows.
 2. **Tag Hierarchy Boards (`tag`)**: Notes = columns, headings = collapsible sections. Ideal for high-level portfolio oversight where each note represents a major workstream with internal stages.
-3. **Multi-Note Project Boards (`notes`)**: Notes = columns, all tasks = flat cards. Ideal for "one note per project/client" workflows where dragging cards moves work across projects without altering note headings.
+3. **Multi-Note Project Boards (`notes`)**: Notes = columns, all active tasks = flat cards. Ideal for "one note per project/client" workflows where dragging cards moves work across projects without altering note headings, automatically omitting completed tasks to keep project pipelines clean and actionable.
 
 **Why:** Forcing all Amplenote structures into a single rigid column model either breaks note-level encapsulation or loses heading granularity. Providing three clear paradigms lets users match their board directly to their organizational hierarchy without friction.
 
@@ -186,4 +186,27 @@ Notes in Amplenote often mix heading depths (`# H1`, `## H2`, `### H3`) to creat
 - **Adjacent Header Migration on Deletion**: Deleting a column heading safely relocates its tasks into the **previous column heading** (or next remaining heading), guaranteeing zero data loss and preserving task proximity within the note outline.
 
 **Why:** Users should not have to rewrite their note headings into identical Markdown levels just to use a Kanban board. Recognizing the note's natural hierarchy and visually color-coding depth without consuming title space creates an adaptable, frictionless workspace.
+
+---
+
+## 21. Boundary Guardrails & Structural Preamble Integrity
+
+The board enforces physical boundary constraints that mirror the structural layout of Amplenote notes:
+- **Unsorted Column Anchoring**: Tasks at the top of a note above any heading (the preamble) naturally form the **Unsorted** column. Because the preamble physically precedes all headers in markdown, regular headings cannot be placed before `Unsorted`. Attempting to move or drop a header before `Unsorted` triggers an immediate, friendly toast notification.
+- **Dynamic First Position**: If a note has *no* tasks above the first heading (no `Unsorted` column), any regular heading can freely move to the first position (`index 0`).
+- **Completed Column Anchoring**: Amplenote places completed tasks in a `<details>` block at the bottom of the note. In the board, `Completed` is pinned at the far right. Regular headings cannot be placed after `Completed`, alerting the user if attempted. If no completed tasks exist, any heading can occupy the last position.
+- **Pseudo-Column Immutability**: Neither `Unsorted` nor `Completed` can be dragged or reordered, protecting the note's top/bottom structural anchors while allowing all intermediate heading columns to be freely customized.
+
+**Why:** Permitting heading movements before the preamble or after the completed block would violate document semantics and cause unexpected note rewriting. Establishing clear, dynamic boundaries backed by real-time notification feedback keeps user documents well-structured and predictable.
+
+---
+
+## 22. Unified Task Representation Across Tab Paradigms
+
+Across all three tab modes (**Note**, **Tag**, and **Multi-Note / Notes**), the plugin treats tasks with complete presentation and semantic parity:
+- **Universal Data & Enrichment Pipeline**: Every task—regardless of tab paradigm—is transformed through the same pipeline (`toCardModel` ➔ `detectTaskHierarchy` ➔ `renderCardHtml` ➔ `resolveLabels`).
+- **Standardized Visual Grammar**: Subtask hierarchy (`subtaskDepth`, `📋 Parent Task`, `↳ Child Task`), priority indicators (`🔥 Urgent`, `⭐ Important`, `🎯 Score`), date chips (`✓ Done`, `🕒 Time Blocks`, `▶ Start`, `⏰ Due Date`), and account tag chips format identically across all views.
+- **Zero Surprises Across Views**: Moving between a Single Note board, a Tag overview, and a Multi-Note project board never changes how task information is displayed, maintaining cognitive consistency throughout the workspace.
+
+**Why:** Different board paradigms represent different structural groupings of work, not different task data. Maintaining 100% feature and visual parity across all tab kinds ensures a predictable, coherent user experience.
 

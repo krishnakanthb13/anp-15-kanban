@@ -184,9 +184,13 @@ A note board maps one single note onto the board:
 - **Drag & Drop Reordering**:
   - **Cards**: Drag and drop cards across or within columns to physically reposition tasks under target headings in note markdown.
   - **Columns**: Freely drag and drop column headers across any number of positions across the entire board (with zero screen flickering and automatic guardrails protecting `Unsorted` and `Completed`).
+- **Column Movement Guardrails & Boundary Protection**:
+  - **Unsorted Column Boundary**: When an `Unsorted` pseudo-column is present (tasks exist at the top of the note before any heading), it remains pinned at the very first position. Regular headings cannot be moved before `Unsorted` (via drag-and-drop or `◀` Move left); attempting to do so triggers a notification: *"Cannot move column before Unsorted"*. If no `Unsorted` tasks exist, any regular heading can freely be moved to the first position.
+  - **Completed Column Boundary**: When a `Completed` column is present (completed tasks exist in the note), it remains pinned at the end. Regular headings cannot be moved after `Completed` (via drag-and-drop or `▶` Move right); attempting to do so triggers a notification: *"Cannot move column after Completed"*. If no completed tasks exist, any regular heading can freely be moved to the last position.
+  - **Pinned Column Immutability**: Neither `Unsorted` nor `Completed` columns can be dragged or reordered. Attempting to move either triggers a notification: *"Moving Unsorted/Completed column is not allowed"*.
 - **Drop into the Completed / Done column** to complete the task (crossed out via Amplenote's native completion). Dragging it back out reopens it. Dropping a card back into its own column is a safe no-op.
 - **Column Management**:
-  - **Reorder Columns** (`chevronLeft` / `chevronRight` / Drag & Drop): Reorders headings directly in note markdown with zero screen flicker.
+  - **Reorder Columns** (`chevronLeft` / `chevronRight` / Drag & Drop): Reorders headings directly in note markdown with zero screen flicker, honoring Unsorted and Completed boundary rules.
   - **Delete Column** (`trash`): Safely deletes the heading and migrates all its existing tasks into the **previous column heading** (or next remaining heading), preventing tasks from spilling into Unsorted.
   - **Rename Column** (`edit`): Renames the heading text in note markdown.
   - **Move Column to Tab** (`transfer`): Moves heading and its tasks to another note board tab.
@@ -210,9 +214,12 @@ A note board maps one single note onto the board:
 The second kind groups notes by an Amplenote tag:
 
 - **Columns** = all notes that carry that tag (e.g. `#projects`, `#clients`). Column titles display full note names and tag color badges matching your Amplenote account palette.
-- **Collapsible Heading Blocks** = within each note column, each heading is rendered as a collapsible section (`▼ / ▶`) with color-coded level indicators (`H1`, `H2`, `H3`), section title, card count, and action buttons.
+- **Collapsible Heading Sections (Complete Note Symmetry)**: Within each note column, sections strictly mirror the note's structural layout:
+  1. **Unsorted Section**: Automatically captures active tasks above the first heading in that note.
+  2. **Active Heading Sections**: Each heading in the note renders as an individual collapsible section (`▼ / ▶`) with color-coded level indicators (`H1`, `H2`, `H3`), section title, card count, and action buttons.
+  3. **Completed Section**: Gathers all completed/dismissed tasks from the note into a pinned bottom section. Dragging a card into this section marks it completed; dragging it back out reopens it.
 - **Full Header Management on Every Section**:
-  - **Move Header Up / Down** (`chevronUp` / `chevronDown`): Reorders the heading in the note's markdown with instant update and zero screen flash.
+  - **Move Header Up / Down** (`chevronUp` / `chevronDown`): Reorders the heading in the note's markdown with instant update and zero screen flash (with Unsorted/Completed boundary guardrails).
   - **Rename Header** (`edit`): Renames the heading line in place.
   - **Transfer Header** (`transfer`): Moves the heading and all its tasks to another note under the same tag or another note-board tab.
   - **Delete Header** (`trash`): Confirms and deletes the heading line, safely relocating all its tasks to the previous heading in that note.
@@ -227,10 +234,10 @@ The second kind groups notes by an Amplenote tag:
 
 ### 3. Multi-Note Project Boards (`notes`)
 
-The third kind maps a tag where notes act as columns and all tasks inside each note are listed as cards:
+The third kind maps a tag where notes act as columns and active tasks inside each note are listed as cards:
 
 - **Columns** = notes carrying the selected tag (one column per project/client note).
-- **Cards** = all tasks inside that note listed flatly without heading breakdown.
+- **Cards** = all **active tasks** inside that note listed flatly without heading breakdown (completed tasks are omitted to keep project pipelines clean and actionable).
 - **Drag & drop** between columns moves the task to that note natively (`app.updateTask({ noteUUID })`), without touching markdown formatting.
 - **Column Header Actions**: rename note (✎), delete note to Trash (🗑), or open note in Amplenote (↗).
 - **`+` on a column header** inserts a task directly into the target note.

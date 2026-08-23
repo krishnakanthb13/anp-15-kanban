@@ -70,7 +70,9 @@ Amplenote tasks map into rich card objects with all native metadata:
 | `hideUntil` | `task.hideUntil` | Snooze timestamp |
 | `repeat` | `task.repeat` | iCalendar RRULE recurrence string |
 | `isRepeating`| `task.isRepeating` | Recurrence boolean flag |
-| `isParent` | `task.isParent` | Subtask indicator boolean flag |
+| `isParent` | `task.isParent` | Parent task with nested subtasks boolean flag |
+| `isSubtask` | `task.isSubtask` | Subtask indicator boolean flag |
+| `subtaskDepth` | `task.subtaskDepth` | Indentation nesting level (0 = root, 1 = child, 2+ = nested) |
 | `important` | `task.important` | Eisenhower Important boolean flag |
 | `urgent` | `task.urgent` | Eisenhower Urgent boolean flag |
 | `score` | `task.score` | Calculated Amplenote task score (number) |
@@ -98,7 +100,7 @@ Amplenote tasks map into rich card objects with all native metadata:
 | Tab Kind | Badge | Badge Color | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`note`** | `NOTE` | Accent Blue (`--kb-accent`) | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`) | Tasks under each heading | Moves task markdown line between headings or reorders within the same heading |
-| **`notes`** | `NOTES` | Violet Purple (`#8b5cf6`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | All tasks in note (flat list) | Migrates task across notes via markdown splice & insertTask |
+| **`notes`** | `NOTES` | Violet Purple (`#8b5cf6`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Active tasks in note (flat list) | Migrates task across notes via markdown splice & insertTask |
 | **`tag`** | `TAG` | Coral Red (`--kb-danger`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Relocates under heading or migrates task across notes |
 
 ### Sorting Architecture Across Board Types
@@ -121,9 +123,11 @@ Amplenote tasks map into rich card objects with all native metadata:
                       ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
 
 3. Tag Board (`kind: "tag"`):
-   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
+   [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: Unsorted  ] ──► [ Task 0 ]
+                                          ──► [ Sec: # Backlog ] ──► [ Task 1 ]
                                           ──► [ Sec: # Done    ] ──► [ Task 2 ]
-                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 3 ]
+                                          ──► [ Sec: Completed ] ──► [ Task 3 (done) ]
+                      ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 4 ]
 ```
 
 ---
@@ -239,6 +243,11 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
   - Sandboxed embed controller: DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
+  - **Column Movement Boundary Guardrails**:
+    - When `Unsorted` is present at index 0, headers cannot be dropped or moved before it (triggers *"Cannot move column before Unsorted"* toast).
+    - When `Completed` is present at the end, headers cannot be dropped or moved after it (triggers *"Cannot move column after Completed"* toast).
+    - Pinned pseudo-columns (`Unsorted` and `Completed`) reject drag attempts and trigger informative boundary alerts.
+    - In absence of `Unsorted` or `Completed`, regular note headings can freely occupy index 0 or the last column position.
 
 ---
 
