@@ -315,7 +315,9 @@ function buildClientScript() {
           if (t) t.columnLimits = res.columnLimits;
         }
         renderAll();
-        if (successMsg) {
+        if (res && res.toast) {
+          showToast(res.toast, res.toastType || "success");
+        } else if (successMsg) {
           showToast(successMsg, "success");
         }
         return res;
@@ -495,6 +497,7 @@ function buildClientScript() {
         var moved = STATE.tabs.splice(fromIdx, 1)[0];
         STATE.tabs.splice(toIdx, 0, moved);
         renderTabs();
+        showToast("Tab moved");
         callPlugin("moveTabDir", { tabId: tab.id, direction: "left" });
       });
       addTabToolSvg(tools, "chevronRight", "Move tab right", function (e) {
@@ -505,6 +508,7 @@ function buildClientScript() {
         var moved = STATE.tabs.splice(fromIdx, 1)[0];
         STATE.tabs.splice(toIdx, 0, moved);
         renderTabs();
+        showToast("Tab moved");
         callPlugin("moveTabDir", { tabId: tab.id, direction: "right" });
       });
       addTabToolSvg(tools, "close", "Close tab", function (e) {
@@ -522,6 +526,7 @@ function buildClientScript() {
           }
         }
         renderAll();
+        showToast("Board closed");
         callPlugin("closeTab", { tabId: tab.id });
       });
       chip.appendChild(tools);
@@ -1004,6 +1009,9 @@ function buildClientScript() {
               if (res && res.board && res.tabId) {
                 STATE.boards[res.tabId] = res.board;
                 renderBoard();
+                if (!res.canceled) {
+                  showToast(res.toast || "Task added", "success");
+                }
               }
             });
           }
@@ -1163,6 +1171,9 @@ function buildClientScript() {
                   if (res && res.board && res.tabId) {
                     STATE.boards[res.tabId] = res.board;
                     renderBoard();
+                    if (!res.canceled) {
+                      showToast(res.toast || "Task added", "success");
+                    }
                   }
                 });
               }
@@ -1696,6 +1707,7 @@ function buildClientScript() {
         if (res && res.taskCompleted !== undefined && cardEl) {
           if (res.taskCompleted) {
             cardEl.classList.add("kb-card-done");
+            showToast("Task completed", "success");
           } else {
             cardEl.classList.remove("kb-card-done");
           }
@@ -4382,9 +4394,18 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   } catch {
     taskObj = null;
   }
-  const [taskLineIndex] = findTaskLines(cleanLines, [{ uuid: taskUuid, content: taskObj?.content }]).values();
-  if (taskLineIndex === void 0 || taskLineIndex < 0) return "no-task";
-  const taskLine = cleanLines[taskLineIndex];
+  let [taskLineIndex] = findTaskLines(cleanLines, [{ uuid: taskUuid, content: taskObj?.content }]).values();
+  let taskLine = "";
+  let next = cleanLines;
+  if (taskLineIndex !== void 0 && taskLineIndex >= 0) {
+    taskLine = cleanLines[taskLineIndex];
+    next = removeLine(cleanLines, taskLineIndex);
+  } else if (taskObj && (taskObj.uuid === taskUuid || taskObj.id === taskUuid) && taskObj.content) {
+    taskLine = `- [ ] ${taskObj.content}`;
+    taskLineIndex = -1;
+  } else {
+    return "no-task";
+  }
   if (target.targetCardId && target.targetCardId !== taskUuid) {
     let targetTaskObj = null;
     try {
@@ -4393,15 +4414,13 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
     }
     const [targetLineIndex] = findTaskLines(cleanLines, [{ uuid: target.targetCardId, content: targetTaskObj?.content }]).values();
     if (targetLineIndex !== void 0 && targetLineIndex >= 0 && targetLineIndex !== taskLineIndex) {
-      let next2 = removeLine(cleanLines, taskLineIndex);
-      const shiftedTargetIdx = targetLineIndex > taskLineIndex ? targetLineIndex - 1 : targetLineIndex;
+      const shiftedTargetIdx = taskLineIndex >= 0 && targetLineIndex > taskLineIndex ? targetLineIndex - 1 : targetLineIndex;
       const insertAt = target.position === "after" ? shiftedTargetIdx + 1 : shiftedTargetIdx;
-      next2.splice(insertAt, 0, taskLine);
-      await app.replaceNoteContent({ uuid: noteUUID }, next2.join("\n"));
+      next.splice(insertAt, 0, taskLine);
+      await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
       return "moved";
     }
   }
-  let next = removeLine(cleanLines, taskLineIndex);
   if (target.columnId === "completed" || target.columnName === "Completed") {
     try {
       await app.updateTask(taskUuid, { completedAt: Date.now() });
@@ -4422,15 +4441,13 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   }
   const destSpan = resolveSpan(columns, target.columnId, target.columnName);
   if (!destSpan) return "no-target";
-  const sourceSpan = columns.find(
-    (s) => taskLineIndex >= s.contentStart && taskLineIndex < s.contentEnd
-  );
+  const sourceSpan = taskLineIndex >= 0 ? columns.find((s) => taskLineIndex >= s.contentStart && taskLineIndex < s.contentEnd) : null;
   if (sourceSpan && sourceSpan.id === destSpan.id && !target.targetCardId) {
     return "same-column";
   }
   const shiftedDest = {
     ...destSpan,
-    startLine: destSpan.startLine > taskLineIndex ? destSpan.startLine - 1 : destSpan.startLine
+    startLine: taskLineIndex >= 0 && destSpan.startLine > taskLineIndex ? destSpan.startLine - 1 : destSpan.startLine
   };
   next = insertUnderHeading(next, shiftedDest, taskLine);
   await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
@@ -5274,42 +5291,29 @@ async function handleMoveCard(app, payload) {
       }
       try {
         await app.updateTask(payload.cardId, { noteUUID: targetUUID });
-      } catch {
-      }
-      let newTaskUuid = null;
-      try {
-        newTaskUuid = await app.insertTask({ uuid: targetUUID }, {
-          content: task.content,
-          important: !!task.important,
-          urgent: !!task.urgent,
-          startAt: task.startAt,
-          endAt: task.endAt,
-          hideUntil: task.hideUntil,
-          deadline: task.deadline,
-          score: task.score,
-          repeat: task.repeat
-        });
       } catch (err) {
-        console.error("Failed to insert task into target note:", err);
+        console.error("Failed to update task noteUUID:", err);
       }
       const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed";
       if (isDoneSection) {
-        await setTaskCompleted(app, newTaskUuid || payload.cardId, true);
+        await setTaskCompleted(app, payload.cardId, true);
       } else {
-        if (newTaskUuid && payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+        if (payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
           try {
-            await moveTaskToColumn(app, targetUUID, newTaskUuid, {
+            await moveTaskToColumn(app, targetUUID, payload.cardId, {
               columnId: payload.toSectionId,
-              columnName: payload.toSectionName
+              columnName: payload.toSectionName,
+              targetCardId: payload.targetCardId,
+              position: payload.position
             });
           } catch (err) {
             console.error("Failed to relocate task to section in target note:", err);
           }
         }
-        await setTaskCompleted(app, newTaskUuid || payload.cardId, false);
+        await setTaskCompleted(app, payload.cardId, false);
       }
       if (payload.forceRerender) await rerender(app);
-      return { ok: true, newCardId: newTaskUuid };
+      return { ok: true, newCardId: payload.cardId };
     } else if (payload.toSectionId) {
       const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed";
       if (isDoneSection) {
@@ -5413,7 +5417,7 @@ async function handleCreateCard(app, payload) {
       }
     }
     if (payload && payload.forceRerender) await rerender(app);
-    return { ok: true, tabId: tab.id, board: board2 };
+    return { ok: true, tabId: tab.id, board: board2, toast: "Task added" };
   }
   const result = await app.prompt("New card", {
     inputs: [{ label: "Card content (markdown):", type: "text" }]
@@ -5460,7 +5464,7 @@ async function handleCreateCard(app, payload) {
     }
   }
   if (payload && payload.forceRerender) await rerender(app);
-  return { ok: true, tabId: tab.id, board };
+  return { ok: true, tabId: tab.id, board, toast: "Task added" };
 }
 async function handleOpenCard(app, payload) {
   const noteUUID = payload?.noteUUID || payload?.cardId;
@@ -5600,7 +5604,7 @@ async function handleEditTaskDetails(app, payload) {
   }
   const tab = await resolveCurrentBoardTab(app, payload);
   const board = tab ? await buildSingleBoard(app, tab) : null;
-  return { ok: true, tabId: tab?.id, board };
+  return { ok: true, tabId: tab?.id, board, toast: "Task updated" };
 }
 async function handleEditCard(app, payload) {
   return handleEditTaskDetails(app, payload);
@@ -5662,7 +5666,7 @@ async function handleCreateColumn(app, payload) {
   const created = await createColumn(app, noteUUID, String(name).trim(), level);
   if (created) {
     const board = await buildSingleBoard(app, tab);
-    return { ok: true, tabId: tab.id, board };
+    return { ok: true, tabId: tab.id, board, toast: "Column created" };
   }
 }
 async function handleCreateColumnNote(app, payload) {
@@ -5687,7 +5691,7 @@ async function handleCreateColumnNote(app, payload) {
   const noteUUID = await createTaggedNote(app, String(title).trim(), tags);
   if (noteUUID) {
     const board = await buildSingleBoard(app, tab);
-    return { ok: true, tabId: tab.id, board };
+    return { ok: true, tabId: tab.id, board, toast: "Note created" };
   }
 }
 async function handleRenameColumn(app, payload) {
@@ -5702,7 +5706,7 @@ async function handleRenameColumn(app, payload) {
   const renamed = await renameColumn(app, noteUUID, columnId, name);
   if (renamed) {
     const board = await buildSingleBoard(app, tab);
-    return { ok: true, tabId: tab.id, board };
+    return { ok: true, tabId: tab.id, board, toast: "Column renamed" };
   }
 }
 async function handleDeleteColumn(app, payload) {
@@ -5722,7 +5726,7 @@ async function handleDeleteColumn(app, payload) {
   const deleted = await deleteColumn(app, noteUUID, columnId);
   if (deleted) {
     const board = await buildSingleBoard(app, tab);
-    return { ok: true, tabId: tab.id, board };
+    return { ok: true, tabId: tab.id, board, toast: "Column deleted" };
   }
 }
 async function handleMoveColumn(app, payload) {
@@ -5872,19 +5876,19 @@ async function handleCardMenu(app, payload) {
     await app.updateTask(cardId, { completedAt: Math.floor(Date.now() / 1e3), dismissedAt: null });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Task completed" };
   }
   if (choice === "uncomplete") {
     await app.updateTask(cardId, { completedAt: null, dismissedAt: null });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Task reopened" };
   }
   if (choice === "dismiss") {
     await app.updateTask(cardId, { dismissedAt: isDismissed ? null : Math.floor(Date.now() / 1e3), completedAt: null });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: isDismissed ? "Task reopened" : "Task dismissed" };
   }
   if (choice === "edit_details") {
     return await handleEditTaskDetails(app, { cardId, tabId: payload?.tabId });
@@ -5897,7 +5901,7 @@ async function handleCardMenu(app, payload) {
     await addLabelToTask(app, cardId, handle.name);
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Label added" };
   }
   if (choice === "date") {
     const currentVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
@@ -5914,7 +5918,7 @@ async function handleCardMenu(app, payload) {
     await app.updateTask(cardId, { startAt });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Date updated" };
   }
   if (choice === "snooze") {
     const currentVal = typeof task.hideUntil === "number" && task.hideUntil > 0 ? Math.floor(task.hideUntil) : null;
@@ -5931,7 +5935,7 @@ async function handleCardMenu(app, payload) {
     await app.updateTask(cardId, { hideUntil });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Task snoozed" };
   }
   if (choice === "timeblock") {
     const sVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
@@ -5953,7 +5957,7 @@ async function handleCardMenu(app, payload) {
     await app.updateTask(cardId, { startAt, endAt });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Timeblock scheduled" };
   }
   if (choice === "note") {
     const defaultTitle = String(task.content || "").replace(/\[\[[^\]]+\]\]/g, "").replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
@@ -5970,7 +5974,7 @@ async function handleCardMenu(app, payload) {
     await app.updateTask(cardId, { content: noteLink });
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board };
+    return { ok: true, tabId: tab?.id, board, toast: "Note created from card" };
   }
 }
 async function handleSaveSortToNote(app, payload) {
@@ -6054,7 +6058,7 @@ async function handleMoveColumnToTab(app, payload) {
   const status = await transferColumn(app, noteUUID, columnId, targetUUID);
   if (status === "moved") {
     const board = await buildSingleBoard(app, tab);
-    return { ok: true, tabId: tab.id, board };
+    return { ok: true, tabId: tab.id, board, toast: "Column moved" };
   }
 }
 async function handleRenameNote(app, payload) {
@@ -6070,7 +6074,7 @@ async function handleRenameNote(app, payload) {
   if (!name || !String(name).trim() || String(name) === current) return;
   await app.setNoteName({ uuid: noteUUID }, String(name).trim());
   const board = await buildSingleBoard(app, tab);
-  return { ok: true, tabId: tab.id, board };
+  return { ok: true, tabId: tab.id, board, toast: "Note renamed" };
 }
 async function handleDeleteNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);

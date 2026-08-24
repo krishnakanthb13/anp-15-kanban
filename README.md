@@ -329,12 +329,25 @@ The Kanban board provides non-blocking, glassmorphic toast notifications in the 
 | | Reset Sort to natural order | `Reset to default task order` |
 | **🔄 Sync & Tabs** | Sync Active Tab (Tab sync icon) | `✓ Tab refreshed (default order)` |
 | | Sync All Tabs (All sync icon) | `✓ All boards refreshed (default order)` |
-| | Reorder Tabs (Drag-and-drop) | `Tab reordered` |
+| | Reorder Tabs (Drag-and-drop / Arrows) | `Tab reordered` / `Tab moved` |
+| | Close Tab (`×` icon) | `Board closed` |
 | **📋 Columns & Headers** | Reorder Columns (Drag-and-drop) | `Column reordered` |
-| | Move Column Left / Right (3-dot menu) | `✓ Column moved left` / `✓ Column moved right` |
+| | Create Column / Note (`+` button) | `✓ Column created` / `✓ Note created` |
+| | Rename Column / Note (pencil icon) | `✓ Column renamed` / `✓ Note renamed` |
+| | Delete Column / Note (trash icon) | `✓ Column deleted` / `Note moved to Trash` |
+| | Move Column Left / Right (`‹` / `›` tools) | `✓ Column moved left` / `✓ Column moved right` |
 | | Move Section Up / Down (Tag boards) | `✓ Header moved up` / `✓ Header moved down` |
+| | Transfer Column to Another Board | `✓ Column moved` |
 | | Column Movement Guardrails | `ℹ️ Cannot move column before Unsorted`<br>`ℹ️ Cannot move column after Completed`<br>`ℹ️ Column is already at the first/last position` |
-| **📝 Tasks & External Links** | Quick Task Creation | `Task added` |
+| **📝 Tasks & Context Menu** | Task Creation (`+` button on column/section) | `✓ Task added` |
+| | Edit Task Details (Task details dialog) | `✓ Task updated` |
+| | Drag to Completed / Active column | `✓ Task completed` / `✓ Task reopened` |
+| | Card Menu (`⋯`): Complete / Reopen | `✓ Task completed` / `✓ Task reopened` |
+| | Card Menu (`⋯`): Dismiss / Archive | `Task dismissed` |
+| | Card Menu (`⋯`): Add Label | `✓ Label added` |
+| | Card Menu (`⋯`): Set Date / Timeblock | `✓ Date updated` / `✓ Timeblock scheduled` |
+| | Card Menu (`⋯`): Snooze / Hide Until | `✓ Task snoozed` |
+| | Card Menu (`⋯`): Create Note from Card | `✓ Note created from card` |
 | | Click External Web Link in Card | `Outside links do not work here.` |
 | | Note Sync / API Errors | `⚠️ Action could not be completed` / `⚠️ Failed to save changes to note` |
 

@@ -1,3 +1,24 @@
+## v0.0.36
+
+### 🚀 New Features & Enhancements
+- **Complete Glassmorphic Toast Notification System**:
+  - Wired live, non-blocking toast notifications in the bottom-right viewport across all user operations:
+    - **Task creation & editing**: `✓ Task added`, `✓ Task updated`.
+    - **Card context menu (`⋯`)**: `✓ Task completed`, `✓ Task reopened`, `Task dismissed`, `✓ Label added`, `✓ Date updated`, `✓ Timeblock scheduled`, `✓ Task snoozed`, `✓ Note created from card`.
+    - **Column & note lifecycle**: `✓ Column created`, `✓ Note created`, `✓ Column renamed`, `✓ Note renamed`, `✓ Column deleted`, `Note moved to Trash`, `✓ Column moved`.
+    - **Tab operations**: `Tab moved`, `Board closed`.
+    - **Drag & drop status updates**: `✓ Task completed` / `✓ Task reopened`.
+  - Silent on cancel (avoids noise when dismissing dialogs or pressing Escape).
+
+### 🐛 Bug Fixes & Stability
+- **Fixed Task Duplication on Cross-Note Drag & Drop**:
+  - Eliminated redundant `app.insertTask` calls when moving cards between different notes/tabs in Tag and Multi-Note boards.
+  - Spliced transferred tasks directly under destination headings via `moveTaskToColumn`, preventing duplicate tasks from lingering at the top of the destination note.
+- **Top-Level Embed Error Boundary & Service Worker Immunity**:
+  - Wrapped `renderEmbed(app)` in a top-level error boundary returning valid fallback HTML, preventing Service Worker `TypeError: Failed to convert value to 'Response'` promise rejection crashes on missing notes.
+  - Normalized noteUUID parameters to handle both string UUIDs and `{ uuid }` objects cleanly.
+  - Hardened note creation with resilient fallback tags.
+
 ## v0.0.34
 
 ### 🚀 New Features & Enhancements

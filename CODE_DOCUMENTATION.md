@@ -292,6 +292,11 @@ The architecture in `anp-15-kanban` solves fundamental data safety and performan
 4. **Color-Coded Multi-Level Heading Columns & 0ms Directional Moves**:
    - All heading depths (`# H1`, `## H2`, `### H3`, etc.) are recognized as distinct columns with clean color-coded level indicators (H1 = Theme Accent, H2 = Purple, H3 = Cyan/Teal, H4+ = Emerald) taking zero extra horizontal space.
    - Columns can be freely dragged across any number of positions with glowing vertical drop lines, and directional `<` / `>` buttons swap columns instantly in 0ms with zero screen flicker.
+5. **Top-Level Service Worker Boundary & Embed Crash Immunity ([`kanban.js`](./kanban.js))**:
+   - `renderEmbed(app)` is protected by an error boundary returning structured fallback HTML to guarantee that Amplenote's Service Worker receives a valid `Response(html)`, eliminating `TypeError: Failed to convert value to 'Response'` fetch promise crashes.
+   - Note access methods normalize between string UUIDs and handle objects (`{ uuid: "..." }`) and supply fallback tags during note creation.
+6. **Atomic Cross-Note Task Relocation ([`lib/features/embedActions.js`](./lib/features/embedActions.js) & [`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
+   - Moving cards across notes transfers the existing task entity directly via `app.updateTask(taskUuid, { noteUUID })` and splices it under the target heading section, completely eliminating duplicate task creation at the top of destination notes.
 
 For full live validation steps, see [`checklist.md`](./checklist.md).
 

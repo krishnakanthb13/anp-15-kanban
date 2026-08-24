@@ -82,13 +82,12 @@ flowchart TD
 ---
 
 ### 3.2. Note Board Columns (Headings)
-- [ ] **Add Column**: Click `+ Add Column` -> enter title & choose heading level (H1, H2, H3) -> check note markdown to verify the heading was appended.
-- [ ] **Rename Column**: Click 3-dot menu on column -> *Rename* -> change name -> check note markdown to verify heading was renamed in place.
-- [ ] **Reorder Columns (Drag & Drop)**: Drag column headers horizontally across any number of positions -> verify smooth zero-flicker live reordering -> check note markdown to verify heading sections and contents were reordered.
-- [ ] **Move Column (Directional)**: Use 3-dot menu -> *Move Left* / *Move Right* -> verify column moves.
-- [ ] **Delete Column**: Click 3-dot menu -> *Delete* -> confirm prompt -> verify heading is removed and tasks are safely relocated into the previous header (or next header if first) with zero tasks lost.
-- [ ] **Set WIP Limit**: Click 3-dot menu -> *Set WIP limit* -> enter a number (e.g. `3`) -> verify limit badge appears and turns warning red when exceeded.
-- [ ] **Move Column to Another Board**: Click 3-dot menu -> *Move Column to Tab* -> pick destination note -> confirm heading and its tasks moved to the other note.
+- [x] **Add Column**: Click `+ Add Column` / `+ Add Header` -> enter title & choose heading level (H1, H2, H3) -> check note markdown to verify the heading was appended.
+- [x] **Rename Column**: Hover over column header -> click pencil (`edit`) tool -> change name -> check note markdown to verify heading was renamed in place.
+- [x] **Reorder Columns (Drag & Drop)**: Drag column headers horizontally across any number of positions -> verify smooth zero-flicker live reordering -> check note markdown to verify heading sections and contents were reordered.
+- [x] **Move Column (Directional)**: Hover over column header -> click `‹` / `›` directional tools -> verify column moves.
+- [x] **Delete Column**: Hover over column header -> click trash tool -> confirm prompt -> verify heading is removed and tasks are safely relocated into the previous header (or next header if first) with zero tasks lost.
+- [x] **Move Column to Another Board**: Hover over column header -> click transfer tool -> pick destination note -> confirm heading and its tasks moved to the other note.
 
 ---
 

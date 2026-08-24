@@ -246,4 +246,26 @@ A UI should never misrepresent the persistence state of user data:
 
 **Why:** Silent write failures or premature success toasts erode user trust. Guaranteeing that every success toast represents verified saved state—and pairing failures with automatic state rollbacks—ensures absolute data integrity.
 
+---
+
+## 26. Top-Level Embed Resilience & Service Worker Error Boundaries
+
+Amplenote full-page embeds are intercepted and rendered via Amplenote's Service Worker:
+- **Zero-Crash Fallback**: `renderEmbed(app)` is wrapped in an outermost `try/catch` error boundary. If note retrieval fails or a missing UUID is encountered, it returns structured, responsive fallback HTML rather than throwing an unhandled exception.
+- **Service Worker Contract**: Because Service Workers convert embed return values into `new Response(html)`, returning valid HTML under all failure conditions prevents `TypeError: Failed to convert value to 'Response'` crashes and network rejection screens.
+- **Robust UUID & Handle Normalization**: All note access methods accept both string UUIDs and Amplenote handle objects (`{ uuid: "..." }`), guaranteeing compatibility across varied Amplenote runtime contexts.
+
+**Why:** A full-page dashboard must never crash the user's workspace with a white screen or Service Worker failure. Graceful degradation ensures the user can always navigate, switch tabs, or re-link notes even when network or note access is transiently interrupted.
+
+---
+
+## 27. Atomic Task Relocation Across Note Boundaries
+
+When moving tasks between notes (e.g. across note columns in Tag Boards or Multi-Note Boards):
+- **Single Entity Authority**: Task moves use Amplenote's native `app.updateTask(taskUuid, { noteUUID })` to transfer the existing task entity to the destination note.
+- **No Duplicate Entity Insertion**: The board avoids creating parallel `app.insertTask` calls when moving existing cards, preventing task duplication between the top of the note and the target heading.
+- **Resilient Markdown Relocation**: The task's physical markdown line is safely removed from the source note and spliced directly under the destination heading in the target note, ensuring 1-to-1 fidelity between note markdown and visual board columns.
+
+**Why:** Moving work across projects should preserve the task's identity, timestamps, subtasks, and score without generating duplicate orphan tasks at the top of the document.
+
 
