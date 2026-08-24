@@ -1,3 +1,33 @@
+## v0.0.38
+
+### 🚀 Enhancements & UX Streamlining
+- **Context-Adaptive Task Details Modal**:
+  - Clicking an active task opens the full **"Edit Task Details"** dialog (content markdown, Important, Urgent, Move to Note, Move to Section, Score, and optional Status Change).
+  - Clicking a completed task opens the **"Completed Task Details"** dialog (content markdown, Relocate on Reopen, optional Status Change, Important, and Urgent).
+  - Client state (`card.completedAt`, `card.completed`, `.kb-card-done`) is passed seamlessly in `editCard`, `cardMenu`, and `quickSetDate` payloads to ensure the correct dialog branch is consistently opened even before server round-trips.
+- **Simplified Status Action Options**:
+  - Removed redundant *"Keep active"* and *"Keep completed"* radio items from task modals.
+  - Introduced a clean `Change Status (optional)` dropdown defaulting to `-- None (keep status) --`, allowing users to edit text and metadata without unintended status modifications.
+- **Cross-Note Migration in Edit Modal**:
+  - Selecting a different note in the *"Move to Note"* picker cleanly removes the task line from the source note and places it into the target note's designated section (or unsorted) without creating duplicate lines.
+  - **Visual Presentation of Dismissed / Archived Tasks**:
+  - Dismissed tasks (`task.dismissedAt`) now render with the native **`✕` cross icon**: `✕ {timestamp}` (e.g. `✕ 24 Aug 18:35`), mirroring completed tasks (`✓ {timestamp}`).
+  - Removed the redundant `"done "` prefix from timestamp formats across completed and dismissed task chips.
+  - Tasks marked dismissed automatically receive `.kb-card-done` muted strikethrough styling and are routed into the dedicated **Completed / Archive** column.
+  - Client interaction payloads (`editCard`, `cardMenu`, `quickSetDate`) now check `card.dismissedAt` alongside `card.completedAt` to ensure full state continuity.
+- **Start Date & Time Timestamp Formatting**:
+  - Tasks with scheduled start dates and times now render both the date and time on their metadata chip: `▶ {date} {time}` (e.g. `▶ 24 Aug 14:30`), while date-only tasks continue to render cleanly as `▶ {date}`.
+  - Applied adaptive time rendering to `deadline` and `hideUntil` chips as well.
+- **3-Dot Card Menu Note Linking & Sequence Streamlining**:
+  - Replaced legacy wiki-link label insertion with direct **"Add note link"** picker: selecting an existing note generates a clickable markdown link `[Note Name](https://www.amplenote.com/notes/{uuid})` inside the task content.
+  - Clicking the note link on any card navigates directly to that note in Amplenote.
+  - Positioned **"Add note link"** directly above **"Create note from card"** for intuitive note-related grouping in the card action palette.
+- **Interactive Rich Footnote Click Notifications**:
+  - Tasks containing Amplenote Rich Footnotes (`[Note][^1]` and `[^1]: [Note]()\n\n message`) now automatically extract footnote bodies into `card.footnotes`.
+  - **1-Click Toast Notification**: Clicking a Rich Footnote link displays a toast alert with the full footnote content: `📌 {footnoteText}`.
+  - **Dotted Underline Styling**: Rich Footnote links receive subtle `.kb-rich-footnote` dotted accent styling and a `pointer` cursor.
+  - **Clean Title Previews**: `plainPreview` strips trailing footnote definition blocks and footnote markers to keep card title previews clutter-free.
+
 ## v0.0.37
 
 ### 🐛 Bug Fixes & Stability

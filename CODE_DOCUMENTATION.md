@@ -62,6 +62,7 @@ Amplenote tasks map into rich card objects with all native metadata:
 | `title` | `plainPreview(task.content)` | Plaintext summary of task content |
 | `content` | `task.content` | Raw markdown content |
 | `imageUrl` | `firstImageUrl(...)` | First embedded image URL in markdown |
+| `footnotes` | `parseFootnotes(task.content)` | Map of footnote reference IDs to extracted footnote message text |
 | `completedAt` | `task.completedAt` | Unix timestamp of completion |
 | `dismissedAt` | `task.dismissedAt` | Unix timestamp of dismissal |
 | `startAt` | `task.startAt` | Scheduled start timestamp (UTC seconds) |
@@ -157,7 +158,7 @@ Amplenote tasks map into rich card objects with all native metadata:
    - Only marks tasks completed when dragged into an explicitly designated completion column (e.g. named `Done`, `Completed`, `Finished`, `Closed`, `Archive`), avoiding false completion when moving between general custom note headings.
 
 6. **Task State & Lifecycle Routing (`assignTasksToColumns`)**:
-   - **Completed & Dismissed Tasks** (`task.completedAt`, `task.completed`, `task.dismissedAt`): In single note boards, these tasks are isolated and routed into the dedicated **"Completed"** column at the far right of the board.
+   - **Completed & Dismissed Tasks** (`task.completedAt`, `task.completed`, `task.dismissedAt`): In single note boards, these tasks are isolated and routed into the dedicated **"Completed"** column at the far right of the board. Completed tasks display a `✓ {timestamp}` chip, while dismissed tasks display a `✕ {timestamp}` chip.
    - **Snoozed Tasks** (`task.hideUntil`): Kept active under their respective physical column with a `💤 Hide Until` badge.
    - **Recurring Tasks** (`task.repeat`): Kept active under their respective physical column with a `🔁 Repeat` badge.
    - **Preamble Tasks**: Placed into the **"Unsorted"** column at index 0.
@@ -216,11 +217,11 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `moveCard` | `handleMoveCard` | Moves tasks across headings, sections, or notes |
 | `createCard` | `handleCreateCard` | Inserts task in column heading or note (flicker-free with immediate optimistic board update) |
 | `editCard` | `handleEditCard` | Opens dedicated task details modal (returns fresh board snapshot to render in-place) |
-| `editTaskDetails`| `handleEditTaskDetails` | Dedicated task modal: Active tasks (quadrant, move, score, status) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive) (returns fresh board) |
+| `editTaskDetails`| `handleEditTaskDetails` | Context-adaptive task modal: Active tasks (quadrant, cross-note migration, section, score, optional status change) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive, optional status dropdown) (returns fresh board snapshot) |
 | `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
 | `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks (updates board in-place with toast) |
 | `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
-| `cardMenu` | `handleCardMenu` | Context-aware menu: Complete, Reopen, Dismiss, Label, Date, Snooze, Timeblock, Note (returns fresh board snapshot for 0ms in-place update) |
+| `cardMenu` | `handleCardMenu` | Context-aware menu: Complete/Reopen, Dismiss, Edit details, Date, Snooze, Timeblock, Add note link, Create note from card (returns fresh board snapshot for 0ms in-place update) |
 | `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (returns fresh board snapshot) |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
 | `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board or note in tag board (returns fresh board snapshot) |
@@ -269,7 +270,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
     - Serializes concurrent note mutation requests across rapid UI interactions into a Promise chain, eliminating ProseMirror editor selection conflicts and data collisions.
   - **Dual-Matching Column Resolution (`resolveSpan` in `markdownIndex.js`)**:
     - Matches column spans by both line ID and normalized column heading names, preventing failed moves when markdown line numbers shift dynamically between rapid reorders.
-  - DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
+  - DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), interactive Rich Footnote handling (shows dedicated toast `📌 {text}` on click with `.kb-rich-footnote` dotted underline styling), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
   - **Column Movement Boundary Guardrails**:
     - When `Unsorted` is present at index 0, headers cannot be dropped or moved before it (triggers *"Cannot move column before Unsorted"* toast).
     - When `Completed` is present at the end, headers cannot be dropped or moved after it (triggers *"Cannot move column after Completed"* toast).

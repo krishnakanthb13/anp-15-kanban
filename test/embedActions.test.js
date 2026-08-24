@@ -569,15 +569,15 @@ describe("embedActions", () => {
 
   describe("extras (Phase 5)", () => {
     describe("handleCardMenu", () => {
-      it("add-label branch appends a wiki-link from the picked note", async () => {
+      it("link-note branch appends an Amplenote note link from the picked note", async () => {
         const app = makeApp();
         app.prompt
-          .mockResolvedValueOnce("label")                       // menu choice (single value)
+          .mockResolvedValueOnce("link_note")                        // menu choice (single value)
           .mockResolvedValueOnce({ uuid: "ln1", name: "My Label" }); // note picker
 
         const res = await handleCardMenu(app, { cardId: "u1" });
 
-        expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one\n[[My Label]]" });
+        expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one [My Label](https://www.amplenote.com/notes/ln1)" });
         expect(res).toEqual(expect.objectContaining({ ok: true, board: expect.any(Object) }));
       });
 

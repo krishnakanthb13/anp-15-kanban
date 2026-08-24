@@ -132,7 +132,7 @@ Amplenote tasks carry multiple lifecycle states that the Kanban plugin maps nati
 | :--- | :--- | :--- |
 | **Active Tasks** (`[ ]`) | Sit physically under a heading in the note markdown. | Displayed in their **exact heading column** in 1-to-1 document line order. |
 | **Completed Tasks** (`completedAt` or `[x]`) | Amplenote automatically moves them to the end of the note inside `<details><summary>Completed tasks</summary>`. | **Aggregated into the dedicated "Completed" column** at the far right of the board, keeping heading columns 100% focused on active work. |
-| **Dismissed / Archived Tasks** (`dismissedAt`) | Crossed out / dismissed at the note level. | **Placed in the "Completed" column** with dismissed/done status. |
+| **Dismissed / Archived Tasks** (`dismissedAt`) | Crossed out / dismissed at the note level. | **Placed in the "Completed" column** with strikethrough styling and a `✕ [timestamp]` chip. |
 | **Hidden / Snoozed Tasks** (`hideUntil` in future) | Stays under its physical heading, but hidden in normal task views until wake date. | **Remains active under its heading column**, displaying a `💤 Hide Until: [date]` badge so you always know when it wakes up. |
 | **Recurring Tasks** (`repeat` rule) | Stays under its physical heading. When completed, Amplenote creates/schedules the next instance under the same heading. | **Active instance remains under its heading column** with a `🔁 Repeat` badge. When marked complete, the completed instance is logged, and the newly spawned recurrence stays active under the heading. |
 | **Preamble Tasks** (above first heading) | Sit at the very top of the note before any `# Heading`. | **Grouped into the "Unsorted" pseudo-column** on the far left. |
@@ -204,8 +204,8 @@ A note board maps one single note onto the board:
 - **`+ Add Task` card at the right end of the board**: Click to instantly add a task at the top of the note (automatically placed in the **Unsorted** column).
 - **`+ Add Header` card at the right end of the board**: Click to create a new heading column at the end of the note, with heading level selection (**H1**, **H2**, **H3**).
 - **Click a card** opens the dedicated task editor dialog:
-  - **On Active Tasks**: Full Task Details modal (markdown content, Important/Urgent quadrants, move to note / heading dropdown, task score, and mark status: `Started`, `Completed`, `Dismissed`).
-  - **On Completed Tasks**: Specialized Completed Details modal (markdown content, target heading dropdown for where to relocate on reopen, and lifecycle actions: `Reopen / Active`, `Dismiss / Archive`, `Keep completed`).
+  - **On Active Tasks**: Full Task Details modal (markdown content, Important/Urgent quadrants, move to note / heading dropdown, task score, and optional status change: `Started`, `Completed`, `Dismissed`).
+  - **On Completed Tasks**: Specialized Completed Details modal (markdown content, target heading dropdown for where to relocate on reopen, optional status change: `Reopen / Mark Active`, `Dismiss / Archive`, and Important/Urgent flags).
 - **`ℹ` button on a card** toggles an inline task details inspector showing all non-empty properties (Start At, End At, Deadline, Hide Until, Repeat schedule, Completed/Dismissed status, and Note link).
 - **`...` 3-dots button on a card** opens a context-aware action menu:
   - **Active Tasks**: `Mark as completed`, `Edit details`, `Add label`, `Set start date/time`, `Snooze / Hide Until`, `Schedule Time Block`, `Create note from card` (prompts for title, creates a fresh note with no tags, and embeds a clickable note link `[Title](https://www.amplenote.com/notes/{uuid})`).
@@ -260,17 +260,17 @@ The third kind maps a tag where notes act as columns and active tasks inside eac
 
 Task cards dynamically display badges and metadata chips **only when those values are present**:
 
-- **✓ Done Timestamp**: Displays exact completed date and time formatted to your settings (e.g. `✓ done 2026-08-22 17:05`).
+- **✓ Completed / ✕ Dismissed Timestamp**: Displays exact completed (`✓ 2026-08-22 17:05`) or dismissed (`✕ 2026-08-22 17:05`) timestamp formatted to your settings.
 - **🔥 Urgent** / **⭐ Important**: Eisenhower priority quadrant badges.
 - **🎯 Task Score**: Computed Amplenote task score (e.g. `🎯 12.5`), shown only when modified and different from default/zero (`1.0` or `0.0`).
 - **📋 Parent Task**: Displayed when a task has child subtasks (`isParent`).
 - **↳ Child Task**: Displayed when a task is an indented child task (with `↳↳ Child Task` for nested levels and a left accent border).
 - **🏷️ Tag & Label Chips**: Inline `#tag` and `#parent/subtag` hashtags, alongside `[[Note Name]]` labels, rendered as color-coordinated chips matching your Amplenote account palette.
 - **🕒 Time Block**: Displayed when both start and end times are set (e.g. `🕒 2026-08-21 10:00-11:30`).
-- **▶ Start Date** / **⏰ Due Date**: Scheduled start date or deadline timestamp.
+- **▶ Start Date & Time** / **⏰ Due Date**: Scheduled start date and optional time (e.g. `▶ 2026-08-24 14:30`), or deadline timestamp.
 - **🙈 Snoozed**: Displayed when a task has a future `hideUntil` snooze timestamp.
 - **🔁 Repeat**: Displays recurrence frequency (e.g. `🔁 daily`, `🔁 weekly`).
-- **Rich Editor Content**: Supports bold, italics, Rich Footnotes, inline images (with 1-click Lightbox zoom), and clickable Amplenote note links.
+- **Rich Editor Content & Interactive Footnotes**: Supports bold, italics, inline images (with 1-click Lightbox zoom), clickable Amplenote note links, and **Interactive Rich Footnotes** (with 1-click `📌 {text}` toast alerts and dotted accent styling).
 
 ### Dynamic Sorting & Persisting to Note
 

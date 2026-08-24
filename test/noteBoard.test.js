@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { buildNoteBoard, toCardModel, plainPreview, firstImageUrl, renderCardHtml, resolveLabels } from '../lib/api/noteBoard.js';
+import { buildNoteBoard, toCardModel, plainPreview, firstImageUrl, renderCardHtml, resolveLabels, parseFootnotes } from '../lib/api/noteBoard.js';
 
 const MD = [
   "Preamble",
@@ -113,6 +113,7 @@ describe("noteBoard", () => {
         title: "Hello world",
         content: "Hello **world**",
         imageUrl: null,
+        footnotes: {},
         completedAt: null,
         dismissedAt: null,
         startAt: 100,
@@ -131,10 +132,34 @@ describe("noteBoard", () => {
       });
     });
 
+    it("parses rich footnotes into card.footnotes", () => {
+      const card = toCardModel({
+        uuid: "fn-task",
+        content: "- [ ] Check [Note][^1]\n\n[^1]: [Note]()\n\n    Hello How are you doing!",
+      });
+      expect(card.footnotes).toEqual({
+        "1": "Hello How are you doing!",
+      });
+    });
+
     it("extracts the first inline image url", () => {
       expect(toCardModel({ uuid: "t2", content: "a ![one](https://i/1.png) ![two](https://i/2.png)" }).imageUrl)
         .toBe("https://i/1.png");
       expect(toCardModel({ uuid: "t3", content: "no image here" }).imageUrl).toBeNull();
+    });
+  });
+
+  describe("parseFootnotes", () => {
+    it("extracts clean footnote text from Amplenote markdown", () => {
+      const md = `[Note][^1]\n\n[^1]: [Note]()\n\n    Hello How are you doing!`;
+      expect(parseFootnotes(md)).toEqual({
+        "1": "Hello How are you doing!",
+      });
+    });
+
+    it("returns empty object when no footnotes exist", () => {
+      expect(parseFootnotes("plain text without footnotes")).toEqual({});
+      expect(parseFootnotes(null)).toEqual({});
     });
   });
 

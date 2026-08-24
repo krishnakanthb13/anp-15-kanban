@@ -1388,7 +1388,8 @@ function buildClientScript() {
 
   function buildCardEl(card) {
     var depth = card.subtaskDepth || (card.isSubtask ? 1 : 0);
-    var cardClasses = "kb-card" + (card.completedAt ? " kb-card-done" : "") + (depth > 0 ? " kb-card-subtask" : "");
+    var isDoneState = !!(card.completedAt || card.completed || card.dismissedAt);
+    var cardClasses = "kb-card" + (isDoneState ? " kb-card-done" : "") + (depth > 0 ? " kb-card-subtask" : "");
     var cardEl = el("article", cardClasses);
     cardEl.setAttribute("data-card-id", card.id);
     cardEl.setAttribute("draggable", "true");
@@ -1403,16 +1404,16 @@ function buildClientScript() {
     var hasBadges = card.urgent || card.important || showScore || card.isParent || depth > 0;
     if (hasBadges) {
       var badges = el("div", "kb-task-badges");
-      if (card.urgent) badges.appendChild(el("span", "kb-badge kb-badge-urgent", "\\uD83D\\uDD25 Urgent"));
-      if (card.important) badges.appendChild(el("span", "kb-badge kb-badge-important", "\\u2B50 Important"));
+      if (card.urgent) badges.appendChild(el("span", "kb-badge kb-badge-urgent", "\u{1F525} Urgent"));
+      if (card.important) badges.appendChild(el("span", "kb-badge kb-badge-important", "\u2B50 Important"));
       if (showScore) {
-        badges.appendChild(el("span", "kb-badge kb-badge-score", "\\uD83C\\uDFAF " + numScore.toFixed(1)));
+        badges.appendChild(el("span", "kb-badge kb-badge-score", "\u{1F3AF} " + numScore.toFixed(1)));
       }
       if (card.isParent) {
-        badges.appendChild(el("span", "kb-badge kb-badge-parent", "\\uD83D\\uDCCB Parent Task"));
+        badges.appendChild(el("span", "kb-badge kb-badge-parent", "\u{1F4CB} Parent Task"));
       }
       if (depth > 0) {
-        var childLabel = depth > 1 ? "\\u21B3".repeat(Math.min(depth, 3)) + " Child Task" : "\\u21B3 Child Task";
+        var childLabel = depth > 1 ? "\u21B3".repeat(Math.min(depth, 3)) + " Child Task" : "\u21B3 Child Task";
         badges.appendChild(el("span", "kb-badge kb-badge-child", childLabel));
       }
       cardEl.appendChild(badges);
@@ -1427,7 +1428,7 @@ function buildClientScript() {
       atBtn.title = "Set task date (@)";
       atBtn.addEventListener("click", function (e) {
         e.stopPropagation();
-        var isComp = !!card.completedAt || !!card.completed || cardEl.classList.contains("kb-card-done");
+        var isComp = !!card.completedAt || !!card.completed || !!card.dismissedAt || cardEl.classList.contains("kb-card-done");
         handlePluginResult(callPlugin("quickSetDate", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt }));
       });
       actions.appendChild(atBtn);
@@ -1451,7 +1452,7 @@ function buildClientScript() {
     moreBtn.appendChild(svg("more"));
     moreBtn.addEventListener("click", function (e) {
       e.stopPropagation();
-      var isComp = !!card.completedAt || !!card.completed || cardEl.classList.contains("kb-card-done");
+      var isComp = !!card.completedAt || !!card.completed || !!card.dismissedAt || cardEl.classList.contains("kb-card-done");
       handlePluginResult(callPlugin("cardMenu", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt }));
     });
     actions.appendChild(moreBtn);
@@ -1467,6 +1468,23 @@ function buildClientScript() {
         var aText = (a.textContent || "").trim();
         if (aText === "open_in_new" || a.classList.contains("open_in_new") || a.classList.contains("open-in-new")) {
           a.remove();
+          continue;
+        }
+
+        var aHref = (a.getAttribute("href") || "").trim();
+        var isFootnote = aHref.indexOf("plugins.amplenote.com") !== -1 ||
+          aHref.indexOf("/notes/plugins") !== -1 ||
+          a.classList.contains("footnote") ||
+          a.classList.contains("rich-footnote") ||
+          a.hasAttribute("data-footnote");
+
+        if (isFootnote) {
+          var fnText = getCardFootnoteText(card, a, aHref, aText);
+          if (fnText) {
+            a.setAttribute("data-footnote-text", fnText);
+            a.title = fnText;
+            a.classList.add("kb-rich-footnote");
+          }
         }
       }
       cardEl.appendChild(body);
@@ -1509,26 +1527,35 @@ function buildClientScript() {
       cardEl.appendChild(img);
     }
 
+    // Task Description (plain markdown expandable toggle or snippet)
+    if (card.description) {
+      cardEl.appendChild(el("div", "kb-card-desc", card.description));
+    }
+
     // Meta chips - only when present
     var nowSec = Math.floor(Date.now() / 1000);
-    var hasMeta = card.completedAt || card.startAt || card.deadline || card.repeat || card.isRepeating || (card.hideUntil && card.hideUntil > nowSec);
+    var hasMeta = card.completedAt || card.dismissedAt || card.startAt || card.deadline || card.repeat || card.isRepeating || (card.hideUntil && card.hideUntil > nowSec);
     if (hasMeta) {
       var bits = [];
-      if (card.completedAt) bits.push("\\u2713 " + formatCompletedStamp(card.completedAt));
-      if (card.startAt && card.endAt) {
-        bits.push("\\uD83D\\uDD52 " + formatTimeRange(card.startAt, card.endAt));
-      } else if (card.startAt) {
-        bits.push("\\u25B6 " + formatStamp(card.startAt));
+      if (card.dismissedAt) {
+        bits.push("\u2715 " + formatCompletedStamp(card.dismissedAt));
+      } else if (card.completedAt) {
+        bits.push("\u2713 " + formatCompletedStamp(card.completedAt));
       }
-      if (card.deadline) bits.push("\\u23F0 " + formatStamp(card.deadline));
-      if (card.hideUntil && card.hideUntil > nowSec) bits.push("\\uD83D\\uDE48 " + formatStamp(card.hideUntil));
+      if (card.startAt && card.endAt) {
+        bits.push("\u{1F552} " + formatTimeRange(card.startAt, card.endAt));
+      } else if (card.startAt) {
+        bits.push("\u25B6 " + formatStartStamp(card.startAt));
+      }
+      if (card.deadline) bits.push("\u23F0 " + formatStartStamp(card.deadline));
+      if (card.hideUntil && card.hideUntil > nowSec) bits.push("\u{1F648} " + formatStartStamp(card.hideUntil));
       if (card.repeat) {
-        bits.push("\\uD83D\\uDD01 " + formatTaskRepeat(card.repeat));
+        bits.push("\u{1F501} " + formatTaskRepeat(card.repeat));
       } else if (card.isRepeating) {
-        bits.push("\\uD83D\\uDD01 repeat");
+        bits.push("\u{1F501} repeat");
       }
       if (bits.length) {
-        cardEl.appendChild(el("div", "kb-card-meta", bits.join("  \\u00B7  ")));
+        cardEl.appendChild(el("div", "kb-card-meta", bits.join("  \xB7  ")));
       }
     }
 
@@ -1577,9 +1604,9 @@ function buildClientScript() {
     cardEl.addEventListener("dragstart", function (e) {
       dragType = "card";
       dragCardId = card.id;
+      cardEl.classList.add("kb-dragging");
       e.dataTransfer.setData("text/plain", "card::" + card.id);
       e.dataTransfer.effectAllowed = "move";
-      cardEl.classList.add("kb-dragging");
     });
     cardEl.addEventListener("dragend", function () {
       dragType = null;
@@ -1597,6 +1624,7 @@ function buildClientScript() {
         e.stopPropagation();
         var href = (link.getAttribute("href") || "").trim();
         var noteUuid = (link.getAttribute("data-note-uuid") || "").trim();
+        var fnMsg = link.getAttribute("data-footnote-text") || getCardFootnoteText(card, link, href, (link.textContent || "").trim());
 
         // Check if it is an Amplenote note link
         var anpLinkRe = new RegExp("amplenote\\.com/notes/([a-zA-Z0-9_-]+)", "i");
@@ -1604,7 +1632,26 @@ function buildClientScript() {
         var m = href.match(anpLinkRe) || href.match(anpPathRe);
         var targetNoteUUID = noteUuid || (m ? m[1] : null);
 
-        if (targetNoteUUID && targetNoteUUID !== "plugins") {
+        // Check if it is a Rich Footnote link
+        var isRichFootnote = !!fnMsg || (targetNoteUUID === "plugins") ||
+          href.indexOf("plugins.amplenote.com") !== -1 ||
+          href.indexOf("/notes/plugins") !== -1 ||
+          link.classList.contains("footnote") ||
+          link.classList.contains("rich-footnote") ||
+          link.classList.contains("kb-rich-footnote") ||
+          link.hasAttribute("data-footnote");
+
+        if (isRichFootnote) {
+          e.preventDefault();
+          if (fnMsg) {
+            showToast("\u{1F4CC} " + fnMsg);
+          } else {
+            showToast("Rich Footnotes do not work here.");
+          }
+          return;
+        }
+
+        if (targetNoteUUID) {
           e.preventDefault();
           callPlugin("openCard", { noteUUID: targetNoteUUID });
           return;
@@ -1619,11 +1666,26 @@ function buildClientScript() {
         return;
       }
 
-      var isComp = !!card.completedAt || !!card.completed || cardEl.classList.contains("kb-card-done");
-      handlePluginResult(callPlugin("editCard", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt }));
+      var isComp = !!card.completedAt || !!card.completed || !!card.dismissedAt || cardEl.classList.contains("kb-card-done");
+      handlePluginResult(callPlugin("editCard", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt, dismissedAt: card.dismissedAt }));
     });
 
     return cardEl;
+  }
+
+  function getCardFootnoteText(card, a, href, aText) {
+    if (!card) return "";
+    var fns = card.footnotes || {};
+    var keys = Object.keys(fns);
+    if (keys.length === 0) return "";
+
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if ((href && href.indexOf(k) !== -1) || (aText && aText.indexOf(k) !== -1)) {
+        return fns[k];
+      }
+    }
+    return fns[keys[0]] || "";
   }
 
   /* ---------------- drop zone for cards ---------------- */
@@ -1783,6 +1845,14 @@ function buildClientScript() {
       .replace(/DD/g, pad(d.getDate()));
   }
 
+  function formatStartStamp(unixSeconds) {
+    if (!unixSeconds) return "";
+    var d = new Date(unixSeconds * 1000);
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+    return formatStamp(unixSeconds) + (hasTime ? " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) : "");
+  }
+
   function formatTimeRange(startSec, endSec) {
     var d1 = new Date(startSec * 1000);
     var d2 = new Date(endSec * 1000);
@@ -1801,10 +1871,10 @@ function buildClientScript() {
   }
 
   function formatCompletedStamp(unixSeconds) {
-    if (!unixSeconds) return "done";
+    if (!unixSeconds) return "";
     var d = new Date(unixSeconds * 1000);
     var pad = function (n) { return (n < 10 ? "0" : "") + n; };
-    return "done " + formatStamp(unixSeconds) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    return formatStamp(unixSeconds) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
   }
 
   function formatTaskRepeat(repeatString) {
@@ -3535,6 +3605,16 @@ function buildBaseCss() {
     .kb-card-body a:hover {
         text-decoration: underline;
     }
+    .kb-card-body a.kb-rich-footnote {
+        text-decoration: underline dotted var(--kb-accent);
+        text-underline-offset: 3px;
+        cursor: help;
+        position: relative;
+    }
+    .kb-card-body a.kb-rich-footnote:hover {
+        text-decoration: underline solid var(--kb-accent);
+        color: var(--kb-accent-hover, var(--kb-accent));
+    }
     .kb-card-body a.open_in_new,
     .kb-card-body a.open-in-new,
     .kb-card-body .open_in_new,
@@ -4601,16 +4681,6 @@ async function createTaskInColumn(app, noteUUID, target, content) {
 async function setTaskCompleted(app, taskUuid, done = true) {
   await app.updateTask(taskUuid, { completedAt: done ? nowSeconds() : null });
 }
-async function addLabelToTask(app, taskUuid, labelName) {
-  const name = String(labelName || "").trim();
-  if (!name) return;
-  const task = await app.getTask(taskUuid);
-  if (!task) return;
-  if (task.content && task.content.includes(`[[${name}]]`)) return;
-  const content = `${task.content || ""}
-[[${name}]]`;
-  await app.updateTask(taskUuid, { content });
-}
 async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   const tasks = await app.getNoteTasks({ uuid: noteUUID });
@@ -4843,6 +4913,7 @@ function toCardModel(task) {
     title: plainPreview(task.content || ""),
     content: task.content || "",
     imageUrl: firstImageUrl(task.content || ""),
+    footnotes: parseFootnotes(task.content || ""),
     completedAt: task.completedAt ?? null,
     dismissedAt: task.dismissedAt ?? null,
     startAt: task.startAt ?? null,
@@ -4903,8 +4974,25 @@ function resolveLabels(markdown, colorMap = {}) {
   }
   return labels;
 }
+function parseFootnotes(markdown) {
+  if (!markdown || typeof markdown !== "string") return {};
+  const footnotes = {};
+  const re = /\[\^([^\]]+)\]:\s*([^\n]*(?:\n+(?: {2,4}|\t)[^\n]*)*)/g;
+  let m;
+  while ((m = re.exec(markdown)) !== null) {
+    const fnId = m[1].trim();
+    let body = m[2] || "";
+    body = body.replace(/^\s*\[[^\]]*\]\([^\)]*\)\s*/, "");
+    const lines = body.split("\n").map((l) => l.replace(/^(?: {2,4}|\t)/, "").trim()).filter(Boolean);
+    const text = lines.join("\n").trim();
+    if (fnId) {
+      footnotes[fnId] = text || body.trim();
+    }
+  }
+  return footnotes;
+}
 function plainPreview(markdown) {
-  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
+  return String(markdown.replace(/<!--[\s\S]*?-->/g, "").replace(/\[\^[^\]]+\]:\s*[\s\S]*$/g, "").replace(/\[\^[^\]]+\]/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~`#>]/g, "").replace(/\s+/g, " ").trim());
 }
 
 // anp-15-kanban/lib/api/tagBoard.js
@@ -5555,11 +5643,11 @@ async function handleEditTaskDetails(app, payload) {
         { label: "Task content (markdown):", type: "text", value: task.content || "" },
         { label: "Relocate under Heading (on reopen):", type: "select", options: sectionOptions },
         {
-          label: "Status Action:",
-          type: "radio",
+          label: "Change Status (optional):",
+          type: "select",
           options: [
-            { label: "Keep completed", value: "keep" },
-            { label: "Reopen / Active (remove strikethrough)", value: "reopen" },
+            { label: "-- None (keep status) --", value: "" },
+            { label: "Reopen / Mark Active", value: "reopen" },
             { label: isDismissed ? "Un-dismiss task (reopen)" : "Dismiss / Archive", value: "dismiss" }
           ]
         },
@@ -5611,10 +5699,10 @@ async function handleEditTaskDetails(app, payload) {
       { label: "Move to Section / Heading:", type: "select", options: sectionOptions },
       { label: "Score:", type: "string", value: task.score !== void 0 && task.score !== null ? String(task.score) : "" },
       {
-        label: "Mark Status:",
-        type: "radio",
+        label: "Change Status (optional):",
+        type: "select",
         options: [
-          { label: "Keep active", value: "keep" },
+          { label: "-- None (keep status) --", value: "" },
           { label: "Started (startAt now)", value: "started" },
           { label: "Mark as Completed", value: "completed" },
           { label: "Dismiss / Archive", value: "dismissed" }
@@ -5650,6 +5738,19 @@ async function handleEditTaskDetails(app, payload) {
   }
   const targetNoteUUID = targetNote?.uuid || task.noteUUID;
   if (targetNoteUUID && targetNoteUUID !== task.noteUUID) {
+    try {
+      const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
+      if (sourceMarkdown) {
+        const srcLines = sourceMarkdown.split("\n");
+        const [srcIdx] = findTaskLines(srcLines, [{ uuid: cardId, content: task.content }]).values();
+        if (srcIdx !== void 0 && srcIdx >= 0) {
+          const nextSrc = removeLine(srcLines, srcIdx);
+          await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to remove task from source note:", err);
+    }
     updates.noteUUID = targetNoteUUID;
   }
   if (Object.keys(updates).length > 0) {
@@ -5660,6 +5761,12 @@ async function handleEditTaskDetails(app, payload) {
       await moveTaskToColumn(app, targetNoteUUID, cardId, { columnName: targetSection });
     } catch (err) {
       console.error("Failed to relocate task to heading section:", err);
+    }
+  } else if (targetNoteUUID && targetNoteUUID !== task.noteUUID) {
+    try {
+      await moveTaskToColumn(app, targetNoteUUID, cardId, { columnId: "unsorted" });
+    } catch (err) {
+      console.error("Failed to insert task in target note:", err);
     }
   }
   const tab = await resolveCurrentBoardTab(app, payload);
@@ -5914,15 +6021,15 @@ async function handleCardMenu(app, payload) {
     { label: "Reopen task (mark active)", value: "uncomplete" },
     { label: isDismissed ? "Un-dismiss task (reopen)" : "Dismiss / Archive task", value: "dismiss" },
     { label: "Edit task details (full dialog)", value: "edit_details" },
-    { label: "Add label (note link)", value: "label" },
+    { label: "Add note link", value: "link_note" },
     { label: "Create note from card", value: "note" }
   ] : [
     { label: "Mark as completed", value: "complete" },
     { label: "Edit task details (full dialog)", value: "edit_details" },
-    { label: "Add label (note link)", value: "label" },
     { label: "Set start date / time", value: "date" },
     { label: "Snooze / Hide Until (set date)", value: "snooze" },
     { label: "Schedule Time Block (start & end time)", value: "timeblock" },
+    { label: "Add note link", value: "link_note" },
     { label: "Create note from card", value: "note" }
   ];
   const choice = firstValue(await app.prompt(isDone || isDismissed ? "Completed Card Actions" : "Card Actions", {
@@ -5959,15 +6066,34 @@ async function handleCardMenu(app, payload) {
       completedAt: task.completedAt || payload?.completedAt
     });
   }
-  if (choice === "label") {
-    const handle = firstValue(await app.prompt("Add label", {
-      inputs: [{ label: "Pick a note to use as label:", type: "note" }]
+  if (choice === "link_note" || choice === "label") {
+    const handle = firstValue(await app.prompt("Add Note Link", {
+      inputs: [{ label: "Pick a note to link:", type: "note" }]
     }));
-    if (!handle || !handle.name) return;
-    await addLabelToTask(app, cardId, handle.name);
+    if (!handle) return;
+    const noteUUID = handle.uuid || handle.value || (typeof handle === "string" ? handle : null);
+    const noteName = handle.name || handle.label || "Note";
+    if (!noteUUID) return;
+    const noteLink = `[${noteName}](https://www.amplenote.com/notes/${noteUUID})`;
+    const currentContent = String(task.content || "").trim();
+    const escapedName = noteName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const bracketRegex = new RegExp(`(?:\\\\?\\[)+\\s*${escapedName}\\s*(?:\\\\?\\])+(?!\\s*\\()`, "gi");
+    let newContent = currentContent.replace(bracketRegex, noteLink);
+    const duplicateUrlRegex = new RegExp(`(\\(https:\\/\\/www\\.amplenote\\.com\\/notes\\/${noteUUID}\\)){2,}`, "g");
+    newContent = newContent.replace(duplicateUrlRegex, `(https://www.amplenote.com/notes/${noteUUID})`);
+    const exactLinkPattern = `\\[${escapedName}\\]\\(https:\\/\\/www\\.amplenote\\.com\\/notes\\/${noteUUID}\\)`;
+    const duplicateLinkRegex = new RegExp(`(?:${exactLinkPattern}\\s*){2,}`, "gi");
+    newContent = newContent.replace(duplicateLinkRegex, `${noteLink} `);
+    if (!newContent.includes(noteUUID)) {
+      newContent = newContent ? `${newContent} ${noteLink}` : noteLink;
+    }
+    newContent = newContent.replace(/\s{2,}/g, " ").trim();
+    if (newContent !== currentContent) {
+      await app.updateTask(cardId, { content: newContent });
+    }
     const tab = await resolveCurrentBoardTab(app, payload);
     const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board, toast: "Label added" };
+    return { ok: true, tabId: tab?.id, board, toast: "Note link added" };
   }
   if (choice === "date") {
     const currentVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;

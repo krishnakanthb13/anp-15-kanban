@@ -98,19 +98,19 @@ flowchart TD
 - [x] **Add Task (`+` Button)**: Click `+` at bottom of any column -> enter task markdown -> verify task is created directly under that heading in the note.
 - [x] **Auto-Complete in Done Column**: Drag an active card into a column named `Done` / `Completed` -> verify task is crossed out and completed in Amplenote. Moving into regular custom columns (e.g. `Testing Header 2`) keeps the task active.
 - [x] **Auto-Reopen from Done Column**: Drag a completed card out of a `Done` column into a normal column -> verify task is reopened.
-- [ ] **Card Click (Edit Task Details)**: Click card -> modify content, toggle Important/Urgent, set Score, change Status -> verify changes reflect in Amplenote task.
+- [x] **Card Click (Edit Task Details)**: Click card -> modify content, toggle Important/Urgent, set Score, change Status -> verify changes reflect in Amplenote task.
 - [ ] **3-Dot Card Menu**:
   - [ ] *Mark as completed / Reopen task*: Click 3-dot -> select *Mark as completed* (or *Reopen task*) -> verify task completion state toggles.
-  - [ ] *Add label (note link)*: Pick a note -> verify `[[Note Name]]` is added to task and colored label chip appears.
   - [ ] *Set start date / time*: Choose date & time -> verify start time chip appears on card.
   - [ ] *Snooze / Hide Until*: Set hide-until date -> verify saved to task.
   - [ ] *Schedule Time Block*: Set start & end dates/times -> verify calendar block info saved.
+  - [ ] *Add note link*: Pick an existing note -> links `[Note Name](https://www.amplenote.com/notes/{uuid})` into task -> clicking link navigates to note.
   - [ ] *Create note from card*: Prompts for note title -> creates fresh note with no tags -> links `[Title](https://www.amplenote.com/notes/{uuid})` into task -> clicking link navigates to note.
-- [ ] **Quick Date (`@` Button)**: Hover over card -> click `@` -> pick date -> verify task start date is updated.
-- [ ] **Note Links & Outside Link Safety**: Click note link -> verify navigates in Amplenote; click external link -> verify outside link toast alert.
-- [ ] **Tag & Label Chips**: Add `#tag` or `#parent/subtag` to task -> verify colored chip appears below task title matching account palette.
-- [ ] **Parent & Child Task Hierarchy**: Verify parent tasks show `📋 Parent Task` badge; indented subtasks show `↳ Child Task` / `↳↳ Child Task` with visual indentation and left accent lines.
-- [ ] **Rich Footnotes & Image Preview**: Create a task with an image URL (`![img](url)`) -> verify image fits column width cleanly without `open_in_new` artifacts; click image -> verify full-resolution Lightbox modal opens with close button and Escape key support.
+- [x] **Quick Date (`@` Button)**: Hover over card -> click `@` -> pick date -> verify task start date is updated.
+- [x] **Note Links & Outside Link Safety**: Click note link -> verify navigates in Amplenote; click external link -> verify outside link toast alert.
+- [x] **Tag & Label Chips**: Add `#tag` or `#parent/subtag` to task -> verify colored chip appears below task title matching account palette.
+- [x] **Parent & Child Task Hierarchy**: Verify parent tasks show `📋 Parent Task` badge; indented subtasks show `↳ Child Task` / `↳↳ Child Task` with visual indentation and left accent lines.
+- [x] **Rich Footnotes & Image Preview**: Create a task with an image URL (`![img](url)`) -> verify image fits column width cleanly without `open_in_new` artifacts; click image -> verify full-resolution Lightbox modal opens with close button and Escape key support.
 
 ---
 
