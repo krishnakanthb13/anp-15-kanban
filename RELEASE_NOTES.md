@@ -1,3 +1,15 @@
+## v0.0.37
+
+### 🐛 Bug Fixes & Stability
+- **Tag Tab Header Creation & Live Viewer Update**:
+  - `+ Add Header` cards inside Tag board columns now correctly bind through `handlePluginResult`, updating the in-memory board snapshot instantly without reloading the embed.
+  - Adding a new heading automatically activates `showEmptyColumns` (`showEmpty: true`) so newly created empty headers are immediately visible in the viewer.
+- **Notes Tab Column Streamlining**:
+  - Removed the redundant `+ Add Header` card from the bottom of columns in the Notes Tab (Multi-Note Board), keeping the view focused purely on note-level task columns.
+- **Notes Tab & Heading-Free Note Task Placement**:
+  - `moveTaskToColumn` now supports notes with zero markdown headings, enabling cards in flat project notes (and Notes tabs) to be positioned before/after any target card or placed at the top/bottom.
+  - `handleMoveCard` ensures relative placement (`targetCardId` + `position: before/after`) is executed across all Notes tab workflows.
+
 ## v0.0.36
 
 ### 🚀 New Features & Enhancements

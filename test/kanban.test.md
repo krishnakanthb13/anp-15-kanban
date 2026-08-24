@@ -3,11 +3,11 @@
 | Metric | Result |
 | :--- | :--- |
 | **Total Test Suites** | **19 passed**, 19 total ✅ |
-| **Total Tests** | **223 passed**, 223 total ✅ |
+| **Total Tests** | **229 passed**, 229 total ✅ |
 | **Failed Tests** | **0** ❌ |
 | **Skipped Tests** | **0** ⚠️ |
 | **Confidence Score** | **10 / 10** 🎯 |
-| **Regression Coverage** | Yes (Unified JSON Settings, Markdown Spans, Tri-Modal Boards [Note/Tag/Notes], Dedicated Completed Column, In-Memory 0ms Tab Switching & Refresh, Strict Document Line Ordering, Eisenhower Quadrants, Task Metadata Badges, Drag-and-Drop Columns & Tabs, Note Heading Ordering, WIP Limits, Dynamic Sorting, Label Chips, 8 Themes) |
+| **Regression Coverage** | Yes (Unified JSON Settings, Markdown Spans, Tri-Modal Boards [Note/Tag/Notes], Dedicated Completed Column, In-Memory 0ms Tab Switching & Refresh, Strict Document Line Ordering, Eisenhower Quadrants, Task Metadata Badges, Drag-and-Drop Columns & Tabs, Note Heading Ordering, WIP Limits, Dynamic Sorting, Label Chips, 8 Themes, Heading-Free Notes, Atomic Cross-Note Move) |
 
 ---
 
@@ -31,19 +31,21 @@
 - **Card Organization**: Organizes tasks into their respective note headings in strict markdown line order.
 - **Empty Toggle Retention**: Retains empty notes and heading sections for dynamic visibility filtering.
 
-### 4. `notesBoard.test.js` (4 tests)
+### 4. `notesBoard.test.js` (5 tests)
 - **Happy Path**: Lists tagged notes as columns and all internal tasks as flat cards in physical note line sequence.
 - **Enrichment**: Enriches cards with rich HTML, colored tag labels, and note names.
+- **Hierarchy Detection**: Detects parent and child subtask indentation hierarchy.
 
 ### 5. `taskOps.test.js` (9 tests)
-- **Task Movement (`moveTaskToColumn`)**: Relocates task lines under target headings in note markdown via minimal line diff with relative placement support.
+- **Task Movement (`moveTaskToColumn`)**: Relocates task lines under target headings in note markdown via minimal line diff with relative placement support (`targetCardId` + `before`/`after`).
+- **Heading-Free Note Support**: Positions cards accurately in notes without markdown headings.
 - **Task Creation (`createTaskInColumn`)**: Inserts tasks directly under the designated heading.
 - **Lifecycle & Completion**: Native completion toggling (`completedAt`), markdown content updates, and note-link label attachment.
 
 ### 6. `columnOps.test.js` (10 tests)
 - **Column Creation (`createColumn`)**: Appends matching-level headings (`#`, `##`) to note markdown.
 - **Column Renaming (`renameColumn`)**: Rewrites heading line preserving content markers.
-- **Column Deletion (`deleteColumn`)**: Confirms and deletes heading, moving tasks to top.
+- **Column Deletion (`deleteColumn`)**: Confirms and deletes heading, moving tasks to adjacent headings safely.
 - **Column Reordering (`reorderColumns`)**: Whole-note heading+content block reordering preserving preambles.
 - **Cross-Note Transfer (`transferColumn`)**: Moves heading and its tasks safely to another note (insert-before-remove).
 
@@ -53,10 +55,11 @@
 - **Drag & Drop Reordering (`moveTab`)**: Reorders tab array by drag index.
 - **WIP Limit Sanitization**: Validates and sanitizes per-column WIP limits.
 
-### 8. `embedActions.test.js` (37 tests)
+### 8. `embedActions.test.js` (43 tests)
 - **Dispatcher**: Strict validation and routing for all client iframe actions.
 - **In-Memory Flicker-Free Refresh (`handleRefreshTab`, `handleRefreshAll`)**: Re-queries and returns fresh board data snapshots in memory without iframe destruction.
-- **Flicker-Free Card Movement (`handleMoveCard`)**: Updates local state without tearing down iframe context.
+- **Atomic Cross-Note Card Move (`handleMoveCard`)**: Transfers task entities across notes without creating duplicate orphan tasks.
+- **Notes Tab & Heading-Free Reordering**: Relocates tasks next to target cards within and across notes in multi-note tabs.
 - **Semantic Completion Detection**: Accurate task completion routing on drag-and-drop into Completed/Done columns.
 - **Tab Wizard (`handleAddTab`)**: Progressive disclosure 2-step prompt wizard supporting Note, New Note, Tag, and Multi-Note boards.
 - **Unified Settings (`handleSaveSetting`, `handleSaveTheme`, `handleSetDateFormat`)**: Persists view state across sessions.
@@ -91,8 +94,9 @@
 - **Task Line Locator**: Tolerant UUID parsing in Amplenote task comments.
 - **Section Content Slicers**: Extracts and updates lines under specific headings without corrupting nested content.
 
-### 13. `kanban.test.js` (4 tests)
+### 13. `kanban.test.js` (8 tests)
 - **Plugin Lifecycle**: Validates `renderEmbed`, `onEmbedCall`, and launch option wiring.
+- **Error Boundaries**: Validates Service Worker crash immunity and top-level fallback rendering.
 
 ### 14. `demoBoard.test.js` (2 tests)
 - **Zero-Config Onboarding**: Injects a guided Demo Board when no user tabs are configured.
@@ -109,10 +113,10 @@
 ### 18. `noteOps.test.js` (7 tests)
 - **Note Operations**: Creation of tagged notes, opening note URLs, and safe note deletion.
 
-### 19. `prompt.test.js` (56 tests)
+### 19. `prompt.test.js` (3 tests)
 - **Prompt Utilities**: Safe value extraction and validation across all input prompt types.
 
 ---
 
 ## Conclusion
-All 19 test suites and 221 tests are passing with 100% success rate. The test suite guarantees full regression safety for drag-and-drop mechanics, in-memory live refresh, physical note markdown line order, dedicated completion routing, density modes, and tri-modal board types.
+All 19 test suites and 229 tests are passing with 100% success rate. The test suite guarantees full regression safety for drag-and-drop mechanics, in-memory live refresh, physical note markdown line order, dedicated completion routing, density modes, tri-modal board types, and heading-free notes.

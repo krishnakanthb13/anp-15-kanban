@@ -251,10 +251,10 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
   - **Layout Density System**: Defines responsive CSS custom property tokens for three layout modes (`.kb-density-compact`, `.kb-density-cozy`, `.kb-density-spacious`) controlling board gaps, column widths, section padding, card padding, and font sizes.
   - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), Open Note button (`#kb-open-note-btn`), cycling sort button (`#kb-sort-btn`), density cycler button (`#kb-density-btn`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
   - Column header layout with wide column title and right-aligned action group (`.kb-col-actions`) hosting count badge (`.kb-count`), `+` button, and micro floating tool palette (`.kb-col-tools`).
-  - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside columns, stacked single-column right-end action group (`.kb-add-column-group` containing `+ Add Header`/`+ Add Note` and `+ Add Task`), actionable empty state container (`.kb-empty-actions`), color-coordinated tag chips (`.kb-label-chip`, `.kb-tag-chip`, `.kb-label-dot`), hierarchical task badges (`.kb-badge-parent`, `.kb-badge-child`, `.kb-card-subtask`), and full-resolution image Lightbox modal (`.kb-lightbox-overlay`).
+  - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside Tag board columns (with automatic in-memory refresh and `showEmpty: true` auto-reveal), clean Notes tab columns omitting redundant inner heading tools, stacked single-column right-end action group (`.kb-add-column-group` containing `+ Add Header`/`+ Add Note` and `+ Add Task`), actionable empty state container (`.kb-empty-actions`), color-coordinated tag chips (`.kb-label-chip`, `.kb-tag-chip`, `.kb-label-dot`), hierarchical task badges (`.kb-badge-parent`, `.kb-badge-child`, `.kb-card-subtask`), and full-resolution image Lightbox modal (`.kb-lightbox-overlay`).
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
-  - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating all full-iframe `renderEmbed` reload flashes.
+  - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating all full-iframe `renderEmbed` reload flashes. Auto-activates `showEmptyColumns` when new empty headers are created.
   - **Glassmorphic Toast Notification System (`showToast`)**:
     - `.kb-toast-container` is fixed to the bottom-right corner (`position: fixed; bottom: 24px; right: 24px; z-index: 99999; pointer-events: none`).
     - `.kb-toast` cards feature backdrop blur (`backdrop-filter: blur(12px)`), theme surface coloring (`var(--kb-surface-card)`), smooth `@keyframes kb-toast-in` slide-up animations, and auto-dismiss fade-out (`.kb-toast-hiding`).
@@ -297,6 +297,8 @@ The architecture in `anp-15-kanban` solves fundamental data safety and performan
    - Note access methods normalize between string UUIDs and handle objects (`{ uuid: "..." }`) and supply fallback tags during note creation.
 6. **Atomic Cross-Note Task Relocation ([`lib/features/embedActions.js`](./lib/features/embedActions.js) & [`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
    - Moving cards across notes transfers the existing task entity directly via `app.updateTask(taskUuid, { noteUUID })` and splices it under the target heading section, completely eliminating duplicate task creation at the top of destination notes.
+7. **Heading-Free Note Support & Relative Card Positioning ([`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
+   - `moveTaskToColumn` supports notes with zero markdown headings (such as flat project notes in Notes tabs), allowing tasks to be placed before or after any `targetCardId` or placed at top/bottom without requiring `# Heading` lines.
 
 For full live validation steps, see [`checklist.md`](./checklist.md).
 
@@ -305,7 +307,7 @@ For full live validation steps, see [`checklist.md`](./checklist.md).
 ## Testing Strategy
 
 ```bash
-npm test -- anp-15-kanban          # Jest unit and integration suites (19 suites, 224 tests)
-node esbuild.js 15                 # Compiles bundle to build/kanban.compiled.js
-node anp-15-kanban/test/smoke.bundle.cjs # End-to-end bundle verification
+node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban # Jest test suite (19 suites, 229 tests)
+node esbuild.js 15                                                        # Compiles bundle to build/kanban.compiled.js
+node anp-15-kanban/test/smoke.bundle.cjs                                  # End-to-end bundle verification
 ```

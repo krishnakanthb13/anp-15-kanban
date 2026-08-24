@@ -92,12 +92,12 @@ flowchart TD
 ---
 
 ### 3.3. Task / Card Operations
-- [ ] **Visual Drop Indicator Lines**: Drag a card over another card -> verify horizontal 3px glowing accent line appears above or below the target card.
-- [ ] **Intra-Header Reordering**: Drag a card to a different position within the *same* column (above or below an existing card) -> verify note markdown updates with the exact new order.
-- [ ] **Cross-Header Relative Placement**: Drag a card to a specific position (e.g. position 3) in *another* column -> verify note markdown places the task directly at that position.
-- [ ] **Add Task (`+` Button)**: Click `+` at bottom of any column -> enter task markdown -> verify task is created directly under that heading in the note.
-- [ ] **Auto-Complete in Done Column**: Drag an active card into a column named `Done` / `Completed` -> verify task is crossed out and completed in Amplenote. Moving into regular custom columns (e.g. `Testing Header 2`) keeps the task active.
-- [ ] **Auto-Reopen from Done Column**: Drag a completed card out of a `Done` column into a normal column -> verify task is reopened.
+- [x] **Visual Drop Indicator Lines**: Drag a card over another card -> verify horizontal 3px glowing accent line appears above or below the target card.
+- [x] **Intra-Header Reordering**: Drag a card to a different position within the *same* column (above or below an existing card) -> verify note markdown updates with the exact new order.
+- [x] **Cross-Header Relative Placement**: Drag a card to a specific position (e.g. position 3) in *another* column -> verify note markdown places the task directly at that position.
+- [x] **Add Task (`+` Button)**: Click `+` at bottom of any column -> enter task markdown -> verify task is created directly under that heading in the note.
+- [x] **Auto-Complete in Done Column**: Drag an active card into a column named `Done` / `Completed` -> verify task is crossed out and completed in Amplenote. Moving into regular custom columns (e.g. `Testing Header 2`) keeps the task active.
+- [x] **Auto-Reopen from Done Column**: Drag a completed card out of a `Done` column into a normal column -> verify task is reopened.
 - [ ] **Card Click (Edit Task Details)**: Click card -> modify content, toggle Important/Urgent, set Score, change Status -> verify changes reflect in Amplenote task.
 - [ ] **3-Dot Card Menu**:
   - [ ] *Mark as completed / Reopen task*: Click 3-dot -> select *Mark as completed* (or *Reopen task*) -> verify task completion state toggles.

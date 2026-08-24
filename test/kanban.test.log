@@ -19,7 +19,7 @@ PASS anp-15-kanban/test/settings.test.js
 PASS anp-15-kanban/test/prompt.test.js
 
 Test Suites: 19 passed, 19 total
-Tests:       221 passed, 221 total
+Tests:       229 passed, 229 total
 Snapshots:   0 total
-Time:        4.066 s
+Time:        4.761 s
 Ran all test suites matching /anp-15-kanban/i.

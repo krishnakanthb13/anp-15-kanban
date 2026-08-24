@@ -314,6 +314,12 @@ function buildClientScript() {
           var t = STATE.tabs.find(function (x) { return x.id === res.tabId; });
           if (t) t.columnLimits = res.columnLimits;
         }
+        if (res && res.showEmpty && !showEmptyColumns) {
+          showEmptyColumns = true;
+          setLocalSetting("showEmptyColumns", true);
+          callPlugin("saveSetting", { showEmptyColumns: true });
+          updateEmptyUi();
+        }
         renderAll();
         if (res && res.toast) {
           showToast(res.toast, res.toastType || "success");
@@ -1208,7 +1214,7 @@ function buildClientScript() {
         addSecCard.appendChild(el("span", "kb-add-header-label", "Add Header"));
         addSecCard.addEventListener("click", function (e) {
           e.stopPropagation();
-          callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id });
+          handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id }));
         });
         sectionsHost.appendChild(addSecCard);
 
@@ -1220,7 +1226,7 @@ function buildClientScript() {
           list.appendChild(buildCardEl(card));
         });
 
-        if (isTagBoard || data.kind === "notes") {
+        if (isTagBoard) {
           var addNotesSecCard = el("div", "kb-add-header-card");
           addNotesSecCard.title = "Add a new heading to " + col.name;
           var ansIcon = el("span", "kb-add-header-icon");
@@ -1229,7 +1235,7 @@ function buildClientScript() {
           addNotesSecCard.appendChild(el("span", "kb-add-header-label", "Add Header"));
           addNotesSecCard.addEventListener("click", function (e) {
             e.stopPropagation();
-            callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id });
+            handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id }));
           });
           list.appendChild(addNotesSecCard);
         }
@@ -1421,7 +1427,8 @@ function buildClientScript() {
       atBtn.title = "Set task date (@)";
       atBtn.addEventListener("click", function (e) {
         e.stopPropagation();
-        handlePluginResult(callPlugin("quickSetDate", { cardId: card.id, tabId: STATE.activeTabId }));
+        var isComp = !!card.completedAt || !!card.completed || cardEl.classList.contains("kb-card-done");
+        handlePluginResult(callPlugin("quickSetDate", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt }));
       });
       actions.appendChild(atBtn);
     }
@@ -1444,7 +1451,8 @@ function buildClientScript() {
     moreBtn.appendChild(svg("more"));
     moreBtn.addEventListener("click", function (e) {
       e.stopPropagation();
-      handlePluginResult(callPlugin("cardMenu", { cardId: card.id, tabId: STATE.activeTabId }));
+      var isComp = !!card.completedAt || !!card.completed || cardEl.classList.contains("kb-card-done");
+      handlePluginResult(callPlugin("cardMenu", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt }));
     });
     actions.appendChild(moreBtn);
     cardEl.appendChild(actions);
@@ -1611,7 +1619,8 @@ function buildClientScript() {
         return;
       }
 
-      handlePluginResult(callPlugin("editCard", { cardId: card.id, tabId: STATE.activeTabId }));
+      var isComp = !!card.completedAt || !!card.completed || cardEl.classList.contains("kb-card-done");
+      handlePluginResult(callPlugin("editCard", { cardId: card.id, tabId: STATE.activeTabId, isCompleted: isComp, completedAt: card.completedAt }));
     });
 
     return cardEl;
@@ -1701,16 +1710,48 @@ function buildClientScript() {
         targetCardId: targetCardId,
         position: position,
       }).then(function (res) {
-        if (res && res.newCardId && cardEl) {
-          cardEl.setAttribute("data-card-id", res.newCardId);
+        if (!res) return;
+        var newId = res.newCardId || cardId;
+        var tabData = STATE.boards ? STATE.boards[STATE.activeTabId] : null;
+        var targetCardModel = null;
+        if (tabData && tabData.columns) {
+          tabData.columns.forEach(function (c) {
+            (c.cards || []).forEach(function (cd) {
+              if (cd.id === cardId || cd.id === newId) targetCardModel = cd;
+            });
+            (c.sections || []).forEach(function (s) {
+              (s.cards || []).forEach(function (cd) {
+                if (cd.id === cardId || cd.id === newId) targetCardModel = cd;
+              });
+            });
+          });
         }
-        if (res && res.taskCompleted !== undefined && cardEl) {
-          if (res.taskCompleted) {
-            cardEl.classList.add("kb-card-done");
-            showToast("Task completed", "success");
-          } else {
-            cardEl.classList.remove("kb-card-done");
+
+        if (res.newCardId && targetCardModel) {
+          targetCardModel.id = res.newCardId;
+          targetCardModel.uuid = res.newCardId;
+        }
+
+        if (res.taskCompleted !== undefined) {
+          var wasCompleted = targetCardModel ? !!targetCardModel.completedAt : (cardEl ? cardEl.classList.contains("kb-card-done") : false);
+          if (targetCardModel) {
+            targetCardModel.completedAt = res.taskCompleted ? (res.completedAt || Math.floor(Date.now() / 1000)) : null;
+            targetCardModel.completed = !!res.taskCompleted;
           }
+          if (targetCardModel && cardEl && cardEl.parentElement) {
+            var freshCardEl = buildCardEl(targetCardModel);
+            cardEl.replaceWith(freshCardEl);
+          } else if (cardEl) {
+            if (res.newCardId) cardEl.setAttribute("data-card-id", res.newCardId);
+            cardEl.classList.toggle("kb-card-done", !!res.taskCompleted);
+          }
+          if (res.taskCompleted && !wasCompleted) {
+            showToast("Task completed", "success");
+          } else if (!res.taskCompleted && wasCompleted) {
+            showToast("Task reopened", "success");
+          }
+        } else if (res.newCardId && cardEl) {
+          cardEl.setAttribute("data-card-id", res.newCardId);
         }
       });
     });
@@ -4421,6 +4462,15 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
       return "moved";
     }
   }
+  if (!columns.length) {
+    if (target.position === "bottom") {
+      next.push(taskLine);
+    } else {
+      next.unshift(taskLine);
+    }
+    await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
+    return "moved";
+  }
   if (target.columnId === "completed" || target.columnName === "Completed") {
     try {
       await app.updateTask(taskUuid, { completedAt: Date.now() });
@@ -4428,7 +4478,7 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
     }
     return "moved";
   }
-  if (target.columnId === "unsorted" || target.columnName === "Unsorted") {
+  if (!target.columnId || target.columnId === "unsorted" || target.columnName === "Unsorted" || target.columnId === "main") {
     const insertAt = columns[0] ? Math.max(0, columns[0].startLine) : 0;
     const nextLine = next[insertAt];
     if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
@@ -5271,7 +5321,8 @@ async function handleMoveCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
   if (!tab || !payload.cardId || !payload.toColumnId) return { ok: false };
   if (tab.kind === "tag" || tab.kind === "notes") {
-    const targetUUID = String(payload.toColumnId).startsWith(NOTE_PREFIX) ? payload.toColumnId.slice(NOTE_PREFIX.length) : payload.toColumnId;
+    const isPrefixed = String(payload.toColumnId).startsWith(NOTE_PREFIX);
+    const targetUUID = isPrefixed ? payload.toColumnId.slice(NOTE_PREFIX.length) : String(payload.toColumnId).length > 1 ? payload.toColumnId : null;
     if (!targetUUID) return { ok: false };
     const task = await app.getTask(payload.cardId);
     if (!task) return { ok: false };
@@ -5294,46 +5345,48 @@ async function handleMoveCard(app, payload) {
       } catch (err) {
         console.error("Failed to update task noteUUID:", err);
       }
-      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed";
+      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed" || payload.toColumnId === "completed" || payload.toColumnName === "Completed";
       if (isDoneSection) {
         await setTaskCompleted(app, payload.cardId, true);
       } else {
-        if (payload.toSectionId && payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
-          try {
-            await moveTaskToColumn(app, targetUUID, payload.cardId, {
-              columnId: payload.toSectionId,
-              columnName: payload.toSectionName,
-              targetCardId: payload.targetCardId,
-              position: payload.position
-            });
-          } catch (err) {
-            console.error("Failed to relocate task to section in target note:", err);
-          }
-        }
-        await setTaskCompleted(app, payload.cardId, false);
-      }
-      if (payload.forceRerender) await rerender(app);
-      return { ok: true, newCardId: payload.cardId };
-    } else if (payload.toSectionId) {
-      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed";
-      if (isDoneSection) {
-        await setTaskCompleted(app, payload.cardId, true);
-      } else {
-        if (payload.toSectionId !== "unsorted" && payload.toSectionId !== "main") {
+        try {
           await moveTaskToColumn(app, targetUUID, payload.cardId, {
             columnId: payload.toSectionId,
-            columnName: payload.toSectionName
+            columnName: payload.toSectionName,
+            targetCardId: payload.targetCardId,
+            position: payload.position
           });
-        } else if (payload.toSectionId === "unsorted" || payload.toSectionId === "main") {
-          await moveTaskToColumn(app, targetUUID, payload.cardId, {
-            columnId: "unsorted",
-            columnName: "Unsorted"
-          });
+        } catch (err) {
+          console.error("Failed to relocate task in target note:", err);
         }
         await setTaskCompleted(app, payload.cardId, false);
       }
       if (payload.forceRerender) await rerender(app);
-      return { ok: true };
+      return {
+        ok: true,
+        newCardId: payload.cardId,
+        taskCompleted: isDoneSection,
+        completedAt: isDoneSection ? Math.floor(Date.now() / 1e3) : null
+      };
+    } else if (payload.toSectionId || payload.targetCardId) {
+      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed" || payload.toColumnId === "completed" || payload.toColumnName === "Completed";
+      if (isDoneSection) {
+        await setTaskCompleted(app, payload.cardId, true);
+      } else {
+        await moveTaskToColumn(app, targetUUID, payload.cardId, {
+          columnId: payload.toSectionId,
+          columnName: payload.toSectionName,
+          targetCardId: payload.targetCardId,
+          position: payload.position
+        });
+        await setTaskCompleted(app, payload.cardId, false);
+      }
+      if (payload.forceRerender) await rerender(app);
+      return {
+        ok: true,
+        taskCompleted: isDoneSection,
+        completedAt: isDoneSection ? Math.floor(Date.now() / 1e3) : null
+      };
     }
     if (payload.forceRerender) await rerender(app);
     return { ok: true };
@@ -5351,7 +5404,12 @@ async function handleMoveCard(app, payload) {
   if (payload.forceRerender) {
     await rerender(app);
   }
-  return { ok: true, status, taskCompleted: doneTarget };
+  return {
+    ok: true,
+    status,
+    taskCompleted: doneTarget,
+    completedAt: doneTarget ? Math.floor(Date.now() / 1e3) : null
+  };
 }
 async function handleCreateCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -5476,7 +5534,7 @@ async function handleEditTaskDetails(app, payload) {
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
-  const isDone = !!(task.completedAt || task.completed);
+  const isDone = !!(task.completedAt || task.completed || payload?.isCompleted || payload?.completedAt);
   const isDismissed = !!task.dismissedAt;
   let sections = [];
   try {
@@ -5509,7 +5567,7 @@ async function handleEditTaskDetails(app, payload) {
         { label: "Urgent:", type: "checkbox", value: !!task.urgent }
       ]
     });
-    if (!result2) return;
+    if (!result2) return { ok: false, canceled: true };
     const [content2, targetSection2, statusChoice2, important2, urgent2] = result2;
     const updates2 = {};
     if (content2 !== void 0 && content2 !== task.content) {
@@ -5539,8 +5597,10 @@ async function handleEditTaskDetails(app, payload) {
         console.error("Failed to relocate reopened task:", err);
       }
     }
-    await rerender(app);
-    return;
+    const tab2 = await resolveCurrentBoardTab(app, payload);
+    const board2 = tab2 ? await buildSingleBoard(app, tab2) : null;
+    if (payload.forceRerender) await rerender(app);
+    return { ok: true, tabId: tab2?.id, board: board2, toast: "Task updated" };
   }
   const result = await app.prompt("Edit Task Details", {
     inputs: [
@@ -5635,7 +5695,7 @@ async function resolveHeading(app, payload) {
 }
 async function handleCreateColumn(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  if (!tab) return;
+  if (!tab) return { ok: false };
   let noteUUID = payload?.noteUUID || null;
   if (!noteUUID && payload?.columnId && String(payload.columnId).startsWith(NOTE_PREFIX)) {
     noteUUID = payload.columnId.slice(NOTE_PREFIX.length);
@@ -5643,7 +5703,7 @@ async function handleCreateColumn(app, payload) {
   if (!noteUUID && tab.kind === "note") {
     noteUUID = tab.noteUUID;
   }
-  if (!noteUUID) return;
+  if (!noteUUID) return { ok: false };
   const result = await app.prompt("New Header / Column", {
     inputs: [
       { label: "Header name:", type: "text" },
@@ -5659,15 +5719,16 @@ async function handleCreateColumn(app, payload) {
       }
     ]
   });
-  if (!result) return;
+  if (!result) return { ok: false, canceled: true };
   const [name, levelRaw] = Array.isArray(result) ? result : [result, null];
-  if (!name || !String(name).trim()) return;
+  if (!name || !String(name).trim()) return { ok: false, canceled: true };
   const level = levelRaw ? parseInt(String(levelRaw), 10) || null : null;
   const created = await createColumn(app, noteUUID, String(name).trim(), level);
   if (created) {
     const board = await buildSingleBoard(app, tab);
-    return { ok: true, tabId: tab.id, board, toast: "Column created" };
+    return { ok: true, tabId: tab.id, board, toast: "Header created", showEmpty: true };
   }
+  return { ok: false, error: "Could not create header" };
 }
 async function handleCreateColumnNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
@@ -5847,7 +5908,7 @@ async function handleCardMenu(app, payload) {
   if (!cardId) return;
   const task = await app.getTask(cardId);
   if (!task) return;
-  const isDone = !!(task.completedAt || task.completed);
+  const isDone = !!(task.completedAt || task.completed || payload?.isCompleted || payload?.completedAt);
   const isDismissed = !!task.dismissedAt;
   const options = isDone || isDismissed ? [
     { label: "Reopen task (mark active)", value: "uncomplete" },
@@ -5891,7 +5952,12 @@ async function handleCardMenu(app, payload) {
     return { ok: true, tabId: tab?.id, board, toast: isDismissed ? "Task reopened" : "Task dismissed" };
   }
   if (choice === "edit_details") {
-    return await handleEditTaskDetails(app, { cardId, tabId: payload?.tabId });
+    return await handleEditTaskDetails(app, {
+      cardId,
+      tabId: payload?.tabId,
+      isCompleted: isDone,
+      completedAt: task.completedAt || payload?.completedAt
+    });
   }
   if (choice === "label") {
     const handle = firstValue(await app.prompt("Add label", {
@@ -6132,9 +6198,9 @@ async function handleReorderColumns(app, payload) {
 }
 async function handleQuickSetDate(app, payload) {
   const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
-  if (!cardId) return;
+  if (!cardId) return { ok: false };
   const task = await app.getTask(cardId);
-  if (!task) return;
+  if (!task) return { ok: false };
   const currentVal = typeof task.startAt === "number" && task.startAt > 0 ? Math.floor(task.startAt) : null;
   const currentTime = formatLocalTimeStr(task.startAt);
   const result = await app.prompt("Set Task Date & Time (@)", {
@@ -6143,13 +6209,13 @@ async function handleQuickSetDate(app, payload) {
       { label: "Scheduled time (optional, e.g. 14:30 or 2:30 PM):", type: "string", value: currentTime, placeholder: "HH:MM" }
     ]
   });
-  if (result === null || result === void 0) return;
+  if (result === null || result === void 0) return { ok: false, canceled: true };
   const [dateRaw, timeRaw] = Array.isArray(result) ? result : [result, ""];
   const startAt = combineDateAndTime(dateRaw, timeRaw);
   await app.updateTask(cardId, { startAt });
   const tab = await resolveCurrentBoardTab(app, payload);
   const board = tab ? await buildSingleBoard(app, tab) : null;
-  return { ok: true, tabId: tab?.id, board };
+  return { ok: true, tabId: tab?.id, board, toast: startAt ? "Date updated" : "Date cleared" };
 }
 var ACTIONS = {
   ping: handlePing,
