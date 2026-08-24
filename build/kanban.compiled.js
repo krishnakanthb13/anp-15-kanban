@@ -3806,6 +3806,62 @@ function buildBaseCss() {
             flex: 1 1 auto;
         }
     }
+    /* ---------- Toast Notifications ---------- */
+    .kb-toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+        max-width: 380px;
+    }
+    .kb-toast {
+        pointer-events: auto;
+        background: var(--kb-surface-card);
+        color: var(--kb-text);
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--kb-border);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.4;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: kb-toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-left: 4px solid var(--kb-accent);
+        transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+    }
+    .kb-toast-success {
+        border-left-color: #10b981;
+    }
+    .kb-toast-error {
+        border-left-color: #ef4444;
+    }
+    .kb-toast-warning {
+        border-left-color: #f59e0b;
+    }
+    .kb-toast-hiding {
+        opacity: 0;
+        transform: translateY(8px) scale(0.96);
+    }
+    @keyframes kb-toast-in {
+        from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
     @media (max-width: 600px) {
         .kb-header-left, .kb-header-right {
             width: auto;
@@ -3815,6 +3871,12 @@ function buildBaseCss() {
         }
         .kb-column {
             width: 280px;
+        }
+        .kb-toast-container {
+            bottom: 16px;
+            right: 16px;
+            left: 16px;
+            max-width: none;
         }
     }
   `;
@@ -3973,7 +4035,8 @@ function createTab({ kind, name, noteUUID = null, tag = null }) {
   if (kind !== "note" && kind !== "tag" && kind !== "notes") {
     throw new Error(`Invalid tab kind: ${kind}`);
   }
-  return { id: newId("tab"), kind, name: String(name || "Untitled"), noteUUID, tag };
+  const cleanNoteUUID = typeof noteUUID === "object" && noteUUID !== null ? noteUUID.uuid || noteUUID.id || null : noteUUID;
+  return { id: newId("tab"), kind, name: String(name || "Untitled"), noteUUID: cleanNoteUUID, tag };
 }
 function addTab(config, tab) {
   const tabs = [...config.tabs, tab];
@@ -4639,11 +4702,21 @@ ${trimmed}
 
 // anp-15-kanban/lib/api/noteBoard.js
 async function buildNoteBoard(app, noteUUID, options = {}) {
-  const markdown = await app.getNoteContent({ uuid: noteUUID });
-  if (typeof markdown !== "string") {
-    return { kind: "note", noteUUID, columns: [], hasHeadings: false };
+  const cleanUUID = typeof noteUUID === "object" && noteUUID !== null ? noteUUID.uuid || noteUUID.id : noteUUID;
+  if (!cleanUUID || typeof cleanUUID !== "string") {
+    return { kind: "note", noteUUID: cleanUUID, columns: [], hasHeadings: false };
   }
-  const tasks = await app.getNoteTasks({ uuid: noteUUID }, { includeDone: true }) || [];
+  let markdown = "";
+  try {
+    markdown = await app.getNoteContent({ uuid: cleanUUID });
+  } catch (err) {
+    console.error(`Failed to getNoteContent for ${cleanUUID}:`, err);
+    return { kind: "note", noteUUID: cleanUUID, columns: [], hasHeadings: false };
+  }
+  if (typeof markdown !== "string") {
+    return { kind: "note", noteUUID: cleanUUID, columns: [], hasHeadings: false };
+  }
+  const tasks = await app.getNoteTasks({ uuid: cleanUUID }, { includeDone: true }) || [];
   let colorMap = {};
   try {
     const tags = await app.getTags() || [];
@@ -5030,30 +5103,51 @@ async function handleAddTab(app) {
         }
       ]
     }));
-    if (!noteHandle || !noteHandle.uuid) return;
+    if (!noteHandle || !noteHandle.uuid && !noteHandle.id) return;
+    const noteUUID = noteHandle.uuid || noteHandle.id;
     tab = createTab({
       kind: "note",
       name: noteHandle.name || "Note board",
-      noteUUID: noteHandle.uuid
+      noteUUID
     });
   } else if (choice === "new_note") {
     const titleInput = firstValue(await app.prompt("Create New Note Board", {
       inputs: [
         {
           label: "Board title (optional \u2014 leave blank for timestamped name):",
-          type: "string"
+          type: "text"
         }
       ]
     }));
     if (titleInput === null || titleInput === void 0) return;
     const title = titleInput && String(titleInput).trim() || defaultKanbanNoteName();
-    const uuid = await app.createNote(title, ["-reports/-kanban"]);
-    if (!uuid) return;
-    await app.replaceNoteContent({ uuid }, "# To Do\n\n# In Progress\n\n# Done\n");
+    let uuid = null;
+    try {
+      uuid = await app.createNote(title, ["-reports/-kanban"]);
+    } catch (err) {
+      console.warn("createNote with '-reports/-kanban' failed, trying fallback:", err);
+      try {
+        uuid = await app.createNote(title, ["reports/kanban"]);
+      } catch {
+        try {
+          uuid = await app.createNote(title);
+        } catch (createErr) {
+          console.error("createNote failed completely:", createErr);
+          return;
+        }
+      }
+    }
+    const cleanUUID = typeof uuid === "object" && uuid !== null ? uuid.uuid || uuid.id : uuid;
+    if (!cleanUUID) return;
+    try {
+      await app.replaceNoteContent({ uuid: cleanUUID }, "# To Do\n\n# In Progress\n\n# Done\n");
+    } catch (err) {
+      console.warn("Failed to initialize note content for new board:", err);
+    }
     tab = createTab({
       kind: "note",
       name: title,
-      noteUUID: uuid
+      noteUUID: cleanUUID
     });
   } else if (choice === "tag") {
     const tagVal = firstValue(await app.prompt("Select Tag for Board", {
@@ -6169,8 +6263,25 @@ var plugin = {
    * @returns {Promise<string>} full HTML document for the embed iframe.
    */
   async renderEmbed(app) {
-    const viewState = await this.buildViewState(app);
-    return buildBoardHtml(withDemoContent(viewState));
+    try {
+      const viewState = await this.buildViewState(app);
+      const html = buildBoardHtml(withDemoContent(viewState));
+      return typeof html === "string" ? html : "<!DOCTYPE html><html><body>Error rendering board</body></html>";
+    } catch (error) {
+      console.error("renderEmbed failed:", error);
+      try {
+        return buildBoardHtml(withDemoContent({
+          version: 1,
+          activeTabId: null,
+          tabs: [],
+          boards: {},
+          settings: {},
+          meta: { roundTrips: 0 }
+        }));
+      } catch (fallbackError) {
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kanban Board</title></head><body style="font-family:sans-serif;padding:24px;color:#fff;background:#1e1e1e;"><h3>Kanban Board Loading Error</h3><p>${error?.message || "An unexpected error occurred."}</p></body></html>`;
+      }
+    }
   },
   /* ----------------------------------- */
   /**

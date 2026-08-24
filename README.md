@@ -312,7 +312,31 @@ Task cards dynamically display badges and metadata chips **only when those value
 - **`T` / `t`**: Cycle through the 8 themes with 0ms client-side switching.
 - **`/`**: Instantly focus and select the card filter search input.
 - **`Esc`**: Clear search filter and blur search input.
-- **Live Toast Notifications**: Non-intrusive bottom-right toast feedback for reorders, theme switches, and note updates.
+- **Live Toast Notifications**: Non-intrusive bottom-right feedback for theme changes, density/view toggles, sorting, column reordering, guardrail alerts, and note synchronization.
+
+### Toast Notification System
+
+The Kanban board provides non-blocking, glassmorphic toast notifications in the bottom-right corner for visual feedback across actions:
+
+| Category | Trigger Event | Notification Message |
+| :--- | :--- | :--- |
+| **🎨 Themes & View Options** | Cycle Theme (`T` key or 🎨 button) | `Theme: [Theme Name]` (e.g. `Theme: Clean Daylight`, `Theme: Dracula Neo`) |
+| | Cycle Density (Density button) | `Density: [Compact / Cozy / Spacious]` |
+| | Toggle Empty Columns (Empty button) | `Showing all columns (including empty)` / `Hiding empty columns` |
+| | Toggle Card Info (Info button) | `Expanded all task details` / `Collapsed all task details` |
+| | Toggle Quick Date (Date button) | `Quick @ date buttons enabled on cards` / `Quick @ date buttons disabled` |
+| | Cycle Sort Mode (Sort Tasks button) | `Sorted by [Score / Urgency / Date / etc.]` |
+| | Reset Sort to natural order | `Reset to default task order` |
+| **🔄 Sync & Tabs** | Sync Active Tab (Tab sync icon) | `✓ Tab refreshed (default order)` |
+| | Sync All Tabs (All sync icon) | `✓ All boards refreshed (default order)` |
+| | Reorder Tabs (Drag-and-drop) | `Tab reordered` |
+| **📋 Columns & Headers** | Reorder Columns (Drag-and-drop) | `Column reordered` |
+| | Move Column Left / Right (3-dot menu) | `✓ Column moved left` / `✓ Column moved right` |
+| | Move Section Up / Down (Tag boards) | `✓ Header moved up` / `✓ Header moved down` |
+| | Column Movement Guardrails | `ℹ️ Cannot move column before Unsorted`<br>`ℹ️ Cannot move column after Completed`<br>`ℹ️ Column is already at the first/last position` |
+| **📝 Tasks & External Links** | Quick Task Creation | `Task added` |
+| | Click External Web Link in Card | `Outside links do not work here.` |
+| | Note Sync / API Errors | `⚠️ Action could not be completed` / `⚠️ Failed to save changes to note` |
 
 ### Card Context Menu (`⋯`)
 

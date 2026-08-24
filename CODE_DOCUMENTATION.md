@@ -255,9 +255,15 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
   - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating all full-iframe `renderEmbed` reload flashes.
-  - **State-Accurate Notifications & Auto-Rollback**:
-    - `showToast(msg, type)` implements clear visual hierarchy: `success` (green border + `✓`), `error` (red danger border + `⚠️`), and `warning` (amber border + `ℹ️`).
-    - Positive notifications are shown only upon verified backend completion (`res.ok === true`).
+  - **Glassmorphic Toast Notification System (`showToast`)**:
+    - `.kb-toast-container` is fixed to the bottom-right corner (`position: fixed; bottom: 24px; right: 24px; z-index: 99999; pointer-events: none`).
+    - `.kb-toast` cards feature backdrop blur (`backdrop-filter: blur(12px)`), theme surface coloring (`var(--kb-surface-card)`), smooth `@keyframes kb-toast-in` slide-up animations, and auto-dismiss fade-out (`.kb-toast-hiding`).
+    - Visual hierarchy across notification types:
+      - `success` (green left accent `#10b981` + `✓ ` prefix): e.g. Column moved, Tab refreshed, All boards refreshed.
+      - `error` (red left accent `#ef4444` + `⚠️ ` prefix): e.g. Failed to save changes, Action could not be completed.
+      - `warning` (amber left accent `#f59e0b` + `ℹ️ ` prefix): e.g. Boundary guardrails (*Cannot move column before Unsorted*, *Cannot move column after Completed*).
+      - `info` (theme accent `var(--kb-accent)`): Theme changes, Density cycling, View option toggles, Sort mode changes, Outside link warnings.
+    - Positive completion toasts are dispatched upon verified backend operations (`res.ok === true`).
     - If a background mutation fails or rejects, an error alert is displayed and `handlePluginResult` automatically fetches fresh board state via `refreshTab` to rollback the UI to the source note's true state.
   - **Sequential Write Lock (`withNoteLock` in `columnOps.js`)**:
     - Serializes concurrent note mutation requests across rapid UI interactions into a Promise chain, eliminating ProseMirror editor selection conflicts and data collisions.

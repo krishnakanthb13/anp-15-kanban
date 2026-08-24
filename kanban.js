@@ -84,8 +84,25 @@ const plugin = {
    * @returns {Promise<string>} full HTML document for the embed iframe.
    */
   async renderEmbed(app) {
-    const viewState = await this.buildViewState(app);
-    return buildBoardHtml(withDemoContent(viewState));
+    try {
+      const viewState = await this.buildViewState(app);
+      const html = buildBoardHtml(withDemoContent(viewState));
+      return typeof html === "string" ? html : "<!DOCTYPE html><html><body>Error rendering board</body></html>";
+    } catch (error) {
+      console.error("renderEmbed failed:", error);
+      try {
+        return buildBoardHtml(withDemoContent({
+          version: 1,
+          activeTabId: null,
+          tabs: [],
+          boards: {},
+          settings: {},
+          meta: { roundTrips: 0 },
+        }));
+      } catch (fallbackError) {
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kanban Board</title></head><body style="font-family:sans-serif;padding:24px;color:#fff;background:#1e1e1e;"><h3>Kanban Board Loading Error</h3><p>${error?.message || "An unexpected error occurred."}</p></body></html>`;
+      }
+    }
   },
   /* ----------------------------------- */
   /**

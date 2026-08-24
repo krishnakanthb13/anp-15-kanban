@@ -67,17 +67,17 @@ flowchart TD
 ## 3. Live Environment Testing Checklist
 
 ### 3.1. Launch & Tab System
-- [ ] **Launch**: Open via plugin launcher (`Open Kanban Board`); verify persistent embed view renders cleanly.
-- [ ] **Create New Note Tab**: Click `+` tab -> choose *Create New Note Board* -> verify note is created in `-reports/-kanban` with default columns (`To Do`, `In Progress`, `Done`).
-- [ ] **Link Existing Note Tab**: Click `+` tab -> choose *Existing Note Board* -> pick an existing note -> verify all headings appear as columns.
-- [ ] **Tag Board Tab (Collapsible Headings)**: Click `+` tab -> choose *Tag Board* -> enter a tag (e.g. `projects`) -> verify all notes with that tag become columns, each with collapsible heading sections.
-- [ ] **Multi-Note Board Tab (Flat Tasks)**: Click `+` tab -> choose *Multi-Note Board* -> verify notes become columns with flat task cards.
-- [ ] **Tab Switching & Persistence**: Switch between tabs; verify active tab and state persist upon closing/reopening the embed.
-- [ ] **Tab Drag & Drop Reordering**: Drag tabs left/right; verify order persists across reloads.
-- [ ] **Close Tab**: Click `×` on a tab; confirm it closes and focuses the adjacent tab.
-- [ ] **Single Tab Refresh**: Click tab refresh button; verify only active tab re-queries Amplenote.
-- [ ] **All Tabs Refresh**: Click global refresh button; verify all tabs re-sync with progress indicator.
-- [ ] **Note Board Navigation**: Click the **↗** tab tool icon or the top action bar **`↗ Open Note`** button -> verify Amplenote navigates directly to the source note.
+- [x] **Launch**: Open via plugin launcher (`Open Kanban Board`); verify persistent embed view renders cleanly.
+- [x] **Create New Note Tab**: Click `+` tab -> choose *Create New Note Board* -> verify note is created in `-reports/-kanban` with default columns (`To Do`, `In Progress`, `Done`).
+- [x] **Link Existing Note Tab**: Click `+` tab -> choose *Existing Note Board* -> pick an existing note -> verify all headings appear as columns.
+- [x] **Tag Board Tab (Collapsible Headings)**: Click `+` tab -> choose *Tag Board* -> enter a tag (e.g. `projects`) -> verify all notes with that tag become columns, each with collapsible heading sections.
+- [x] **Multi-Note Board Tab (Flat Tasks)**: Click `+` tab -> choose *Multi-Note Board* -> verify notes become columns with flat task cards.
+- [x] **Tab Switching & Persistence**: Switch between tabs; verify active tab and state persist upon closing/reopening the embed.
+- [x] **Tab Drag & Drop Reordering**: Drag tabs left/right; verify order persists across reloads.
+- [x] **Close Tab**: Click `×` on a tab; confirm it closes and focuses the adjacent tab.
+- [x] **Single Tab Refresh**: Click tab refresh button; verify only active tab re-queries Amplenote.
+- [x] **All Tabs Refresh**: Click global refresh button; verify all tabs re-sync with progress indicator.
+- [x] **Note Board Navigation**: Click the **↗** tab tool icon or the top action bar **`↗ Open Note`** button -> verify Amplenote navigates directly to the source note.
 
 ---
 
