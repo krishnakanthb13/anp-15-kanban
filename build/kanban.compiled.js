@@ -5837,6 +5837,21 @@ async function handleCreateColumn(app, payload) {
   }
   return { ok: false, error: "Could not create header" };
 }
+function normalizeTagList(tagsInput, defaultTag = "") {
+  if (Array.isArray(tagsInput)) {
+    const list = tagsInput.map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") return item.value || item.name || item.label || item.tag || "";
+      return "";
+    }).map((t) => String(t || "").replace(/^#/, "").trim()).filter(Boolean);
+    return list.length ? list.slice(0, 10) : defaultTag ? [defaultTag.replace(/^#/, "").trim()] : [];
+  }
+  if (typeof tagsInput === "string") {
+    const list = tagsInput.split(/[,;\s]+/).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+    return list.length ? list.slice(0, 10) : defaultTag ? [defaultTag.replace(/^#/, "").trim()] : [];
+  }
+  return defaultTag ? [defaultTag.replace(/^#/, "").trim()] : [];
+}
 async function handleCreateColumnNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
   if (!tab) return;
@@ -5846,16 +5861,17 @@ async function handleCreateColumnNote(app, payload) {
     inputs: [
       { label: "Note title:", type: "text" },
       {
-        label: "Tag(s) to assign (comma-separated):",
-        type: "text",
-        value: defaultTag
+        label: "Tag(s) to assign:",
+        type: "tags",
+        value: defaultTag,
+        limit: 10
       }
     ]
   });
   if (!result) return;
   const [title, tagsRaw] = Array.isArray(result) ? result : [result, defaultTag];
   if (!title || !String(title).trim()) return;
-  const tags = String(tagsRaw !== void 0 && tagsRaw !== null ? tagsRaw : defaultTag).split(/[,;\s]+/).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+  const tags = normalizeTagList(tagsRaw, defaultTag);
   const noteUUID = await createTaggedNote(app, String(title).trim(), tags);
   if (noteUUID) {
     const board = await buildSingleBoard(app, tab);

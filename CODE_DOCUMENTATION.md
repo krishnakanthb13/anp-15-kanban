@@ -219,8 +219,8 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `editCard` | `handleEditCard` | Opens dedicated task details modal (returns fresh board snapshot to render in-place) |
 | `editTaskDetails`| `handleEditTaskDetails` | Context-adaptive task modal: Active tasks (quadrant, cross-note migration, section, score, optional status change) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive, optional status dropdown) (returns fresh board snapshot) |
 | `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
-| `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks (updates board in-place with toast) |
-| `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
+| `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note markdown with sorted tasks for the active Note tab only (updates board in-place with toast) |
+| `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order for the active Note tab only |
 | `cardMenu` | `handleCardMenu` | Context-aware menu: Complete/Reopen, Dismiss, Edit details, Date, Snooze, Timeblock, Add note link (`linkNoteInTaskContent`), Create note from card (returns fresh board snapshot for 0ms in-place update) |
 | `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (returns fresh board snapshot) |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
@@ -228,7 +228,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `moveSectionToNote`| `handleMoveColumnToTab` | Alias for moving heading section to another note |
 | `createColumn` | `handleCreateColumn` | Appends a new heading to note markdown (returns fresh board snapshot) |
 | `createSection`| `handleCreateColumn` | Alias for creating heading in note |
-| `createColumnNote`| `handleCreateColumnNote`| Creates new note auto-tagged with board tag for Tag/Notes boards (returns fresh board snapshot) |
+| `createColumnNote`| `handleCreateColumnNote`| Creates new note with native tag search & dropdown (limit 10) for Tag/Notes boards (returns fresh board snapshot) |
 | `createNote` | `handleCreateColumnNote`| Alias for creating tagged column note |
 | `renameColumn` | `handleRenameColumn` | Renames heading in note markdown (returns fresh board snapshot) |
 | `renameSection`| `handleRenameColumn` | Alias for renaming heading section |

@@ -34,6 +34,7 @@ import {
   handleRefreshTab,
   handleRefreshAll,
   linkNoteInTaskContent,
+  normalizeTagList,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -816,6 +817,33 @@ describe("embedActions", () => {
       expect(app.insertTask).toHaveBeenCalledWith({ uuid: "nb" }, { content: "typed content" });
       expect(app.context.renderEmbed).not.toHaveBeenCalled();
       expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tn", board: expect.any(Object) }));
+    });
+
+    it("createColumnNote creates a note with tag prompt selection and refreshes board", async () => {
+      const app = notesApp();
+      app.createNote = jest.fn().mockResolvedValue("new-note-uuid");
+      app.prompt.mockResolvedValue(["New Project", ["kanban", "clients"]]);
+
+      const res = await handleCreateColumnNote(app, { tabId: "tn" });
+
+      expect(app.createNote).toHaveBeenCalledWith("New Project", ["kanban", "clients"]);
+      expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tn", board: expect.any(Object) }));
+    });
+
+    describe("normalizeTagList", () => {
+      it("normalizes array of tag strings and enforces limit of 10", () => {
+        const input = ["#one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"];
+        const res = normalizeTagList(input);
+        expect(res).toEqual(["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]);
+      });
+
+      it("normalizes comma/space-separated string", () => {
+        expect(normalizeTagList("#alpha, beta; gamma")).toEqual(["alpha", "beta", "gamma"]);
+      });
+
+      it("falls back to defaultTag when empty", () => {
+        expect(normalizeTagList("", "kanban")).toEqual(["kanban"]);
+      });
     });
 
     it("renameNote renames the column's note", async () => {

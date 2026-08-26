@@ -115,10 +115,10 @@ flowchart TD
 ---
 
 ### 3.4. Tag & Multi-Note Boards
-- [ ] **Create Note in Tag**: Click `+ Add Note` column -> enter title -> verify note is created with the board's tag and appears as a column.
-- [ ] **Move Card Across Notes**: Drag a task card from Note A's column to Note B's column -> verify task moves note association.
-- [ ] **Rename Note Column**: 3-dot menu on column -> *Rename Note* -> verify note title updates in Amplenote.
-- [ ] **Delete Note Column**: 3-dot menu on column -> *Delete Note* -> confirm prompt -> verify note is moved to Amplenote trash.
+- [x] **Create Note in Tag**: Click `+ Add Note` column -> enter title and select tags via native search & dropdown (up to 10) -> verify note is created with selected tags and appears as a column.
+- [x] **Move Card Across Notes**: Drag a task card from Note A's column to Note B's column -> verify task moves note association.
+- [x] **Rename Note Column**: 3-dot menu on column -> *Rename Note* -> verify note title updates in Amplenote.
+- [x] **Delete Note Column**: 3-dot menu on column -> *Delete Note* -> confirm prompt -> verify note is moved to Amplenote trash.
 
 ---
 

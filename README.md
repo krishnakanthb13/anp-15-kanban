@@ -281,7 +281,7 @@ Task cards dynamically display badges and metadata chips **only when those value
   - **Sort: Important** (Eisenhower Important first)
   - **Sort: Urgent** (Eisenhower Urgent first)
   *Visual dashboard sorting is non-destructive and does not rewrite the note.*
-- **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown.
+- **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown for the **active tab's note only** (leaving other tabs and notes completely untouched).
 - **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task order.
 - **🔄 Tab & All Refresh**: Clicking **Refresh Tab** or **Refresh All** pulls fresh data and automatically resets sort to natural document order so you always see the true, un-sorted note layout.
 

@@ -1,3 +1,10 @@
+## v0.0.40
+
+### 🚀 Enhancements & UX Streamlining
+- **Native Tag Search & Dropdown for Note Creation in Tag Boards**:
+  - Upgraded the **"Create Note in Tag"** prompt (`+ Add Note` column) to use the native Amplenote `type: "tags"` input with search, autocomplete dropdown, and a limit of 10 tags.
+  - Added robust tag parsing (`normalizeTagList`) supporting both array of tags and formatted comma/space-delimited inputs.
+
 ## v0.0.38
 
 ### 🚀 Enhancements & UX Streamlining
