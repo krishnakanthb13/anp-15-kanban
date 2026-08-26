@@ -33,6 +33,7 @@ import {
   handleSaveColumnsToNote,
   handleRefreshTab,
   handleRefreshAll,
+  linkNoteInTaskContent,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -579,6 +580,23 @@ describe("embedActions", () => {
 
         expect(app.updateTask).toHaveBeenCalledWith("u1", { content: "one [My Label](https://www.amplenote.com/notes/ln1)" });
         expect(res).toEqual(expect.objectContaining({ ok: true, board: expect.any(Object) }));
+      });
+
+      describe("linkNoteInTaskContent", () => {
+        it("appends clean note link to existing task content", () => {
+          expect(linkNoteInTaskContent("Testing 3 Dots", "Kanban Test", "03a5d0aa"))
+            .toBe("Testing 3 Dots [Kanban Test](https://www.amplenote.com/notes/03a5d0aa)");
+        });
+
+        it("does not duplicate note link if already present in content", () => {
+          expect(linkNoteInTaskContent("Testing 3 Dots [Kanban Test](https://www.amplenote.com/notes/03a5d0aa)", "Kanban Test", "03a5d0aa"))
+            .toBe("Testing 3 Dots [Kanban Test](https://www.amplenote.com/notes/03a5d0aa)");
+        });
+
+        it("handles empty task content by returning only the note link", () => {
+          expect(linkNoteInTaskContent("", "Kanban Test", "03a5d0aa"))
+            .toBe("[Kanban Test](https://www.amplenote.com/notes/03a5d0aa)");
+        });
       });
 
       it("set-date branch writes a unix timestamp; blank clears", async () => {

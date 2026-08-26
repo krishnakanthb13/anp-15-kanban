@@ -6010,6 +6010,16 @@ function combineDateAndTime(dateVal, timeStr) {
   d.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
   return Math.floor(d.getTime() / 1e3);
 }
+function linkNoteInTaskContent(content, noteName, noteUUID) {
+  if (!noteUUID) return content || "";
+  const name = String(noteName || "Note").trim();
+  const noteLink = `[${name}](https://www.amplenote.com/notes/${noteUUID})`;
+  const text = String(content || "").trim();
+  if (text.includes(`https://www.amplenote.com/notes/${noteUUID}`)) {
+    return text;
+  }
+  return text ? `${text} ${noteLink}` : noteLink;
+}
 async function handleCardMenu(app, payload) {
   const cardId = payload && typeof payload.cardId === "string" ? payload.cardId : null;
   if (!cardId) return;
@@ -6074,20 +6084,8 @@ async function handleCardMenu(app, payload) {
     const noteUUID = handle.uuid || handle.value || (typeof handle === "string" ? handle : null);
     const noteName = handle.name || handle.label || "Note";
     if (!noteUUID) return;
-    const noteLink = `[${noteName}](https://www.amplenote.com/notes/${noteUUID})`;
     const currentContent = String(task.content || "").trim();
-    const escapedName = noteName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const bracketRegex = new RegExp(`(?:\\\\?\\[)+\\s*${escapedName}\\s*(?:\\\\?\\])+(?!\\s*\\()`, "gi");
-    let newContent = currentContent.replace(bracketRegex, noteLink);
-    const duplicateUrlRegex = new RegExp(`(\\(https:\\/\\/www\\.amplenote\\.com\\/notes\\/${noteUUID}\\)){2,}`, "g");
-    newContent = newContent.replace(duplicateUrlRegex, `(https://www.amplenote.com/notes/${noteUUID})`);
-    const exactLinkPattern = `\\[${escapedName}\\]\\(https:\\/\\/www\\.amplenote\\.com\\/notes\\/${noteUUID}\\)`;
-    const duplicateLinkRegex = new RegExp(`(?:${exactLinkPattern}\\s*){2,}`, "gi");
-    newContent = newContent.replace(duplicateLinkRegex, `${noteLink} `);
-    if (!newContent.includes(noteUUID)) {
-      newContent = newContent ? `${newContent} ${noteLink}` : noteLink;
-    }
-    newContent = newContent.replace(/\s{2,}/g, " ").trim();
+    const newContent = linkNoteInTaskContent(currentContent, noteName, noteUUID);
     if (newContent !== currentContent) {
       await app.updateTask(cardId, { content: newContent });
     }

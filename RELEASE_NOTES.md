@@ -19,7 +19,7 @@
   - Tasks with scheduled start dates and times now render both the date and time on their metadata chip: `▶ {date} {time}` (e.g. `▶ 24 Aug 14:30`), while date-only tasks continue to render cleanly as `▶ {date}`.
   - Applied adaptive time rendering to `deadline` and `hideUntil` chips as well.
 - **3-Dot Card Menu Note Linking & Sequence Streamlining**:
-  - Replaced legacy wiki-link label insertion with direct **"Add note link"** picker: selecting an existing note generates a clickable markdown link `[Note Name](https://www.amplenote.com/notes/{uuid})` inside the task content.
+  - Replaced legacy wiki-link label insertion with direct **"Add note link"** picker: selecting an existing note appends a clickable markdown link `[Note Name](https://www.amplenote.com/notes/{uuid})` to the task content (without duplicating if already present).
   - Clicking the note link on any card navigates directly to that note in Amplenote.
   - Positioned **"Add note link"** directly above **"Create note from card"** for intuitive note-related grouping in the card action palette.
 - **Interactive Rich Footnote Click Notifications**:

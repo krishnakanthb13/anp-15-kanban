@@ -221,7 +221,7 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
 | `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note with sorted tasks (updates board in-place with toast) |
 | `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order |
-| `cardMenu` | `handleCardMenu` | Context-aware menu: Complete/Reopen, Dismiss, Edit details, Date, Snooze, Timeblock, Add note link, Create note from card (returns fresh board snapshot for 0ms in-place update) |
+| `cardMenu` | `handleCardMenu` | Context-aware menu: Complete/Reopen, Dismiss, Edit details, Date, Snooze, Timeblock, Add note link (`linkNoteInTaskContent`), Create note from card (returns fresh board snapshot for 0ms in-place update) |
 | `quickSetDate` | `handleQuickSetDate` | Direct date and optional time picker prompt for card startAt (returns fresh board snapshot) |
 | `globalSearch` | `handleGlobalSearch` | Searches account notes and navigates to selection |
 | `moveColumnToTab`| `handleMoveColumnToTab` | Transfers column heading & tasks to another Note Board or note in tag board (returns fresh board snapshot) |
