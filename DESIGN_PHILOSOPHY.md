@@ -230,9 +230,10 @@ Task creation is mapped to direct spatial context across the entire board:
 Micro-interactions within the embed should never trigger a full iframe tear-down and rebuild:
 - **In-Memory Board Updates Over Full Iframe Reloads**: In an iframe sandbox, invoking `renderEmbed()` forces Amplenote to discard and re-mount the entire DOM, resulting in a visible screen blink/flicker. Instead, action handlers return updated board snapshots directly to the client (`{ ok: true, tabId, board }`), allowing JavaScript to re-render board DOM elements in **0ms** without blinking.
 - **Optimistic Local Tab Operations**: Moving tabs (`◀` / `▶` and drag-and-drop) and closing tabs mutate local state (`STATE.tabs`) instantly and trigger `renderTabs()`, while synchronizing settings to Amplenote cloud storage silently in the background.
-- **Micro-Action Fluidity**: Task dialog submissions (`editCard`), context menu actions (`cardMenu`), quick dates (`quickSetDate`), column operations (`renameColumn`, `deleteColumn`, `setWipLimit`), and note sort persistence (`saveSortToNote`) update the card and column models in-place with instant feedback toasts.
+- **Micro-Action Fluidity**: Task dialog submissions (`editCard`), context menu actions (`cardMenu`), quick dates (`quickSetDate`), date format token updates (`setDateFormat`), column operations (`renameColumn`, `deleteColumn`, `setWipLimit`), search resets (`✕`), and note sort persistence (`saveSortToNote`) update the card and column models in-place with instant feedback toasts.
+- **Theme-Adaptive Visual Progress**: Network synchronization actions animate a progress bar that dynamically inherits the active theme's accent gradient and ambient glow without causing DOM re-mounts.
 
-**Why:** Productivity applications require continuous visual stability. Eliminating screen flickering across all micro-actions and tab transitions ensures the board feels like a native desktop application rather than a web page reloading on every click.
+**Why:** Productivity applications require continuous visual stability. Eliminating screen flickering across all micro-actions, settings changes, and tab transitions ensures the board feels like a native desktop application rather than a web page reloading on every click.
 
 ---
 

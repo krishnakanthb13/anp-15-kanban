@@ -494,6 +494,11 @@ function buildClientScript() {
           e.stopPropagation();
           callPlugin("openCard", { noteUUID: tab.noteUUID });
         });
+      } else if ((tab.kind === "tag" || tab.kind === "notes") && tab.tag) {
+        addTabToolSvg(tools, "externalLink", "Open tag in Amplenote", function (e) {
+          e.stopPropagation();
+          callPlugin("openTag", { tag: tab.tag });
+        });
       }
       addTabToolSvg(tools, "chevronLeft", "Move tab left", function (e) {
         e.stopPropagation();
@@ -650,7 +655,20 @@ function buildClientScript() {
     if (resetSortBtn) resetSortBtn.style.display = isSorted ? "inline-flex" : "none";
 
     var openNoteBtn = document.getElementById("kb-open-note-btn");
-    if (openNoteBtn) openNoteBtn.style.display = (isNoteBoard && tab && tab.noteUUID) ? "inline-flex" : "none";
+    var openNoteLabel = document.getElementById("kb-open-note-label");
+    if (openNoteBtn) {
+      if (isNoteBoard && tab && tab.noteUUID) {
+        openNoteBtn.style.display = "inline-flex";
+        openNoteBtn.title = "Open active note in Amplenote";
+        if (openNoteLabel) openNoteLabel.textContent = "Open Note";
+      } else if (tab && (tab.kind === "tag" || tab.kind === "notes") && tab.tag) {
+        openNoteBtn.style.display = "inline-flex";
+        openNoteBtn.title = "Open tag #" + tab.tag + " in Amplenote";
+        if (openNoteLabel) openNoteLabel.textContent = "Open Tag";
+      } else {
+        openNoteBtn.style.display = "none";
+      }
+    }
   }
 
   function resetSort() {
@@ -2063,7 +2081,12 @@ function buildClientScript() {
     if (openNoteBtn) {
       openNoteBtn.addEventListener("click", function () {
         var tab = activeTab();
-        if (tab && tab.noteUUID) callPlugin("openCard", { noteUUID: tab.noteUUID });
+        if (!tab) return;
+        if (tab.kind === "note" && tab.noteUUID) {
+          callPlugin("openCard", { noteUUID: tab.noteUUID });
+        } else if ((tab.kind === "tag" || tab.kind === "notes") && tab.tag) {
+          callPlugin("openTag", { tag: tab.tag });
+        }
       });
     }
 
@@ -2073,11 +2096,14 @@ function buildClientScript() {
     if (refreshTabBtn) {
       refreshTabBtn.addEventListener("click", function () {
         setBusy("kb-refresh-tab", true);
+        setProgress(0.4);
         sortMode = "none";
         setLocalSetting("sortMode", "none");
         updateSortUi();
         callPlugin("refreshTab", { tabId: STATE.activeTabId }).then(function (res) {
           setBusy("kb-refresh-tab", false);
+          setProgress(1.0);
+          setTimeout(function () { setProgress(null); }, 350);
           if (res && res.board && res.tabId) {
             STATE.boards[res.tabId] = res.board;
             renderBoard();
@@ -2085,6 +2111,7 @@ function buildClientScript() {
           }
         }).catch(function () {
           setBusy("kb-refresh-tab", false);
+          setProgress(null);
         });
       });
     }
@@ -2093,13 +2120,14 @@ function buildClientScript() {
     if (refreshAllBtn) {
       refreshAllBtn.addEventListener("click", function () {
         setBusy("kb-refresh-all", true);
-        setProgress(0.2);
+        setProgress(0.25);
         sortMode = "none";
         setLocalSetting("sortMode", "none");
         updateSortUi();
         callPlugin("refreshAll").then(function (res) {
           setBusy("kb-refresh-all", false);
           setProgress(1.0);
+          setTimeout(function () { setProgress(null); }, 350);
           if (res && res.boards) {
             STATE.boards = res.boards;
             if (res.config) STATE.config = res.config;
@@ -2108,6 +2136,7 @@ function buildClientScript() {
           }
         }).catch(function () {
           setBusy("kb-refresh-all", false);
+          setProgress(null);
         });
       });
     }
@@ -2115,16 +2144,35 @@ function buildClientScript() {
     var fmtBtn = document.getElementById("kb-datefmt-btn");
     if (fmtBtn) {
       fmtBtn.addEventListener("click", function () {
-        callPlugin("setDateFormat");
+        callPlugin("setDateFormat").then(function (res) {
+          if (res && res.ok && res.dateFormat) {
+            STATE.settings = STATE.settings || {};
+            STATE.settings.dateFormat = res.dateFormat;
+            var fmtLabel = document.getElementById("kb-datefmt-label");
+            if (fmtLabel) fmtLabel.textContent = res.dateFormat;
+            renderBoard();
+            if (res.toast) showToast(res.toast);
+          }
+        });
       });
       var fmtLabel = document.getElementById("kb-datefmt-label");
       if (fmtLabel && STATE.settings) fmtLabel.textContent = STATE.settings.dateFormat || "";
     }
 
     var search = document.getElementById("kb-search");
+    var searchClear = document.getElementById("kb-search-clear");
+    var searchShortcut = document.getElementById("kb-search-shortcut");
+
+    function updateSearchClearUi() {
+      var hasText = search && search.value.trim().length > 0;
+      if (searchClear) searchClear.style.display = hasText ? "flex" : "none";
+      if (searchShortcut) searchShortcut.style.display = hasText ? "none" : "block";
+    }
+
     if (search) {
       search.addEventListener("input", function () {
         searchQuery = search.value.trim().toLowerCase();
+        updateSearchClearUi();
         renderBoard();
       });
       search.addEventListener("keydown", function (e) {
@@ -2134,8 +2182,21 @@ function buildClientScript() {
         if (e.key === "Escape") {
           search.value = "";
           searchQuery = "";
+          updateSearchClearUi();
           renderBoard();
           search.blur();
+        }
+      });
+    }
+
+    if (searchClear) {
+      searchClear.addEventListener("click", function () {
+        if (search) {
+          search.value = "";
+          searchQuery = "";
+          updateSearchClearUi();
+          renderBoard();
+          search.focus();
         }
       });
     }
@@ -2474,6 +2535,30 @@ function buildBaseCss() {
         line-height: 1.3;
         z-index: 2;
     }
+    .kb-search-clear {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: none;
+        background: var(--kb-bg-column);
+        color: var(--kb-text-muted);
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: all 0.15s ease;
+        z-index: 3;
+    }
+    .kb-search-clear:hover {
+        background: color-mix(in srgb, var(--kb-accent) 15%, var(--kb-bg-card));
+        color: var(--kb-accent);
+        transform: translateY(-50%) scale(1.1);
+    }
     .kb-search {
         display: block !important;
         width: 100% !important;
@@ -2585,16 +2670,18 @@ function buildBaseCss() {
         right: 0;
         bottom: -1px;
         height: 3px;
-        background: transparent;
+        background: color-mix(in srgb, var(--kb-accent) 15%, transparent);
         opacity: 0;
         transition: opacity 0.2s ease;
         overflow: hidden;
+        z-index: 101;
     }
     .kb-progress.kb-progress-visible { opacity: 1; }
     .kb-progress-bar {
         height: 100%;
         width: 0%;
-        background: var(--kb-accent);
+        background: linear-gradient(90deg, var(--kb-accent), color-mix(in srgb, var(--kb-accent) 70%, #ffffff));
+        box-shadow: 0 0 8px var(--kb-accent);
         transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -4056,7 +4143,10 @@ ${buildBaseCss()}
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </span>
                 <input id="kb-search" class="kb-search" type="search" placeholder="Search cards..." spellcheck="false">
-                <kbd class="kb-search-shortcut">/</kbd>
+                <button id="kb-search-clear" class="kb-search-clear" type="button" style="display:none;" title="Clear search (Escape)">
+                    <svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+                <kbd id="kb-search-shortcut" class="kb-search-shortcut">/</kbd>
             </div>
         </div>
 
@@ -4072,7 +4162,7 @@ ${buildBaseCss()}
                 </button>
                 <button id="kb-open-note-btn" class="kb-btn" type="button" style="display:none;" title="Open active note in Amplenote">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                    <span>Open Note</span>
+                    <span id="kb-open-note-label">Open Note</span>
                 </button>
                 <button id="kb-sort-btn" class="kb-btn" type="button" title="Cycle card sort order">
                     <svg class="kb-icon kb-icon-stroke" width="14" height="14" viewBox="0 0 24 24"><path d="M7 15l5 5 5-5"></path><path d="M7 9l5-5 5 5"></path></svg>
@@ -5100,6 +5190,11 @@ async function createTaggedNote(app, title, tags = []) {
 async function openNote(app, noteUUID) {
   await app.navigate(`https://www.amplenote.com/notes/${noteUUID}`);
 }
+async function openTag(app, tag) {
+  const clean = String(tag || "").replace(/^#/, "").trim();
+  if (!clean) return;
+  await app.navigate(`https://www.amplenote.com/notes?tag=${encodeURIComponent(clean)}`);
+}
 
 // anp-15-kanban/lib/utils/prompt.js
 function firstValue(result) {
@@ -5367,9 +5462,10 @@ async function handleSetDateFormat(app) {
     }]
   });
   const fmt = firstValue(result);
-  if (!fmt || !String(fmt).trim()) return;
-  await savePluginSettings(app, { dateFormat: String(fmt).trim() });
-  await rerender(app);
+  if (!fmt || !String(fmt).trim()) return { ok: false, canceled: true };
+  const dateFormat = String(fmt).trim();
+  await savePluginSettings(app, { dateFormat });
+  return { ok: true, dateFormat, toast: "Date format: " + dateFormat };
 }
 async function resolveNoteTab(app, payload) {
   const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
@@ -6357,6 +6453,11 @@ async function handleQuickSetDate(app, payload) {
   const board = tab ? await buildSingleBoard(app, tab) : null;
   return { ok: true, tabId: tab?.id, board, toast: startAt ? "Date updated" : "Date cleared" };
 }
+async function handleOpenTag(app, payload) {
+  const tag = payload?.tag;
+  if (!tag) return;
+  await openTag(app, tag);
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
@@ -6370,6 +6471,7 @@ var ACTIONS = {
   editCard: handleEditCard,
   editTaskDetails: handleEditTaskDetails,
   openCard: handleOpenCard,
+  openTag: handleOpenTag,
   addTab: handleAddTab,
   closeTab: handleCloseTab,
   moveTabDir: handleMoveTabDir,

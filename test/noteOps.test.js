@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { retagNote, createTaggedNote, openNote } from '../lib/api/noteOps.js';
+import { retagNote, createTaggedNote, openNote, openTag } from '../lib/api/noteOps.js';
 
 function makeApp() {
   return {
@@ -67,6 +67,26 @@ describe("noteOps", () => {
       const app = makeApp();
       await openNote(app, "abc-123");
       expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes/abc-123");
+    });
+  });
+
+  describe("openTag", () => {
+    it("navigates to the notes filtered by tag URL", async () => {
+      const app = makeApp();
+      await openTag(app, "projects/kanban");
+      expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes?tag=projects%2Fkanban");
+    });
+
+    it("strips leading hash prefix if present", async () => {
+      const app = makeApp();
+      await openTag(app, "#work");
+      expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes?tag=work");
+    });
+
+    it("does nothing if tag is empty", async () => {
+      const app = makeApp();
+      await openTag(app, "");
+      expect(app.navigate).not.toHaveBeenCalled();
     });
   });
 });

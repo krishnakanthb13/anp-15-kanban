@@ -213,12 +213,13 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 | `closeTab` | `handleCloseTab` | Removes tab configuration (optimistic 0ms local tab removal without iframe reload) |
 | `moveTabDir` | `handleMoveTabDir` | Moves tab left or right in tab bar (optimistic 0ms local tab swap without iframe reload) |
 | `reorderTabs` | `handleReorderTabs` | Persists drag-and-drop tab ordering to settings |
-| `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string in unified settings |
+| `setDateFormat` | `handleSetDateFormat` | Configures date chip formatting string in unified settings (returns in-place update for 0ms zero-flicker re-render) |
 | `moveCard` | `handleMoveCard` | Moves tasks across headings, sections, or notes |
 | `createCard` | `handleCreateCard` | Inserts task in column heading or note (flicker-free with immediate optimistic board update) |
 | `editCard` | `handleEditCard` | Opens dedicated task details modal (returns fresh board snapshot to render in-place) |
 | `editTaskDetails`| `handleEditTaskDetails` | Context-adaptive task modal: Active tasks (quadrant, cross-note migration, section, score, optional status change) vs Completed tasks (target heading on reopen, uncomplete/reopen, dismiss/archive, optional status dropdown) (returns fresh board snapshot) |
 | `openCard` | `handleOpenCard` | Navigates to note in Amplenote |
+| `openTag` | `handleOpenTag` | Navigates to filtered notes by tag in Amplenote |
 | `saveSortToNote` | `handleSaveSortToNote` | Prompts confirmation & rewrites note markdown with sorted tasks for the active Note tab only (updates board in-place with toast) |
 | `saveColumnsToNote`| `handleSaveColumnsToNote` | Prompts confirmation & rewrites note headings with new column order for the active Note tab only |
 | `cardMenu` | `handleCardMenu` | Context-aware menu: Complete/Reopen, Dismiss, Edit details, Date, Snooze, Timeblock, Add note link (`linkNoteInTaskContent`), Create note from card (returns fresh board snapshot for 0ms in-place update) |
@@ -250,12 +251,15 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
 - **`boardTemplate.js`**:
   - Assembles full HTML document with Google Fonts preconnects for **Inter** (400, 500, 600, 700) and **JetBrains Mono** (500, 600).
   - **Layout Density System**: Defines responsive CSS custom property tokens for three layout modes (`.kb-density-compact`, `.kb-density-cozy`, `.kb-density-spacious`) controlling board gaps, column widths, section padding, card padding, and font sizes.
-  - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), Open Note button (`#kb-open-note-btn`), cycling sort button (`#kb-sort-btn`), density cycler button (`#kb-density-btn`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
+  - Sticky glassmorphic header (`backdrop-filter: blur(8px)`), dynamic Open Note / Open Tag button (`#kb-open-note-btn`), cycling sort button (`#kb-sort-btn`), density cycler button (`#kb-density-btn`), search bar with 1-click clear button (`#kb-search-clear`) and shortcut toggle (`#kb-search-shortcut`), view toolbar toggles (`#kb-toggle-empty-btn`, `#kb-toggle-info-btn`, `#kb-toggle-date-action-btn`), theme-adaptive sync progress bar (`.kb-progress`, `.kb-progress-bar`), tactile button animations, hover card elevations (`translateY(-2px)` + soft drop shadows), WCAG `:focus-visible` focus rings, and responsive `@media (max-width: 900px)` breakpoints.
   - Column header layout with wide column title and right-aligned action group (`.kb-col-actions`) hosting count badge (`.kb-count`), `+` button, and micro floating tool palette (`.kb-col-tools`).
   - Section header toolbars (`.kb-section-tools`), inline `Add Header +` cards inside Tag board columns (with automatic in-memory refresh and `showEmpty: true` auto-reveal), clean Notes tab columns omitting redundant inner heading tools, stacked single-column right-end action group (`.kb-add-column-group` containing `+ Add Header`/`+ Add Note` and `+ Add Task`), actionable empty state container (`.kb-empty-actions`), color-coordinated tag chips (`.kb-label-chip`, `.kb-tag-chip`, `.kb-label-dot`), hierarchical task badges (`.kb-badge-parent`, `.kb-badge-child`, `.kb-card-subtask`), and full-resolution image Lightbox modal (`.kb-lightbox-overlay`).
   - Reduced-motion accessibility via `@media (prefers-reduced-motion: reduce)`.
 - **`clientScript.js`**:
-  - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating all full-iframe `renderEmbed` reload flashes. Auto-activates `showEmptyColumns` when new empty headers are created.
+  - **Zero-Flicker Sandboxed Embed Controller**: Sandboxed controller utilizing `handlePluginResult` to bind backend action return promises directly into local state (`STATE.boards`, `STATE.tabs`), eliminating full-iframe `renderEmbed` reload flashes. Date format updates, theme swaps, and view toggles all execute in-place in 0ms.
+  - **Dynamic Open Note / Open Tag Navigation**: Dynamically evaluates the active board kind to render **`↗ Open Note`** for Note tabs and **`↗ Open Tag`** for Tag/Notes tabs, routing clicks to `openCard` and `openTag` respectively.
+  - **Theme-Adaptive Sync Progress Bar**: Animates a glow-accented progress bar during tab or all-board data retrieval, automatically matching the active theme's palette tokens.
+  - **1-Click Search Clear (`✕`) Controller**: Toggles `#kb-search-clear` vs `#kb-search-shortcut` on input, and provides 0ms unfiltered board restoration on `✕` click or `Escape` keypress.
   - **Glassmorphic Toast Notification System (`showToast`)**:
     - `.kb-toast-container` is fixed to the bottom-right corner (`position: fixed; bottom: 24px; right: 24px; z-index: 99999; pointer-events: none`).
     - `.kb-toast` cards feature backdrop blur (`backdrop-filter: blur(12px)`), theme surface coloring (`var(--kb-surface-card)`), smooth `@keyframes kb-toast-in` slide-up animations, and auto-dismiss fade-out (`.kb-toast-hiding`).

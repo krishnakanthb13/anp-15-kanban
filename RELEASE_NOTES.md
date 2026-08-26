@@ -1,3 +1,20 @@
+## v0.0.41
+
+- **Top Bar "Open Tag" & Tab Navigation for Tag and Notes Boards**:
+  - Clicking **`↗ Open Tag`** in the top action toolbar on **Tag Boards** and **Notes Boards** navigates directly to the filtered tag page in Amplenote (`https://www.amplenote.com/notes?tag={tag}`).
+  - The top bar button dynamically switches between **`Open Note`** (for Note Boards) and **`Open Tag`** (for Tag & Notes Boards).
+  - The **`↗`** external link icon on tab chips now also navigates to the tag view when active on Tag or Notes boards.
+- **Search Bar 1-Click Clear Button (`✕`)**:
+  - Added an interactive circular `✕` clear button inside the top search bar that appears whenever search text is present.
+  - Clicking `✕` (or pressing `Escape`) immediately clears the search query, restores the full unfiltered board view, and refocuses the input.
+  - The keyboard shortcut badge (`/`) smoothly hides when typing and re-emerges when the search input is empty.
+- **Theme-Adaptive Sync Progress Bar**:
+  - Upgraded the sync progress bar to dynamically render with the active theme's accent gradient, theme-matched track background, and ambient accent glow (`box-shadow: 0 0 8px var(--kb-accent)`).
+  - Both **Tab** and **All** refresh actions now smoothly animate the progress bar during data retrieval.
+- **Zero-Flicker Custom Date Format Update**:
+  - Setting date format tokens now updates the client state and re-renders card chips in-place (0ms) without triggering an iframe reload.
+
+
 ## v0.0.40
 
 ### 🚀 Enhancements & UX Streamlining

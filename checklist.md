@@ -77,7 +77,7 @@ flowchart TD
 - [x] **Close Tab**: Click `×` on a tab; confirm it closes and focuses the adjacent tab.
 - [x] **Single Tab Refresh**: Click tab refresh button; verify only active tab re-queries Amplenote.
 - [x] **All Tabs Refresh**: Click global refresh button; verify all tabs re-sync with progress indicator.
-- [x] **Note Board Navigation**: Click the **↗** tab tool icon or the top action bar **`↗ Open Note`** button -> verify Amplenote navigates directly to the source note.
+- [x] **Board Navigation (Open Note / Open Tag)**: Click the **↗** tab tool icon or the top action bar **`↗ Open Note`** / **`↗ Open Tag`** button -> verify Amplenote navigates directly to the source note (Note boards) or filtered tag view (Tag & Notes boards).
 
 ---
 
@@ -123,12 +123,14 @@ flowchart TD
 ---
 
 ### 3.5. Top Bar Controls & Settings
-- [ ] **Theme Cycling**: Click Theme button -> cycle through light and dark themes -> verify contrast and aesthetic in both modes.
-- [ ] **Show / Hide Empty Columns**: Click empty columns toggle -> verify empty notes or headings disappear/reappear.
-- [ ] **Collapse / Expand All Card Info**: Click expand/collapse toggle -> verify cards switch between compact single-line and full preview.
-- [ ] **Quick Date Toggle**: Toggle `@` button on top bar -> verify hover `@` icon on cards enables/disables.
-- [ ] **Sort Mode**: Change sort dropdown (Score, Date, Important, Urgent) -> verify cards reorder on board.
-- [ ] **Save Sort Order to Note**: Click *Save Sort to Note* -> confirm prompt -> check note markdown to verify physical task order matches dashboard sort.
-- [ ] **Global Search**: Click search icon -> type note keyword -> select result -> verify Amplenote navigates to the note.
-- [ ] **Custom Date Format**: Click Settings -> set date format tokens (e.g. `DD MMM YYYY`) -> verify card date chips format accordingly.
-- [ ] **Sync Progress Bar**: Trigger a refresh (tab or all tabs) -> verify progress bar animates during data load.
+- [x] **Theme Cycling**: Click Theme button -> cycle through light and dark themes -> verify contrast and aesthetic in both modes.
+- [x] **Show / Hide Empty Columns**: Click empty columns toggle -> verify empty notes or headings disappear/reappear.
+- [x] **Collapse / Expand All Card Info**: Click expand/collapse toggle -> verify cards switch between compact single-line and full preview.
+- [x] **Quick Date Toggle**: Toggle `@` button on top bar -> verify hover `@` icon on cards enables/disables.
+- [x] **Sort Mode**: Change sort dropdown (Score, Date, Important, Urgent) -> verify cards reorder on board.
+- [x] **Save Sort Order to Note**: Click *Save Sort to Note* -> confirm prompt -> check note markdown to verify physical task order matches dashboard sort.
+- [x] **Search & 1-Click Clear (`✕`)**: Type keyword into search input -> verify live board filter; click `✕` button (or hit Escape) -> verify search text clears and full board restores; hit Enter -> verify account global search modal.
+- [x] **Custom Date Format**: Click Settings -> set date format tokens (e.g. `DD MMM YYYY`) -> verify card date chips format accordingly.
+- [x] **Sync Progress Bar**: Trigger a refresh (tab or all tabs) -> verify progress bar animates during data load.
+
+---

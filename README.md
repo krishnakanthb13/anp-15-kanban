@@ -239,7 +239,9 @@ The second kind groups notes by an Amplenote tag:
   - **Open Note in Amplenote** (`externalLink`): Navigates to the note in the main editor.
   - **Delete Note** (`trash`): Safely moves the note to Amplenote Trash with confirmation.
 - **Inline `Add Header +` Card in Each Note Column**: A dedicated card at the bottom of each note column to quickly add a new heading section directly into that note.
-- **`+ Add Note` card at the right end of the board**: Click to create a new note, with custom tag assignment (pre-filled with the active board's tag).
+  - **Delete Note** (`trash`): Safely moves the note to Amplenote Trash with confirmation.
+- **Inline `Add Header +` Card in Each Note Column**: A dedicated card at the bottom of each note column to quickly add a new heading section directly into that note.
+- **`+ Add Note` card at the right end of the board**: Click to create a new note with native search & autocomplete dropdown tag selection (capped at 10 tags, pre-filled with the active board's tag).
 
 ### 3. Multi-Note Project Boards (`notes`)
 
@@ -254,7 +256,14 @@ The third kind maps a tag where notes act as columns and active tasks inside eac
   - **Open Note in Amplenote** (`externalLink`): Navigates to the note in Amplenote.
   - **Delete Note** (`trash`): Moves note to Trash with confirmation.
 - **Inline `Add Header +` Card in Each Note Column**: Add headings directly to individual project notes from the board.
-- **`+ Add Note` card at the right end of the board**: Click to create a new project/client note with customizable tags.
+- **`+ Add Note` card at the right end of the board**: Click to create a new project/client note with native search & autocomplete tag selection (up to 10 tags).
+
+### Board Navigation (`↗ Open Note` & `↗ Open Tag`)
+
+- **Dynamic Toolbar Button**: The top toolbar button dynamically adapts to the active board:
+  - **Note Boards**: Displays **`↗ Open Note`**, navigating directly to the note in Amplenote.
+  - **Tag & Notes Boards**: Displays **`↗ Open Tag`**, navigating directly to `https://www.amplenote.com/notes?tag={tag}` in Amplenote.
+- **Tab Chip Tools**: Hovering over any tab chip provides a dedicated **`↗`** tool to open that specific note or tag immediately.
 
 ### Rich Card Badges & Conditional Indicators
 
@@ -283,10 +292,15 @@ Task cards dynamically display badges and metadata chips **only when those value
   *Visual dashboard sorting is non-destructive and does not rewrite the note.*
 - **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown for the **active tab's note only** (leaving other tabs and notes completely untouched).
 - **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task order.
-- **🔄 Tab & All Refresh**: Clicking **Refresh Tab** or **Refresh All** pulls fresh data and automatically resets sort to natural document order so you always see the true, un-sorted note layout.
+- **🔄 Tab & All Refresh**: Clicking **Refresh Tab** or **Refresh All** animates the theme-adaptive progress bar and automatically resets sort to natural document order.
 
-### View Toolbar Controls (Density, Empty Columns, Expand Info, Quick @ Date)
+### View Toolbar Controls (Density, Empty Columns, Expand Info, Quick @ Date, Search & Clear)
 
+- **🔍 Search & 1-Click Clear (`✕`)**:
+  - Type any keyword into the top search bar to filter cards in real time across all visible columns.
+  - An interactive circular **`✕` clear button** appears when text is present — clicking it (or pressing `Escape`) immediately clears the search and restores the full board view with zero lag.
+  - The keyboard shortcut indicator (`/`) dynamically toggles with the `✕` button.
+  - Pressing `Enter` triggers Amplenote's global account search modal.
 - **📐 Density Button (`Cozy` / `Compact` / `Spacious`)**: 1-click layout spacing cycler with responsive CSS custom properties:
   - **`Cozy`** (default): Streamlined, refined column padding with comfortable touch targets.
   - **`Compact`**: High-density cards, tight column widths (`clamp(230px, 18vw, 280px)`), and reduced margins for power users.
@@ -294,6 +308,8 @@ Task cards dynamically display badges and metadata chips **only when those value
 - **👁️ Empty Button (`Empty`)**: Click to toggle between hiding and showing empty columns across all board types (**Note Boards**, **Tag Boards** with empty notes or heading sections, and **Notes Boards**). When enabled, columns and sections with 0 tasks remain visible for easy task creation (`+`).
 - **ℹ️ Info Button (`Info`)**: 1-click master switch to expand or collapse inline task details (`Start At`, `End At`, `Deadline`, `Hide Until`, `Score`, `Repeat`, `Parent Note`) across all visible cards at once.
 - **📅 @ Date Button (`@ Date`)**: Toggles the **Quick @ Date Mode**. When active, every task card displays a dedicated `@` button in its top-right action bar — clicking it prompts with a native Date Selector and optional Time input (e.g. `14:30` or `2:30 PM`) to schedule the exact start timestamp or clear it.
+- **⚡ Zero-Flicker Date Format Configuration**: Click the Date Format button (`YYYY-MM-DD`) to customize card date tokens (e.g. `DD MMM YYYY`). Updates apply in-place across all card date chips without reloading or flickering the iframe.
+- **🌈 Theme-Adaptive Sync Progress Bar**: The progress bar dynamically inherits your active theme's accent color gradient and ambient glow (`box-shadow: 0 0 8px var(--kb-accent)`), smoothly animating during single-tab and all-tab synchronizations.
 
 ### Drag & Drop Column Reordering & Heading Persistence
 
@@ -311,7 +327,7 @@ Task cards dynamically display badges and metadata chips **only when those value
 - **`Shift + Wheel`**: Horizontal scrolling across columns from anywhere on the canvas.
 - **`T` / `t`**: Cycle through the 8 themes with 0ms client-side switching.
 - **`/`**: Instantly focus and select the card filter search input.
-- **`Esc`**: Clear search filter and blur search input.
+- **`Esc`**: Clear search filter, restore full board, and blur search input.
 - **Live Toast Notifications**: Non-intrusive bottom-right feedback for theme changes, density/view toggles, sorting, column reordering, guardrail alerts, and note synchronization.
 
 ### Toast Notification System

@@ -35,6 +35,7 @@ import {
   handleRefreshAll,
   linkNoteInTaskContent,
   normalizeTagList,
+  handleOpenTag,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -551,21 +552,23 @@ describe("embedActions", () => {
       expect(app.setSetting.mock.calls.length).toBe(1); // no second write
     });
 
-    it("setDateFormat persists a non-empty format and re-renders", async () => {
+    it("setDateFormat persists a non-empty format and returns in-place result without flicker", async () => {
       const app = withNoteTab(makeApp());
       app.prompt.mockResolvedValue(["DD MMM YYYY"]);
-      await handleSetDateFormat(app);
+      const res = await handleSetDateFormat(app);
 
       expect(app.setSetting).toHaveBeenCalledWith(
         SETTINGS_KEYS.settings,
         expect.stringContaining('"dateFormat":"DD MMM YYYY"')
       );
-      expect(app.context.renderEmbed).toHaveBeenCalled();
+      expect(app.context.renderEmbed).not.toHaveBeenCalled();
+      expect(res).toEqual(expect.objectContaining({ ok: true, dateFormat: "DD MMM YYYY" }));
 
       app.prompt.mockResolvedValue(["   "]);
       const before = app.setSetting.mock.calls.length;
-      await handleSetDateFormat(app);
+      const resCanceled = await handleSetDateFormat(app);
       expect(app.setSetting.mock.calls.length).toBe(before);
+      expect(resCanceled).toEqual(expect.objectContaining({ ok: false, canceled: true }));
     });
   });
 
@@ -856,6 +859,20 @@ describe("embedActions", () => {
 
       expect(app.setNoteName).toHaveBeenCalledWith({ uuid: "nb" }, "Project B v2");
       expect(res).toEqual(expect.objectContaining({ ok: true, tabId: "tn", board: expect.any(Object) }));
+    });
+
+    it("openTag navigates to tag in Amplenote", async () => {
+      const app = notesApp();
+      app.navigate = jest.fn().mockResolvedValue(true);
+      await handleOpenTag(app, { tag: "projects/kanban" });
+      expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes?tag=projects%2Fkanban");
+    });
+
+    it("openCard navigates to note in Amplenote", async () => {
+      const app = notesApp();
+      app.navigate = jest.fn().mockResolvedValue(true);
+      await handleOpenCard(app, { noteUUID: "nb" });
+      expect(app.navigate).toHaveBeenCalledWith("https://www.amplenote.com/notes/nb");
     });
 
     it("structural heading actions are rejected on notes boards", async () => {
