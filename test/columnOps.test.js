@@ -5,6 +5,7 @@ import {
   deleteColumn,
   reorderColumns,
   transferColumn,
+  withNoteLock,
 } from '../lib/api/columnOps.js';
 
 const MD = [
@@ -187,6 +188,26 @@ describe("columnOps", () => {
       expect(await transferColumn(app, "n1", "999", "dst")).toBe("no-target");
       expect(app.insertNoteContent).not.toHaveBeenCalled();
       expect(app.replaceNoteContent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("withNoteLock", () => {
+    it("serializes concurrent operations and releases lock cleanly", async () => {
+      const results = [];
+      const op1 = withNoteLock("n_lock", async () => {
+        await new Promise(r => setTimeout(r, 10));
+        results.push("op1");
+        return 1;
+      });
+      const op2 = withNoteLock("n_lock", async () => {
+        results.push("op2");
+        return 2;
+      });
+
+      const [r1, r2] = await Promise.all([op1, op2]);
+      expect(r1).toBe(1);
+      expect(r2).toBe(2);
+      expect(results).toEqual(["op1", "op2"]);
     });
   });
 });

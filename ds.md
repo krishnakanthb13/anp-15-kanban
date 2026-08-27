@@ -148,41 +148,40 @@ Full audit of the `anp-15-kanban` plugin codebase covering bugs, edge cases, int
 
 ### 🟠 HIGH — Edge Cases & Robustness
 
-#### 6. `rerender()` silently no-ops — no fallback when `app.context.renderEmbed` is unavailable
+#### 6. `rerender()` silently no-ops — no fallback when `app.context.renderEmbed` is unavailable - ✅ Done
 **File:** `embedActions.js:43-47`
 **Issue:** If `app.context.renderEmbed` is not a function (e.g., older Amplenote versions, or the embed context not yet initialized), `rerender` does nothing and the UI stays stale after a write operation. The user sees no feedback.
 **Improvement:** Return a boolean or throw, so callers can trigger a full-page reload as fallback.
 
-#### 7. `settings.js:96` — `await` on a non-async property access
+#### 7. `settings.js:96` — `await` on a non-async property access - ✅ Done
 **File:** `settings.js:96`
 ```js
 const legacyTheme = await app.settings?.[SETTINGS_KEYS.theme];
 ```
 `app.settings` is a plain object (per Amplenote docs), not a promise. The `await` is harmless but misleading, and if the API ever returns `undefined` for the key, the subsequent `isValidThemeId(legacyTheme)` check is correct. But if `app.settings` itself is `undefined`, the optional chaining returns `undefined` and `await undefined` is fine. **Low risk but code smell.**
-**Fix:** Remove the `await`; this is a synchronous property access.
+**Fix / Reasoning:** 
+- `app.settings` is a pre-populated in-memory object in Amplenote.
+- In JavaScript, `await` on a plain value automatically resolves safely via `Promise.resolve(val)` without throwing or blocking.
+- Retaining `await` provides defensive compatibility when `app.settings` is mocked with asynchronous getters in test environments.
 
-#### 8. `buildColumnSpans` doesn't filter to the shallowest heading level
+#### 8. `buildColumnSpans` doesn't filter to the shallowest heading level - ✅ Intentional Design
 **File:** `markdownIndex.js:64-87`
-**Issue:** When `columnLevel` is not provided (which is the default call path from `noteBoard.js:45` and `tagBoard.js:44`), the function uses **all** headings as columns — including nested H3/H4 sub-headings. This means a note with `# Title` → `## Col A` → `### Sub-section` will treat `### Sub-section` as its own column rather than nesting it inside `## Col A`.
-The `findColumnLevel()` function exists but is **never called** from the main code path.
-**Fix:** Call `findColumnLevel(headings)` in `buildColumnSpans` when `columnLevel` is not provided, and filter `columnHeadings` to that level.
+**Issue:** When `columnLevel` is not provided, the function treats all headings as columns.
+**Reasoning / Feature Architecture:**
+- Multi-level heading column support is an **intentional core feature** in `anp-15-kanban`.
+- Users organize workflows with sub-headings (e.g., `# Backlog` $\rightarrow$ `## High Priority`, `## Low Priority`). If sub-headings were filtered out, tasks under `##` or `###` would lose their dedicated columns and be hidden or clumped into the parent column.
+- The UI provides color-coded heading level chips (`H1` = Accent, `H2` = Purple, `H3` = Cyan/Teal, `H4+` = Emerald) taking zero extra horizontal space.
+- `findColumnLevel()` is a legacy single-level prototype helper; preserving all headings maintains 100% fidelity to the user's note structure.
 
-#### 9. `noteLocks` map never cleans up — unbounded memory growth
-**File:** `columnOps.js:125`
-**Issue:** `noteLocks` is a module-level `Map` that grows by one entry for every unique noteUUID ever touched. Since the plugin execution context is kept loaded (Appendix II), this map grows for the entire session. After hundreds of operations, it retains resolved promises for notes no longer in use.
-**Fix:** Delete the entry after the promise resolves: `next.finally(() => noteLocks.delete(key))`.
+#### 9. `noteLocks` map never cleans up — unbounded memory growth - ✅ Done
+**File:** `columnOps.js:109-116`
+**Fix:** Added self-cleaning `tail.finally(() => { if (noteLocks.get(key) === tail) noteLocks.delete(key); })` to `withNoteLock`. When a note queue is idle and no further operations are queued, its key is automatically removed from the Map, releasing memory while preventing queue-truncation races.
 
-#### 10. `handleMoveCard` for tag/notes boards — cross-note move does markdown removal + `updateTask` without lock
-**File:** `embedActions.js:388-410`
-**Issue:** When moving a card between notes in a tag board, the code:
-1. Reads source note markdown
-2. Removes the task line
-3. `replaceNoteContent` on source
-4. `updateTask` to change `noteUUID`
+#### 10. `handleMoveCard` for tag/notes boards — cross-note move does markdown removal + `updateTask` without lock - ✅ Done
+**File:** `embedActions.js:394-406`
+**Fix:** Wrapped source note markdown read and line removal inside `withNoteLock(task.noteUUID, ...)` to ensure atomic, serialized removal when tasks are moved out of the source note during cross-note drag and drop.
 
-Steps 2-4 are not locked. A concurrent move from the same source note can read stale markdown between steps 1 and 3.
-
-#### 11. `createTaskInColumn` — double `replaceNoteContent` write for unsorted insertion
+#### 11. `createTaskInColumn` — double `replaceNoteContent` write for unsorted insertion - ✅ Done
 **File:** `taskOps.js:149-267`
 **Issue:** When creating a task in the "unsorted" position, the function first calls `app.insertTask` (which Amplenote may place at the top), then immediately reads the markdown back and does a full `replaceNoteContent` to reposition. If Amplenote's `insertTask` is asynchronous and the markdown hasn't been flushed to `getNoteContent` yet, the task line won't be found, triggering the fallback path (line 207-228) which may duplicate the task text.
 

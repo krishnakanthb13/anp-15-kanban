@@ -4648,8 +4648,13 @@ async function withNoteLock(noteUUID, fn) {
   const previous = noteLocks.get(key) || Promise.resolve();
   const next = previous.catch(() => {
   }).then(fn);
-  noteLocks.set(key, next.catch(() => {
-  }));
+  const tail = next.catch(() => {
+  }).finally(() => {
+    if (noteLocks.get(key) === tail) {
+      noteLocks.delete(key);
+    }
+  });
+  noteLocks.set(key, tail);
   return next;
 }
 async function reorderColumns(app, noteUUID, orderedIds, orderedNames) {
@@ -5269,7 +5274,9 @@ async function buildNotesBoard(app, tag) {
 async function rerender(app) {
   if (typeof app.context?.renderEmbed === "function") {
     await app.context.renderEmbed();
+    return true;
   }
+  return false;
 }
 async function handlePing(app) {
   await rerender(app);
@@ -5517,15 +5524,17 @@ async function handleMoveCard(app, payload) {
     if (!task) return { ok: false };
     if (task.noteUUID && task.noteUUID !== targetUUID) {
       try {
-        const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
-        if (sourceMarkdown) {
-          const srcLines = sourceMarkdown.split("\n");
-          const [srcIdx] = findTaskLines(srcLines, [{ uuid: payload.cardId, content: task.content }]).values();
-          if (srcIdx !== void 0 && srcIdx >= 0) {
-            const nextSrc = removeLine(srcLines, srcIdx);
-            await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+        await withNoteLock(task.noteUUID, async () => {
+          const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
+          if (sourceMarkdown) {
+            const srcLines = sourceMarkdown.split("\n");
+            const [srcIdx] = findTaskLines(srcLines, [{ uuid: payload.cardId, content: task.content }]).values();
+            if (srcIdx !== void 0 && srcIdx >= 0) {
+              const nextSrc = removeLine(srcLines, srcIdx);
+              await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+            }
           }
-        }
+        });
       } catch (err) {
         console.error("Failed to remove task from source note:", err);
       }
