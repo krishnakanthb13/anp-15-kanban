@@ -2298,8 +2298,17 @@ function buildClientScript() {
 }
 
 // anp-15-kanban/lib/utils/html.js
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (tag) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;"
+  })[tag]);
+}
 function toJsonForScript(value) {
-  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 
 // anp-15-kanban/lib/ui/boardTemplate.js
@@ -4331,7 +4340,7 @@ function withDemoContent(viewState) {
       id: "col_done",
       name: "Done",
       cards: [
-        { id: "card_5", title: "Plugin plan approved", content: "", completedAt: 1755e6, startAt: null, deadline: null, important: false, urgent: false }
+        { id: "card_5", title: "Plugin plan approved", content: "", completedAt: Math.floor(Date.now() / 1e3) - 86400, startAt: null, deadline: null, important: false, urgent: false }
       ]
     }
   ];
@@ -6363,24 +6372,24 @@ async function handleMoveColumnToTab(app, payload) {
 }
 async function handleRenameNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  if (!tab || !payload.columnId) return;
+  if (!tab || !payload.columnId) return { ok: false };
   const noteUUID = String(payload.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : payload.columnId;
-  if (!noteUUID) return;
+  if (!noteUUID) return { ok: false };
   const note = await app.notes.find(noteUUID);
   const current = note?.name || "";
   const name = firstValue(await app.prompt("Rename note", {
     inputs: [{ label: "Note name:", type: "text", value: current }]
   }));
-  if (!name || !String(name).trim() || String(name) === current) return;
+  if (!name || !String(name).trim() || String(name) === current) return { ok: false };
   await app.setNoteName({ uuid: noteUUID }, String(name).trim());
   const board = await buildSingleBoard(app, tab);
   return { ok: true, tabId: tab.id, board, toast: "Note renamed" };
 }
 async function handleDeleteNote(app, payload) {
   const tab = await resolveNoteTab(app, payload);
-  if (!tab) return;
+  if (!tab) return { ok: false };
   const noteUUID = payload?.noteUUID || (String(payload?.columnId).startsWith(NOTE_PREFIX) ? payload.columnId.slice(NOTE_PREFIX.length) : payload?.columnId);
-  if (!noteUUID) return;
+  if (!noteUUID) return { ok: false };
   let noteName = payload?.noteName;
   if (!noteName) {
     try {
@@ -6399,11 +6408,12 @@ async function handleDeleteNote(app, payload) {
       }
     ]
   });
-  if (firstValue(result) !== true) return;
+  if (firstValue(result) !== true) return { ok: false };
   try {
     await app.deleteNote({ uuid: noteUUID });
   } catch (err) {
     console.error("Failed to delete note:", err);
+    return { ok: false, error: err?.message || "Failed to delete note" };
   }
   const board = await buildSingleBoard(app, tab);
   return { ok: true, tabId: tab.id, board };
@@ -6589,7 +6599,7 @@ var plugin = {
           meta: { roundTrips: 0 }
         }));
       } catch (fallbackError) {
-        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kanban Board</title></head><body style="font-family:sans-serif;padding:24px;color:#fff;background:#1e1e1e;"><h3>Kanban Board Loading Error</h3><p>${error?.message || "An unexpected error occurred."}</p></body></html>`;
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kanban Board</title></head><body style="font-family:sans-serif;padding:24px;color:#fff;background:#1e1e1e;"><h3>Kanban Board Loading Error</h3><p>${escapeHtml(error?.message || "An unexpected error occurred.")}</p></body></html>`;
       }
     }
   },

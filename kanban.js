@@ -7,6 +7,7 @@ import { buildNoteBoard } from "./lib/api/noteBoard.js";
 import { buildTagBoard } from "./lib/api/tagBoard.js";
 import { buildNotesBoard } from "./lib/api/notesBoard.js";
 import { loadPluginSettings } from "./lib/core/settings.js";
+import { escapeHtml } from "./lib/utils/html.js";
 
 /* ----------------------------------- */
 /**
@@ -100,7 +101,7 @@ const plugin = {
           meta: { roundTrips: 0 },
         }));
       } catch (fallbackError) {
-        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kanban Board</title></head><body style="font-family:sans-serif;padding:24px;color:#fff;background:#1e1e1e;"><h3>Kanban Board Loading Error</h3><p>${error?.message || "An unexpected error occurred."}</p></body></html>`;
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kanban Board</title></head><body style="font-family:sans-serif;padding:24px;color:#fff;background:#1e1e1e;"><h3>Kanban Board Loading Error</h3><p>${escapeHtml(error?.message || "An unexpected error occurred.")}</p></body></html>`;
       }
     }
   },

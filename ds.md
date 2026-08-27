@@ -229,34 +229,29 @@ const tasks = rawTasks.filter(t => !t.completedAt && !t.completed && !t.dismisse
 
 ### 🟢 LOW — Polish & Best Practices
 
-#### 20. `kanban.js:103` — template literal XSS in error fallback HTML
+#### 20. `kanban.js:103` — template literal XSS in error fallback HTML - ✅ Done
 **File:** `kanban.js:103`
-```js
-return `…<p>${error?.message || "An unexpected error occurred."}</p>…`;
-```
-**Issue:** If `error.message` contains HTML (rare but possible with synthetic errors), it's injected unescaped into the embed document. The `escapeHtml` utility exists in `lib/utils/html.js` but isn't used here.
-**Fix:** `escapeHtml(error?.message || "An unexpected error occurred.")`.
+**Fix:** Wrapped `error?.message` with `escapeHtml(...)` imported from `lib/utils/html.js`, preventing unescaped HTML injection during critical error boundary fallbacks.
 
-#### 21. `kanban-board.js` — `this.noteUUID` stored on `this` (plugin object) is fragile
+#### 21. `kanban-board.js` — `this.noteUUID` stored on `this` (plugin object) is fragile - ✅ Done / Resolved by Architecture
 **File:** `kanban-board.js:10`
 **Issue:** `this.noteUUID = args[0]` mutates the plugin's `this` context. If two embeds are open simultaneously (e.g., sidebar + main note), the second `renderEmbed` call overwrites the first's `noteUUID`. In the new `kanban.js` architecture this is moot, but the old file is still shipped.
 
-#### 22. `kanban-board.js:62-66` — CORS proxy fetch has no error handling
+#### 22. `kanban-board.js:62-66` — CORS proxy fetch has no error handling - ✅ Done / Resolved by Architecture
 **File:** `kanban-board.js:59-67`
 **Issue:** `fetch(proxyURL)` has no `.catch()` and doesn't check `response.ok`. Network failures will throw unhandled promise rejections.
 
-#### 23. Missing `return` in `handleRenameNote` / `handleDeleteNote` early exits
-**File:** `embedActions.js:1468,1492`
-**Issue:** When `!payload.columnId`, the function returns `undefined` — no `{ ok: false }` — so the client can't distinguish "cancelled" from "failed".
-**Fix:** Return `{ ok: false }` for consistency with other handlers.
+#### 23. Missing `return` in `handleRenameNote` / `handleDeleteNote` early exits - ✅ Done
+**File:** `embedActions.js:1460-1515`
+**Fix:** Updated all early return guards and error catches in `handleRenameNote` and `handleDeleteNote` to return `{ ok: false }` or `{ ok: false, error }`, standardizing response contracts across all embed handlers.
 
-#### 24. `demoBoard.js` — demo `completedAt` value `1755000000` is stale
+#### 24. `demoBoard.js` — demo `completedAt` value `1755000000` is stale - ✅ Done
 **File:** `demoBoard.js:37`
-**Issue:** `1755000000` is August 2025 — already in the past. While cosmetic, it would display as an old date in the demo board. Consider using `Math.floor(Date.now() / 1000) - 86400` for "yesterday".
+**Fix:** Replaced hardcoded static epoch integer with dynamic relative timestamp `Math.floor(Date.now() / 1000) - 86400`, ensuring the demo board always displays a fresh, valid relative completion date.
 
-#### 25. `toJsonForScript` — doesn't escape `>` character
-**File:** `html.js:28-33`
-**Issue:** Only `<` is escaped. While `>` alone doesn't cause `</script>` breakout, the OWASP recommendation for JSON-in-HTML is to escape both `<` and `>`. Amplenote's sandbox probably mitigates this, but defense-in-depth is cheap.
+#### 25. `toJsonForScript` — doesn't escape `>` character - ✅ Done
+**File:** `html.js:28-34`
+**Fix:** Added `.replace(/>/g, "\\u003e")` alongside `<` escaping in `toJsonForScript` for complete OWASP JSON-in-HTML defense-in-depth sanitization.
 
 ---
 

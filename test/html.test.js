@@ -14,10 +14,11 @@ describe("html utils", () => {
   });
 
   describe("toJsonForScript", () => {
-    it("escapes </script> breakouts", () => {
+    it("escapes </script> breakouts and > characters", () => {
       const out = toJsonForScript({ evil: "</script><script>alert(1)</script>" });
       expect(out).not.toContain("</script");
-      expect(JSON.parse(out.replace(/\\u003c/g, "<"))).toEqual({
+      expect(out).not.toContain(">");
+      expect(JSON.parse(out.replace(/\\u003c/g, "<").replace(/\\u003e/g, ">"))).toEqual({
         evil: "</script><script>alert(1)</script>",
       });
     });

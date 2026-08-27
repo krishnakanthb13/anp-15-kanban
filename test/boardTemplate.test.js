@@ -32,7 +32,7 @@ describe("boardTemplate", () => {
 
   it("prevents script breakout from embedded state", () => {
     expect(html).not.toContain("My Note <evil>");
-    expect(html).toContain("My Note \\u003cevil>");
+    expect(html).toContain("My Note \\u003cevil\\u003e");
   });
 
   it("includes theme CSS blocks and base layout", () => {
