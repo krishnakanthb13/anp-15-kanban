@@ -6,13 +6,15 @@ import {
   DEFAULT_DATE_FORMAT,
   AUTO_COMPLETE_ON_DONE_HEADER,
   NEW_NOTE_BOARD_INCLUDES_DONE_HEADER,
+  NOTE_PREFIX,
 } from '../lib/core/constants.js';
 
 describe("constants", () => {
-  describe("feature flags", () => {
-    it("exposes boolean feature flags AUTO_COMPLETE_ON_DONE_HEADER and NEW_NOTE_BOARD_INCLUDES_DONE_HEADER", () => {
+  describe("feature flags and prefixes", () => {
+    it("exposes boolean feature flags and NOTE_PREFIX", () => {
       expect(typeof AUTO_COMPLETE_ON_DONE_HEADER).toBe("boolean");
       expect(typeof NEW_NOTE_BOARD_INCLUDES_DONE_HEADER).toBe("boolean");
+      expect(NOTE_PREFIX).toBe("note:");
     });
   });
 

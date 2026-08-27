@@ -149,5 +149,13 @@ describe("markdownIndex", () => {
       expect(resolveSpan(columns, "999", "Ghost")).toBeNull();
       expect(resolveSpan(columns, "999")).toBeNull();
     });
+
+    it("prevents numeric line string collision with column array index", () => {
+      const { columns } = buildColumnSpans(MD);
+      // "1" is line index 1 (not a column heading). It must NOT fall back to columns[1] ("Sub note")
+      expect(resolveSpan(columns, "1")).toBeNull();
+      // Explicit index prefixes work
+      expect(resolveSpan(columns, "col_1").name).toBe("Sub note");
+    });
   });
 });

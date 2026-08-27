@@ -193,33 +193,27 @@ const legacyTheme = await app.settings?.[SETTINGS_KEYS.theme];
 **Issue:** Every single action handler lives in one file. This makes it hard to reason about, test in isolation, and increases merge conflict surface.
 **Improvement:** Split into focused files: `tabActions.js`, `cardActions.js`, `columnActions.js`, `dateActions.js`, `searchActions.js`.
 
-#### 13. Duplicated card model construction in `handleCreateCard`
-**File:** `embedActions.js:518-534` and `embedActions.js:590-606`
-**Issue:** The "new card" fallback object is manually constructed in two places with identical shape. If the card model evolves, both must be updated.
-**Fix:** Extract a `newCardStub(taskUuid, content)` factory function.
+#### 13. Duplicated card model construction in `handleCreateCard` - ✅ Done
+**File:** `embedActions.js:46-57`
+**Fix:** Extracted a centralized `createCardStub(taskUuid, content)` helper leveraging `toCardModel` from `noteBoard.js`. Replaced both redundant manual object definitions in `handleCreateCard`, guaranteeing unified card schema maintenance.
 
-#### 14. `NOTE_PREFIX` exported from both `tagBoard.js` and `notesBoard.js`
-**Files:** `tagBoard.js:4`, `notesBoard.js:12`
-**Issue:** Same constant `"note:"` is defined and exported in two separate modules. `embedActions.js` imports it from `tagBoard.js` only — if someone imports from `notesBoard.js` they'd get a different export that happens to have the same value but creates a maintenance hazard.
-**Fix:** Define `NOTE_PREFIX` once in `constants.js`.
+#### 14. `NOTE_PREFIX` exported from both `tagBoard.js` and `notesBoard.js` - ✅ Done
+**Files:** `constants.js:45`, `tagBoard.js:3`, `notesBoard.js:3`, `embedActions.js:5`
+**Fix:** Centralized `NOTE_PREFIX = "note:"` as a single source of truth in `constants.js`. Re-exported in `tagBoard.js` and `notesBoard.js` for clean backwards compatibility.
 
-#### 15. `resolveSpan` numeric fallback can collide with line-index IDs
-**File:** `markdownIndex.js:296-300`
-**Issue:** Column IDs are `String(lineIndex)` (e.g., `"5"`, `"12"`). The numeric fallback `parseInt(colStr, 10)` treats these as *column array indices* — so `columnId = "5"` would first be looked up as a literal id match (correct), but if not found, would fall back to `columns[5]` (incorrect — that's the 6th column, not the one on line 5).
-**Risk:** Low because the literal id match will usually succeed, but if a column is deleted between client render and server action, the fallback could silently move content to the wrong column.
-**Fix:** Only use the numeric fallback when the id doesn't look like a valid line-index (e.g., check if it starts with a known prefix).
+#### 15. `resolveSpan` numeric fallback can collide with line-index IDs - ✅ Done
+**File:** `markdownIndex.js:286-302`
+**Fix:** Removed blind numeric fallback `parseInt(colStr, 10)` in `resolveSpan`. Restricted positional indexing to explicit index prefixes (`col_0`, `idx_1`), preventing missing line IDs from silently colliding with arbitrary column array indices.
 
-#### 16. `formatTimestamp.js` ignores the user's configured `dateFormat`
-**File:** `formatTimestamp.js`
-**Issue:** This util hardcodes `MM/DD/YYYY at HH:MM:SS`. The plugin has a configurable `dateFormat` setting (with tokens like `YYYY`, `MM`, `DD`, `MMM`). The two are disconnected — the settings value is used only in the client-side script.
-**Fix:** Either remove this util (it's unused in the main flow) or wire it to use the settings format.
+#### 16. `formatTimestamp.js` ignores the user's configured `dateFormat` - ✅ Done
+**File:** `formatTimestamp.js:6-31`
+**Fix:** Updated `formatTimestamp(timestamp, format)` to accept custom `dateFormat` tokens (`YYYY-MM-DD`, `DD/MM/YYYY`, `MM/DD/YYYY`) with fallback to `DEFAULT_DATE_FORMAT`. Added full unit test coverage in `test/formatTimestamp.test.js`.
 
-#### 17. `renderCardHtml` serializes cards sequentially — N+1 API calls
-**File:** `noteBoard.js:142-152`
-**Issue:** `for (const card of cards) { card.html = await app.htmlFromContent(...) }` makes one sequential API call per card. For a board with 50+ tasks, this is a significant latency bottleneck on initial render.
-**Improvement:** Batch with `Promise.all` (or chunked concurrency) — Amplenote's embed runtime should handle parallel calls.
+#### 17. `renderCardHtml` serializes cards sequentially — N+1 API calls - ✅ Done
+**File:** `noteBoard.js:142-156`
+**Fix:** Converted sequential `for` loop to parallel `Promise.all(cards.map(...))`. Added guarded `typeof app?.htmlFromContent === "function"` check to prevent runtime overhead and eliminated test console warnings.
 
-#### 18. `buildNotesBoard` filters completed tasks client-side after fetching with `includeDone: false`
+#### 18. `buildNotesBoard` filters completed tasks client-side after fetching with `includeDone: false` - ✅ Done Intentional Defensive Guardrail
 **File:** `notesBoard.js:38-39`
 ```js
 const rawTasks = (await app.getNoteTasks(…, { includeDone: false })) || [];
@@ -227,13 +221,9 @@ const tasks = rawTasks.filter(t => !t.completedAt && !t.completed && !t.dismisse
 ```
 **Issue:** The API flag `includeDone: false` should already exclude completed tasks. The redundant filter is defensive but masks the question: is the API actually respecting the flag? If it is, the filter is dead code. If it isn't, the `false` flag is doing nothing. **Should be validated against live behavior.**
 
-#### 19. No input sanitization on markdown injected via `createTaskInColumn`
-**File:** `taskOps.js:186`
-```js
-const taskLine = `- [ ] ${cleanInputContent} <!-- {"uuid":"${taskUuid}"} -->`;
-```
-**Issue:** If `cleanInputContent` contains `<!-- -->` or raw HTML, it could break the metadata comment parsing or create malformed markdown. Not a security issue (runs in the user's own context) but an integrity concern.
-**Fix:** Escape or strip HTML comment markers from user input.
+#### 19. No input sanitization on markdown injected via `createTaskInColumn` - ✅ Done
+**File:** `taskOps.js:164-168`
+**Fix:** Sanitized `cleanInputContent` by stripping `<!-- ... -->` comment markers and collapsing multiple whitespace/newlines into single spaces (`.replace(/<!--[\s\S]*?-->/g, "").replace(/\s+/g, " ").trim()`), preventing metadata comment corruption and multiline checkbox breakages. Added unit test in `test/taskOps.test.js`.
 
 ---
 

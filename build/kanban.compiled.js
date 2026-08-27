@@ -20,6 +20,7 @@ var DEFAULT_SETTINGS = {
 };
 var AUTO_COMPLETE_ON_DONE_HEADER = false;
 var NEW_NOTE_BOARD_INCLUDES_DONE_HEADER = true;
+var NOTE_PREFIX = "note:";
 function emptyTabsConfig() {
   return {
     tabs: [],
@@ -4581,9 +4582,11 @@ function resolveSpan(spans, columnId, columnName) {
   const targetName = String(columnName || colStr).trim().toLowerCase();
   const byName = spans.find((s) => s.name.trim().toLowerCase() === targetName);
   if (byName) return byName;
-  const idx = parseInt(colStr, 10);
-  if (!Number.isNaN(idx) && idx >= 0 && idx < spans.length) {
-    return spans[idx];
+  if (/^(?:col_|idx_)\d+$/i.test(colStr)) {
+    const idx = parseInt(colStr.replace(/^(?:col_|idx_)/i, ""), 10);
+    if (!Number.isNaN(idx) && idx >= 0 && idx < spans.length) {
+      return spans[idx];
+    }
   }
   return null;
 }
@@ -4798,7 +4801,7 @@ async function _createTaskInColumn(app, noteUUID, target, content) {
       targetName = null;
     }
   }
-  const cleanInputContent = String(content || "").trim();
+  const cleanInputContent = String(content || "").replace(/<!--[\s\S]*?-->/g, "").replace(/\s+/g, " ").trim();
   const taskUuid = await app.insertTask({ uuid: noteUUID }, { content: cleanInputContent });
   if (!taskUuid) return null;
   try {
@@ -5029,14 +5032,20 @@ function toCardModel(task) {
   };
 }
 async function renderCardHtml(app, cards) {
-  for (const card of cards) {
-    try {
-      card.html = await app.htmlFromContent(card.content);
-    } catch (error) {
-      console.error("htmlFromContent failed for card:", error);
-      card.html = null;
-    }
-  }
+  if (!Array.isArray(cards) || !cards.length) return cards;
+  await Promise.all(
+    cards.map(async (card) => {
+      try {
+        if (typeof app?.htmlFromContent === "function" && card.content) {
+          card.html = await app.htmlFromContent(card.content);
+        } else {
+          card.html = null;
+        }
+      } catch (error) {
+        card.html = null;
+      }
+    })
+  );
   return cards;
 }
 function firstImageUrl(markdown) {
@@ -5093,7 +5102,6 @@ function plainPreview(markdown) {
 }
 
 // anp-15-kanban/lib/api/tagBoard.js
-var NOTE_PREFIX = "note:";
 async function buildTagBoard(app, tag) {
   if (!tag) {
     return { kind: "tag", tag, columns: [], hasHeadings: false };
@@ -5210,7 +5218,6 @@ function firstValue(result) {
 }
 
 // anp-15-kanban/lib/api/notesBoard.js
-var NOTE_PREFIX2 = "note:";
 async function buildNotesBoard(app, tag) {
   if (!tag) {
     return { kind: "notes", tag, columns: [], hasHeadings: false };
@@ -5250,7 +5257,7 @@ async function buildNotesBoard(app, tag) {
     const cards = tasks.map((t) => ({ ...toCardModel(t), noteName: note.name || "Untitled note" }));
     allCards.push(...cards);
     columns.push({
-      id: NOTE_PREFIX2 + note.uuid,
+      id: NOTE_PREFIX + note.uuid,
       name: note.name || "Untitled note",
       color: null,
       wipLimit: null,
@@ -5271,6 +5278,15 @@ async function buildNotesBoard(app, tag) {
 }
 
 // anp-15-kanban/lib/features/embedActions.js
+function createCardStub(taskUuid, content) {
+  const card = toCardModel({
+    uuid: taskUuid,
+    content: content || ""
+  });
+  card.tags = [];
+  card.labels = [];
+  return card;
+}
 async function rerender(app) {
   if (typeof app.context?.renderEmbed === "function") {
     await app.context.renderEmbed();
@@ -5629,23 +5645,7 @@ async function handleCreateCard(app, payload) {
       if (!alreadyInBoard) {
         const targetCol = board2.columns.find((c) => c.id === payload.columnId || c.noteUUID === targetUUID) || board2.columns[0];
         if (targetCol) {
-          const newCard = {
-            id: taskUuid2,
-            uuid: taskUuid2,
-            title: content2,
-            content: content2,
-            completedAt: null,
-            startAt: null,
-            endAt: null,
-            deadline: null,
-            hideUntil: null,
-            repeat: null,
-            important: false,
-            urgent: false,
-            score: 0,
-            tags: [],
-            labels: []
-          };
+          const newCard = createCardStub(taskUuid2, content2);
           if (payload.sectionId && payload.sectionId !== "unsorted" && Array.isArray(targetCol.sections)) {
             const sec = targetCol.sections.find((s) => s.id === payload.sectionId) || targetCol.sections[0];
             if (sec) {
@@ -5699,23 +5699,7 @@ async function handleCreateCard(app, payload) {
       }
       if (targetCol) {
         targetCol.cards = targetCol.cards || [];
-        targetCol.cards.unshift({
-          id: taskUuid,
-          uuid: taskUuid,
-          title: content,
-          content,
-          completedAt: null,
-          startAt: null,
-          endAt: null,
-          deadline: null,
-          hideUntil: null,
-          repeat: null,
-          important: false,
-          urgent: false,
-          score: 0,
-          tags: [],
-          labels: []
-        });
+        targetCol.cards.unshift(createCardStub(taskUuid, content));
       }
     }
   }

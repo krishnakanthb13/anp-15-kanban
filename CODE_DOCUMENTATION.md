@@ -22,7 +22,7 @@ The plugin object exposes three main surfaces:
 lib/
   core/
     constants.js       # Settings keys ("Kanban Tabs" / "Kanban Settings"),
-                       # defaults, id generator, tab-shape validation
+                       # NOTE_PREFIX ("note:"), feature flags, defaults, id generator, tab-shape validation
     settings.js        # Unified JSON settings loader/saver with backward compatibility fallback
     tabsConfig.js      # JSON persistence (load/save) + pure CRUD ops (add/remove/activate/move)
     sessionState.js    # Module-scope session state (round-trip counter); non-authoritative
@@ -274,10 +274,16 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
       - `info` (theme accent `var(--kb-accent)`): Theme changes, Density cycling, View option toggles, Sort mode changes, Outside link warnings.
     - Positive completion toasts are dispatched upon verified backend operations (`res.ok === true`).
     - If a background mutation fails or rejects, an error alert is displayed and `handlePluginResult` automatically fetches fresh board state via `refreshTab` to rollback the UI to the source note's true state.
-  - **Sequential Mutex Write Locks (`withNoteLock` across `taskOps.js` & `columnOps.js`)**:
-    - Serializes concurrent note mutation requests (`moveTaskToColumn`, `createTaskInColumn`, `sortTasksInNoteMarkdown`, `renameColumn`, `deleteColumn`, `transferColumn`) per `noteUUID` into an error-resilient Promise chain, eliminating read-modify-write race conditions and data collisions during rapid user interactions.
+  - **Self-Cleaning Sequential Mutex Write Locks (`withNoteLock` in `columnOps.js`)**:
+    - Serializes concurrent note mutation requests (`moveTaskToColumn`, `createTaskInColumn`, `sortTasksInNoteMarkdown`, `renameColumn`, `deleteColumn`, `transferColumn`, and cross-note task removals) per `noteUUID` into an error-resilient Promise chain, eliminating read-modify-write race conditions and data collisions during rapid user interactions.
+    - Features **Tail-Verified Lock Eviction**: Each operation registers a `.finally()` cleanup handler that verifies `noteLocks.get(key) === tail`. When a note queue settles and no subsequent writes are pending, its key is automatically removed from the Map, releasing memory while preventing queue-truncation races.
   - **Dual-Matching Column Resolution (`resolveSpan` in `markdownIndex.js`)**:
-    - Matches column spans by both line ID and normalized column heading names, preventing failed moves when markdown line numbers shift dynamically between rapid reorders.
+    - Matches column spans by exact line ID and normalized column heading names, preventing failed moves when markdown line numbers shift dynamically between rapid reorders.
+    - Prevents numeric line-string collisions with column array indices by strictly requiring explicit prefixes (`col_0`, `idx_1`) for index matching.
+  - **Unified Card Schema Factory (`createCardStub` in `embedActions.js`)**:
+    - Integrates directly with `toCardModel` from `noteBoard.js` to generate optimistic card models with consistent schema, footnote parsing, and label extraction across both Note and Tag boards.
+  - **Parallel Card Markdown Parsing (`renderCardHtml` in `noteBoard.js`)**:
+    - Enriches card collections with rich HTML and Rich Footnotes in parallel via `Promise.all(cards.map(...))`, replacing $O(N)$ sequential API roundtrips with $O(1)$ batch processing. Guarded by function availability checks to eliminate runtime test warnings.
   - DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), interactive Rich Footnote handling (shows dedicated toast `📌 {text}` on click with `.kb-rich-footnote` dotted underline styling), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
   - **Column Movement Boundary Guardrails**:
     - When `Unsorted` is present at index 0, headers cannot be dropped or moved before it (triggers *"Cannot move column before Unsorted"* toast).
@@ -297,15 +303,15 @@ The architecture in `anp-15-kanban` solves fundamental data safety and performan
    - Replaces brittle regexes with [`UUID_IN_LINE_RE`](./lib/api/markdownIndex.js). Fetches all tasks via a single bulk `app.getNoteTasks` query instead of $N$ synchronous `app.getTask` roundtrips.
 3. **Two-Phase Column Transfers & Zero-Loss Adjacent Migrations ([`lib/api/columnOps.js`](./lib/api/columnOps.js))**:
    - Column transfers append to the target note before removing from the source note, ensuring network drops leave a recoverable duplicate rather than lost data.
-   - Column deletions safely relocate existing tasks directly into the **previous column heading** (or next remaining heading) before deleting the heading line, preventing tasks from spilling into Unsorted.
+   - Column deletions safely delete strictly the heading line, allowing tasks under the deleted column to naturally merge into the preceding column (or unsorted preamble) without data loss.
 4. **Color-Coded Multi-Level Heading Columns & 0ms Directional Moves**:
    - All heading depths (`# H1`, `## H2`, `### H3`, etc.) are recognized as distinct columns with clean color-coded level indicators (H1 = Theme Accent, H2 = Purple, H3 = Cyan/Teal, H4+ = Emerald) taking zero extra horizontal space.
    - Columns can be freely dragged across any number of positions with glowing vertical drop lines, and directional `<` / `>` buttons swap columns instantly in 0ms with zero screen flicker.
 5. **Top-Level Service Worker Boundary & Embed Crash Immunity ([`kanban.js`](./kanban.js))**:
    - `renderEmbed(app)` is protected by an error boundary returning structured fallback HTML to guarantee that Amplenote's Service Worker receives a valid `Response(html)`, eliminating `TypeError: Failed to convert value to 'Response'` fetch promise crashes.
    - Note access methods normalize between string UUIDs and handle objects (`{ uuid: "..." }`) and supply fallback tags during note creation.
-6. **Atomic Cross-Note Task Relocation ([`lib/features/embedActions.js`](./lib/features/embedActions.js) & [`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
-   - Moving cards across notes transfers the existing task entity directly via `app.updateTask(taskUuid, { noteUUID })` and splices it under the target heading section, completely eliminating duplicate task creation at the top of destination notes.
+6. **Atomic Cross-Note Task Relocation & Mutex Locking ([`lib/features/embedActions.js`](./lib/features/embedActions.js) & [`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
+   - Moving cards across notes executes under mutual exclusion locks on both the source and destination notes, transferring the existing task entity directly via `app.updateTask(taskUuid, { noteUUID })` and splicing it under the target heading section, completely eliminating race conditions and duplicate task creation.
 7. **Heading-Free Note Support & Relative Card Positioning ([`lib/api/taskOps.js`](./lib/api/taskOps.js))**:
    - `moveTaskToColumn` supports notes with zero markdown headings (such as flat project notes in Notes tabs), allowing tasks to be placed before or after any `targetCardId` or placed at top/bottom without requiring `# Heading` lines.
 
@@ -316,7 +322,7 @@ For full live validation steps, see [`checklist.md`](./checklist.md).
 ## Testing Strategy
 
 ```bash
-node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban # Jest test suite (19 suites, 249 tests)
+node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban # Jest test suite (20 suites, 256 tests)
 node esbuild.js 15                                                        # Compiles bundle to build/kanban.compiled.js
 node anp-15-kanban/test/smoke.bundle.cjs                                  # End-to-end bundle verification
 ```

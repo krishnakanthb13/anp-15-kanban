@@ -280,5 +280,27 @@ A Kanban system must distinguish between *workflow stage categories* (markdown h
 
 **Why:** Treating headings named "Done" as automatic triggers to close tasks creates confusing duplicate columns (`[Done] [Completed]`) and strips user control. Clear separation guarantees predictable document structure while preserving seamless lifecycle transitions.
 
+---
+
+## 29. Self-Cleaning Concurrency Locks & Tail-Verified Eviction
+
+Concurrency control in a persistent plugin runtime must prevent race conditions without unbounded memory leaks:
+- **Per-Note Mutex Chains**: Sequential operations (`withNoteLock(noteUUID, fn)`) serialize rapid user writes per document into guaranteed sequential Promise chains.
+- **Tail Verification on Settlement**: Rather than permanently holding resolved promises in memory or naively deleting the key on promise resolution (which would orphan incoming operations queued in the interim), the lock checks `if (noteLocks.get(key) === tail)` in a `.finally()` block.
+- **Zero-Leak Idle Reclamation**: When a note's mutation queue settles and no subsequent writes are pending, its entry is automatically pruned from the Map, releasing memory immediately while maintaining complete queue safety.
+
+**Why:** Users leave Kanban embeds open for days across dozens of notes. Concurrency locks must be robust under high load while consuming zero persistent memory when idle.
+
+---
+
+## 30. Unified Card Schema Stubs & Optimistic State Parity
+
+Optimistic UI updates should never diverge in structure from official database queries:
+- **Single Source of Schema Truth**: All card objects—whether constructed from `app.getNoteTasks` queries via `buildNoteBoard` or generated optimistically via `createCardStub`—pass through `toCardModel`.
+- **Zero-Flicker Card Creation**: When a user creates a new card, the embed immediately presents the fully decorated card (with default scores, dates, tags, and label arrays) without waiting for background indexing or triggering an iframe reload.
+- **Automatic Schema Inheritance**: Any future evolution of card properties, rich footnotes, or metadata chips automatically applies to both backend and optimistic code paths.
+
+**Why:** Duplicating card object literals across action handlers creates subtle bugs where newly created cards lack methods, chips, or styling until a page reload. A unified factory guarantees immediate visual fidelity.
+
 
 

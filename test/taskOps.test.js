@@ -191,6 +191,18 @@ describe("taskOps", () => {
       expect(written).toContain("# Alpha\n- [ ] New card <!-- {\"uuid\":\"new-task\"} -->\n\nHere is some testing notes and description.");
     });
 
+    it("sanitizes task content by stripping comment markers and collapsing newlines", async () => {
+      const mdWithNew = [
+        "- [ ] New card <!-- {\"uuid\":\"new-task\"} -->",
+        "# Alpha",
+      ].join("\n");
+      const app = makeApp(mdWithNew);
+      const uuid = await createTaskInColumn(app, "n1", { columnId: "1" }, "Task title <!-- fake --> \n multi-line");
+
+      expect(uuid).toBe("new-task");
+      expect(app.insertTask).toHaveBeenCalledWith({ uuid: "n1" }, { content: "Task title multi-line" });
+    });
+
     it("tolerates relocation failure and still returns the uuid", async () => {
       const app = makeApp();
       app.getNoteContent
