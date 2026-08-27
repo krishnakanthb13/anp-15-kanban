@@ -1,3 +1,9 @@
+## v0.0.46
+
+- **In-Flight Note & Board Creation Locking**:
+  - Implemented concurrency protection locks on `handleAddTab` and `handleCreateColumnNote` to prevent duplicate note creation when users double-click modal confirmation buttons or when multiple event triggers occur simultaneously.
+  - Added full unit test coverage verifying serialization and deduplication of rapid concurrent note creation requests.
+
 ## v0.0.41
 
 - **Top Bar "Open Tag" & Tab Navigation for Tag and Notes Boards**:

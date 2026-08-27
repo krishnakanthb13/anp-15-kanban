@@ -485,6 +485,22 @@ describe("embedActions", () => {
       });
     });
 
+    it("addTab locks in-flight execution to prevent duplicate notes on rapid concurrent calls", async () => {
+      const app = makeApp();
+      app.createNote.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve("new-note-uuid"), 15)));
+      app.prompt
+        .mockResolvedValueOnce("new_note")
+        .mockResolvedValueOnce("Custom Kanban");
+
+      // Concurrent invocation
+      const p1 = handleAddTab(app);
+      const p2 = handleAddTab(app);
+
+      await Promise.all([p1, p2]);
+
+      expect(app.createNote).toHaveBeenCalledTimes(1);
+    });
+
     it("addTab creates a tag tab named after the last path segment", async () => {
       const app = makeApp();
       app.prompt

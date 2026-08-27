@@ -5361,113 +5361,121 @@ function defaultKanbanNoteName(now = /* @__PURE__ */ new Date()) {
   const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   return `Kanban Board - ${dateStr}`;
 }
+var inFlightAddTab = false;
+var inFlightCreateColumnNote = false;
 async function handleAddTab(app) {
-  const choice = firstValue(await app.prompt("Add Board Tab", {
-    inputs: [
-      {
-        label: "Choose board type:",
-        type: "radio",
-        options: [
-          { label: "Existing Note Board (headings as columns)", value: "note" },
-          { label: "Create New Note Board (auto-creates note with columns)", value: "new_note" },
-          { label: "Tag Board (notes as columns with collapsible heading sections)", value: "tag" },
-          { label: "Multi-Note Board (one note per project, flat task cards)", value: "notes" }
+  if (inFlightAddTab) return;
+  inFlightAddTab = true;
+  try {
+    const choice = firstValue(await app.prompt("Add Board Tab", {
+      inputs: [
+        {
+          label: "Choose board type:",
+          type: "radio",
+          options: [
+            { label: "Existing Note Board (headings as columns)", value: "note" },
+            { label: "Create New Note Board (auto-creates note with columns)", value: "new_note" },
+            { label: "Tag Board (notes as columns with collapsible heading sections)", value: "tag" },
+            { label: "Multi-Note Board (one note per project, flat task cards)", value: "notes" }
+          ]
+        }
+      ]
+    }));
+    if (!choice) return;
+    let tab = null;
+    if (choice === "note") {
+      const noteHandle = firstValue(await app.prompt("Select Note for Board", {
+        inputs: [
+          {
+            label: "Choose an existing note (headings will become columns):",
+            type: "note"
+          }
         ]
-      }
-    ]
-  }));
-  if (!choice) return;
-  let tab = null;
-  if (choice === "note") {
-    const noteHandle = firstValue(await app.prompt("Select Note for Board", {
-      inputs: [
-        {
-          label: "Choose an existing note (headings will become columns):",
-          type: "note"
-        }
-      ]
-    }));
-    if (!noteHandle || !noteHandle.uuid && !noteHandle.id) return;
-    const noteUUID = noteHandle.uuid || noteHandle.id;
-    tab = createTab({
-      kind: "note",
-      name: noteHandle.name || "Note board",
-      noteUUID
-    });
-  } else if (choice === "new_note") {
-    const titleInput = firstValue(await app.prompt("Create New Note Board", {
-      inputs: [
-        {
-          label: "Board title (optional \u2014 leave blank for timestamped name):",
-          type: "text"
-        }
-      ]
-    }));
-    if (titleInput === null || titleInput === void 0) return;
-    const title = titleInput && String(titleInput).trim() || defaultKanbanNoteName();
-    let uuid = null;
-    try {
-      uuid = await app.createNote(title, ["-reports/-kanban"]);
-    } catch (err) {
-      console.warn("createNote with '-reports/-kanban' failed, trying fallback:", err);
+      }));
+      if (!noteHandle || !noteHandle.uuid && !noteHandle.id) return;
+      const noteUUID = noteHandle.uuid || noteHandle.id;
+      tab = createTab({
+        kind: "note",
+        name: noteHandle.name || "Note board",
+        noteUUID
+      });
+    } else if (choice === "new_note") {
+      const titleInput = firstValue(await app.prompt("Create New Note Board", {
+        inputs: [
+          {
+            label: "Board title (optional \u2014 leave blank for timestamped name):",
+            type: "text"
+          }
+        ]
+      }));
+      if (titleInput === null || titleInput === void 0) return;
+      const title = titleInput && String(titleInput).trim() || defaultKanbanNoteName();
+      let uuid = null;
       try {
-        uuid = await app.createNote(title, ["reports/kanban"]);
-      } catch {
+        uuid = await app.createNote(title, ["-reports/-kanban"]);
+      } catch (err) {
+        console.warn("createNote with '-reports/-kanban' failed, trying fallback:", err);
         try {
-          uuid = await app.createNote(title);
-        } catch (createErr) {
-          console.error("createNote failed completely:", createErr);
-          return;
+          uuid = await app.createNote(title, ["reports/kanban"]);
+        } catch {
+          try {
+            uuid = await app.createNote(title);
+          } catch (createErr) {
+            console.error("createNote failed completely:", createErr);
+            return;
+          }
         }
       }
+      const cleanUUID = typeof uuid === "object" && uuid !== null ? uuid.uuid || uuid.id : uuid;
+      if (!cleanUUID) return;
+      try {
+        const defaultContent = NEW_NOTE_BOARD_INCLUDES_DONE_HEADER ? "# To Do\n\n# In Progress\n\n# Done\n" : "# To Do\n\n# In Progress\n";
+        await app.replaceNoteContent({ uuid: cleanUUID }, defaultContent);
+      } catch (err) {
+        console.warn("Failed to initialize note content for new board:", err);
+      }
+      tab = createTab({
+        kind: "note",
+        name: title,
+        noteUUID: cleanUUID
+      });
+    } else if (choice === "tag") {
+      const tagVal = firstValue(await app.prompt("Select Tag for Board", {
+        inputs: [
+          {
+            label: "Select or type a tag (all notes with this tag become columns):",
+            type: "tags",
+            limit: 1
+          }
+        ]
+      }));
+      const tagText = Array.isArray(tagVal) ? tagVal[0] : tagVal;
+      if (!tagText || !String(tagText).trim()) return;
+      const clean = String(tagText).trim();
+      tab = createTab({ kind: "tag", name: clean, tag: clean });
+    } else if (choice === "notes") {
+      const tagVal = firstValue(await app.prompt("Select Tag for Multi-Note Board", {
+        inputs: [
+          {
+            label: "Select or type a tag (all notes with this tag become columns):",
+            type: "tags",
+            limit: 1
+          }
+        ]
+      }));
+      const tagText = Array.isArray(tagVal) ? tagVal[0] : tagVal;
+      if (!tagText || !String(tagText).trim()) return;
+      const clean = String(tagText).trim();
+      tab = createTab({ kind: "notes", name: clean, tag: clean });
+    } else {
+      return;
     }
-    const cleanUUID = typeof uuid === "object" && uuid !== null ? uuid.uuid || uuid.id : uuid;
-    if (!cleanUUID) return;
-    try {
-      const defaultContent = NEW_NOTE_BOARD_INCLUDES_DONE_HEADER ? "# To Do\n\n# In Progress\n\n# Done\n" : "# To Do\n\n# In Progress\n";
-      await app.replaceNoteContent({ uuid: cleanUUID }, defaultContent);
-    } catch (err) {
-      console.warn("Failed to initialize note content for new board:", err);
-    }
-    tab = createTab({
-      kind: "note",
-      name: title,
-      noteUUID: cleanUUID
-    });
-  } else if (choice === "tag") {
-    const tagVal = firstValue(await app.prompt("Select Tag for Board", {
-      inputs: [
-        {
-          label: "Select or type a tag (all notes with this tag become columns):",
-          type: "tags",
-          limit: 1
-        }
-      ]
-    }));
-    const tagText = Array.isArray(tagVal) ? tagVal[0] : tagVal;
-    if (!tagText || !String(tagText).trim()) return;
-    const clean = String(tagText).trim();
-    tab = createTab({ kind: "tag", name: clean, tag: clean });
-  } else if (choice === "notes") {
-    const tagVal = firstValue(await app.prompt("Select Tag for Multi-Note Board", {
-      inputs: [
-        {
-          label: "Select or type a tag (all notes with this tag become columns):",
-          type: "tags",
-          limit: 1
-        }
-      ]
-    }));
-    const tagText = Array.isArray(tagVal) ? tagVal[0] : tagVal;
-    if (!tagText || !String(tagText).trim()) return;
-    const clean = String(tagText).trim();
-    tab = createTab({ kind: "notes", name: clean, tag: clean });
-  } else {
-    return;
+    const config = addTab(await loadTabsConfig(app), tab);
+    await saveTabsConfig(app, config);
+    await rerender(app);
+  } finally {
+    inFlightAddTab = false;
   }
-  const config = addTab(await loadTabsConfig(app), tab);
-  await saveTabsConfig(app, config);
-  await rerender(app);
 }
 async function handleCloseTab(app, payload) {
   const tabId = payload && typeof payload.tabId === "string" ? payload.tabId : null;
@@ -6269,21 +6277,27 @@ async function handleCardMenu(app, payload) {
     return { ok: true, tabId: tab?.id, board, toast: "Timeblock scheduled" };
   }
   if (choice === "note") {
-    const defaultTitle = String(task.content || "").replace(/\[\[[^\]]+\]\]/g, "").replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
-    const promptRes = await app.prompt("Create Note from Card", {
-      inputs: [
-        { label: "Note Title:", type: "text", value: defaultTitle }
-      ]
-    });
-    const title = firstValue(promptRes) || defaultTitle;
-    if (!title || !title.trim()) return;
-    const uuid = await app.createNote(title.trim(), []);
-    if (!uuid) return;
-    const noteLink = `[${title.trim()}](https://www.amplenote.com/notes/${uuid})`;
-    await app.updateTask(cardId, { content: noteLink });
-    const tab = await resolveCurrentBoardTab(app, payload);
-    const board = tab ? await buildSingleBoard(app, tab) : null;
-    return { ok: true, tabId: tab?.id, board, toast: "Note created from card" };
+    if (inFlightCreateColumnNote) return;
+    inFlightCreateColumnNote = true;
+    try {
+      const defaultTitle = String(task.content || "").replace(/\[\[[^\]]+\]\]/g, "").replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "Note from card";
+      const promptRes = await app.prompt("Create Note from Card", {
+        inputs: [
+          { label: "Note Title:", type: "text", value: defaultTitle }
+        ]
+      });
+      const title = firstValue(promptRes) || defaultTitle;
+      if (!title || !title.trim()) return;
+      const uuid = await app.createNote(title.trim(), []);
+      if (!uuid) return;
+      const noteLink = `[${title.trim()}](https://www.amplenote.com/notes/${uuid})`;
+      await app.updateTask(cardId, { content: noteLink });
+      const tab = await resolveCurrentBoardTab(app, payload);
+      const board = tab ? await buildSingleBoard(app, tab) : null;
+      return { ok: true, tabId: tab?.id, board, toast: "Note created from card" };
+    } finally {
+      inFlightCreateColumnNote = false;
+    }
   }
 }
 async function handleSaveSortToNote(app, payload) {
