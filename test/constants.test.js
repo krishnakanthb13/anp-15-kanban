@@ -1,6 +1,21 @@
-import { emptyTabsConfig, newId, isValidTab, SETTINGS_KEYS, DEFAULT_DATE_FORMAT } from '../lib/core/constants.js';
+import {
+  emptyTabsConfig,
+  newId,
+  isValidTab,
+  SETTINGS_KEYS,
+  DEFAULT_DATE_FORMAT,
+  AUTO_COMPLETE_ON_DONE_HEADER,
+  NEW_NOTE_BOARD_INCLUDES_DONE_HEADER,
+} from '../lib/core/constants.js';
 
 describe("constants", () => {
+  describe("feature flags", () => {
+    it("exposes boolean feature flags AUTO_COMPLETE_ON_DONE_HEADER and NEW_NOTE_BOARD_INCLUDES_DONE_HEADER", () => {
+      expect(typeof AUTO_COMPLETE_ON_DONE_HEADER).toBe("boolean");
+      expect(typeof NEW_NOTE_BOARD_INCLUDES_DONE_HEADER).toBe("boolean");
+    });
+  });
+
   describe("SETTINGS_KEYS", () => {
     it("exposes stable setting keys", () => {
       expect(SETTINGS_KEYS.tabs).toBe("Kanban Tabs");

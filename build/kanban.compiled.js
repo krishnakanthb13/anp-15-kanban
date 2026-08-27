@@ -18,6 +18,8 @@ var DEFAULT_SETTINGS = {
   expandCardInfo: false,
   density: "cozy"
 };
+var AUTO_COMPLETE_ON_DONE_HEADER = false;
+var NEW_NOTE_BOARD_INCLUDES_DONE_HEADER = true;
 function emptyTabsConfig() {
   return {
     tabs: [],
@@ -4586,6 +4588,109 @@ function resolveSpan(spans, columnId, columnName) {
   return null;
 }
 
+// anp-15-kanban/lib/api/columnOps.js
+var HEADING_LINE_RE = /^(#{1,6})\s+(.*)$/;
+async function readLines(app, noteUUID) {
+  const markdown = await app.getNoteContent({ uuid: noteUUID });
+  return markdown.split("\n");
+}
+function headingLevel(line) {
+  const m = String(line).match(HEADING_LINE_RE);
+  return m ? m[1].length : null;
+}
+async function createColumn(app, noteUUID, name, level = null) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return false;
+  let hLevel = level ? parseInt(String(level), 10) : null;
+  if (!hLevel || hLevel < 1 || hLevel > 6) {
+    const markdown = await app.getNoteContent({ uuid: noteUUID });
+    const { columns } = buildColumnSpans(markdown);
+    hLevel = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
+  }
+  await app.insertNoteContent(
+    { uuid: noteUUID },
+    `
+${"#".repeat(hLevel)} ${trimmed}
+`,
+    { atEnd: true }
+  );
+  return true;
+}
+async function renameColumn(app, noteUUID, columnId, newName) {
+  return withNoteLock(noteUUID, async () => {
+    const trimmed = String(newName || "").trim();
+    if (!trimmed) return false;
+    const lines = await readLines(app, noteUUID);
+    const { columns } = buildColumnSpans(lines.join("\n"));
+    const span = resolveSpan(columns, columnId);
+    if (!span) return false;
+    const level = headingLevel(lines[span.startLine]) || 1;
+    lines[span.startLine] = `${"#".repeat(level)} ${trimmed}`;
+    await app.replaceNoteContent({ uuid: noteUUID }, lines.join("\n"));
+    return true;
+  });
+}
+async function deleteColumn(app, noteUUID, columnId) {
+  return withNoteLock(noteUUID, async () => {
+    const lines = await readLines(app, noteUUID);
+    const { columns } = buildColumnSpans(lines.join("\n"));
+    const span = resolveSpan(columns, columnId);
+    if (!span) return false;
+    if (columns.length <= 1) return false;
+    lines.splice(span.startLine, 1);
+    await app.replaceNoteContent({ uuid: noteUUID }, lines.join("\n"));
+    return true;
+  });
+}
+var noteLocks = /* @__PURE__ */ new Map();
+async function withNoteLock(noteUUID, fn) {
+  const key = String(noteUUID || "__global__");
+  const previous = noteLocks.get(key) || Promise.resolve();
+  const next = previous.catch(() => {
+  }).then(fn);
+  noteLocks.set(key, next.catch(() => {
+  }));
+  return next;
+}
+async function reorderColumns(app, noteUUID, orderedIds, orderedNames) {
+  return withNoteLock(noteUUID, async () => {
+    const lines = await readLines(app, noteUUID);
+    const markdown = lines.join("\n");
+    const { columns, preambleEnd } = buildColumnSpans(markdown);
+    if (!columns.length || !Array.isArray(orderedIds)) return false;
+    if (orderedIds.length !== columns.length) return false;
+    const spans = orderedIds.map((id, idx) => {
+      const name = orderedNames && orderedNames[idx] || id;
+      return resolveSpan(columns, id, name);
+    });
+    if (spans.some((s) => !s) || new Set(spans.map((s) => s.id)).size !== columns.length) return false;
+    const rebuilt = [...lines.slice(0, Math.max(preambleEnd - 1, 0))];
+    for (const span of spans) {
+      rebuilt.push(...lines.slice(span.startLine, span.contentEnd));
+    }
+    await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
+    return true;
+  });
+}
+async function transferColumn(app, sourceUUID, columnId, targetUUID) {
+  return withNoteLock(sourceUUID, async () => {
+    if (sourceUUID === targetUUID) return "same-note";
+    const lines = await readLines(app, sourceUUID);
+    const { columns } = buildColumnSpans(lines.join("\n"));
+    if (!columns.length) return "no-columns";
+    const span = resolveSpan(columns, columnId);
+    if (!span) return "no-target";
+    const block = lines.slice(span.startLine, span.contentEnd);
+    const trimmed = block.join("\n").replace(/\n+$/, "");
+    await app.insertNoteContent({ uuid: targetUUID }, `
+${trimmed}
+`, { atEnd: true });
+    const next = [...lines.slice(0, span.startLine), ...lines.slice(span.contentEnd)];
+    await app.replaceNoteContent({ uuid: sourceUUID }, next.join("\n"));
+    return "moved";
+  });
+}
+
 // anp-15-kanban/lib/api/taskOps.js
 function nowSeconds() {
   return Math.floor(Date.now() / 1e3);
@@ -4594,7 +4699,7 @@ async function readNote(app, noteUUID) {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   return { markdown, lines: markdown.split("\n") };
 }
-async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
+async function _moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   const { markdown, lines } = await readNote(app, noteUUID);
   const cleanLines = lines.map((l) => String(l || "").replace(/\r/g, ""));
   const { columns } = buildColumnSpans(cleanLines.join("\n"));
@@ -4643,7 +4748,7 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   }
   if (target.columnId === "completed" || target.columnName === "Completed") {
     try {
-      await app.updateTask(taskUuid, { completedAt: Date.now() });
+      await app.updateTask(taskUuid, { completedAt: nowSeconds() });
     } catch {
     }
     return "moved";
@@ -4673,7 +4778,10 @@ async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
   return "moved";
 }
-async function createTaskInColumn(app, noteUUID, target, content) {
+async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
+  return withNoteLock(noteUUID, () => _moveTaskToColumn(app, noteUUID, taskUuid, target));
+}
+async function _createTaskInColumn(app, noteUUID, target, content) {
   let targetName = target?.columnName;
   if (!targetName && target?.columnId && target.columnId !== "unsorted") {
     try {
@@ -4738,7 +4846,7 @@ async function createTaskInColumn(app, noteUUID, target, content) {
     return taskUuid;
   }
   try {
-    const res = await moveTaskToColumn(app, noteUUID, taskUuid, {
+    const res = await _moveTaskToColumn(app, noteUUID, taskUuid, {
       columnId: target?.columnId,
       columnName: targetName
     });
@@ -4768,10 +4876,13 @@ async function createTaskInColumn(app, noteUUID, target, content) {
   }
   return taskUuid;
 }
+async function createTaskInColumn(app, noteUUID, target, content) {
+  return withNoteLock(noteUUID, () => _createTaskInColumn(app, noteUUID, target, content));
+}
 async function setTaskCompleted(app, taskUuid, done = true) {
   await app.updateTask(taskUuid, { completedAt: done ? nowSeconds() : null });
 }
-async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
+async function _sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   const tasks = await app.getNoteTasks({ uuid: noteUUID });
   if (!markdown || !tasks || !tasks.length) return false;
@@ -4814,117 +4925,8 @@ async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
   await app.replaceNoteContent({ uuid: noteUUID }, nextLines.join("\n"));
   return true;
 }
-
-// anp-15-kanban/lib/api/columnOps.js
-var HEADING_LINE_RE = /^(#{1,6})\s+(.*)$/;
-async function readLines(app, noteUUID) {
-  const markdown = await app.getNoteContent({ uuid: noteUUID });
-  return markdown.split("\n");
-}
-function headingLevel(line) {
-  const m = String(line).match(HEADING_LINE_RE);
-  return m ? m[1].length : null;
-}
-async function createColumn(app, noteUUID, name, level = null) {
-  const trimmed = String(name || "").trim();
-  if (!trimmed) return false;
-  let hLevel = level ? parseInt(String(level), 10) : null;
-  if (!hLevel || hLevel < 1 || hLevel > 6) {
-    const markdown = await app.getNoteContent({ uuid: noteUUID });
-    const { columns } = buildColumnSpans(markdown);
-    hLevel = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
-  }
-  await app.insertNoteContent(
-    { uuid: noteUUID },
-    `
-${"#".repeat(hLevel)} ${trimmed}
-`,
-    { atEnd: true }
-  );
-  return true;
-}
-async function renameColumn(app, noteUUID, columnId, newName) {
-  const trimmed = String(newName || "").trim();
-  if (!trimmed) return false;
-  const lines = await readLines(app, noteUUID);
-  const { columns } = buildColumnSpans(lines.join("\n"));
-  const span = resolveSpan(columns, columnId);
-  if (!span) return false;
-  const level = headingLevel(lines[span.startLine]) || 1;
-  lines[span.startLine] = `${"#".repeat(level)} ${trimmed}`;
-  await app.replaceNoteContent({ uuid: noteUUID }, lines.join("\n"));
-  return true;
-}
-async function deleteColumn(app, noteUUID, columnId) {
-  const lines = await readLines(app, noteUUID);
-  const { columns } = buildColumnSpans(lines.join("\n"));
-  const span = resolveSpan(columns, columnId);
-  if (!span) return false;
-  if (columns.length <= 1) return false;
-  const colIdx = columns.findIndex((c) => c.id === span.id);
-  if (colIdx === -1) return false;
-  const extracted = lines.slice(span.contentStart, span.contentEnd).filter((line, i, arr) => !(line.trim() === "" && (i === 0 || i === arr.length - 1)));
-  const targetCol = colIdx > 0 ? columns[colIdx - 1] : columns[colIdx + 1];
-  const next = [
-    ...lines.slice(0, span.startLine),
-    ...lines.slice(span.contentEnd)
-  ];
-  if (extracted.length > 0 && targetCol) {
-    if (colIdx > 0) {
-      const insertAt = targetCol.contentEnd;
-      next.splice(insertAt, 0, ...extracted);
-    } else {
-      const shift = span.contentEnd - span.startLine;
-      const targetContentStart = targetCol.contentStart - shift;
-      next.splice(targetContentStart, 0, ...extracted);
-    }
-  }
-  await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
-  return true;
-}
-var noteLocks = /* @__PURE__ */ new Map();
-async function withNoteLock(noteUUID, fn) {
-  const key = String(noteUUID || "__global__");
-  const previous = noteLocks.get(key) || Promise.resolve();
-  const next = previous.then(fn, fn);
-  noteLocks.set(key, next);
-  return next;
-}
-async function reorderColumns(app, noteUUID, orderedIds, orderedNames) {
-  return withNoteLock(noteUUID, async () => {
-    const lines = await readLines(app, noteUUID);
-    const markdown = lines.join("\n");
-    const { columns, preambleEnd } = buildColumnSpans(markdown);
-    if (!columns.length || !Array.isArray(orderedIds)) return false;
-    if (orderedIds.length !== columns.length) return false;
-    const spans = orderedIds.map((id, idx) => {
-      const name = orderedNames && orderedNames[idx] || id;
-      return resolveSpan(columns, id, name);
-    });
-    if (spans.some((s) => !s) || new Set(spans.map((s) => s.id)).size !== columns.length) return false;
-    const rebuilt = [...lines.slice(0, Math.max(preambleEnd - 1, 0))];
-    for (const span of spans) {
-      rebuilt.push(...lines.slice(span.startLine, span.contentEnd));
-    }
-    await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
-    return true;
-  });
-}
-async function transferColumn(app, sourceUUID, columnId, targetUUID) {
-  if (sourceUUID === targetUUID) return "same-note";
-  const lines = await readLines(app, sourceUUID);
-  const { columns } = buildColumnSpans(lines.join("\n"));
-  if (!columns.length) return "no-columns";
-  const span = resolveSpan(columns, columnId);
-  if (!span) return "no-target";
-  const block = lines.slice(span.startLine, span.contentEnd);
-  const trimmed = block.join("\n").replace(/\n+$/, "");
-  await app.insertNoteContent({ uuid: targetUUID }, `
-${trimmed}
-`, { atEnd: true });
-  const next = [...lines.slice(0, span.startLine), ...lines.slice(span.contentEnd)];
-  await app.replaceNoteContent({ uuid: sourceUUID }, next.join("\n"));
-  return "moved";
+async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
+  return withNoteLock(noteUUID, () => _sortTasksInNoteMarkdown(app, noteUUID, sortMode));
 }
 
 // anp-15-kanban/lib/api/noteBoard.js
@@ -5390,7 +5392,8 @@ async function handleAddTab(app) {
     const cleanUUID = typeof uuid === "object" && uuid !== null ? uuid.uuid || uuid.id : uuid;
     if (!cleanUUID) return;
     try {
-      await app.replaceNoteContent({ uuid: cleanUUID }, "# To Do\n\n# In Progress\n\n# Done\n");
+      const defaultContent = NEW_NOTE_BOARD_INCLUDES_DONE_HEADER ? "# To Do\n\n# In Progress\n\n# Done\n" : "# To Do\n\n# In Progress\n";
+      await app.replaceNoteContent({ uuid: cleanUUID }, defaultContent);
     } catch (err) {
       console.warn("Failed to initialize note content for new board:", err);
     }
@@ -5483,20 +5486,22 @@ async function resolveCurrentBoardTab(app, payload) {
   const targetId = payload?.tabId || config.activeTabId;
   return config.tabs.find((t) => t.id === targetId) || null;
 }
-async function isLastColumn(app, noteUUID, columnId, columnName) {
+async function isCompletedColumn(app, noteUUID, columnId, columnName) {
+  const isSystemCompleted = String(columnId || "").toLowerCase() === "completed" || String(columnName || "").trim().toLowerCase() === "completed";
+  if (isSystemCompleted) return true;
+  if (!AUTO_COMPLETE_ON_DONE_HEADER) return false;
   if (columnName && /^(done|completed|finished|closed|archive)/i.test(String(columnName).trim())) {
     return true;
   }
-  const markdown = await app.getNoteContent({ uuid: noteUUID });
-  const { columns } = buildColumnSpans(markdown);
-  const targetSpan = resolveSpan(columns, columnId, columnName);
-  if (targetSpan && /^(done|completed|finished|closed|archive)/i.test(String(targetSpan.name).trim())) {
-    return true;
-  }
-  if (columns.length > 0) {
-    const lastCol = columns[columns.length - 1];
-    if (lastCol && (lastCol.id === String(columnId) || lastCol.name === columnName)) {
-      return /^(done|completed|finished|closed|archive)/i.test(String(lastCol.name).trim());
+  if (app && noteUUID) {
+    try {
+      const markdown = await app.getNoteContent({ uuid: noteUUID });
+      const { columns } = buildColumnSpans(markdown);
+      const targetSpan = resolveSpan(columns, columnId, columnName);
+      if (targetSpan && /^(done|completed|finished|closed|archive)/i.test(String(targetSpan.name).trim())) {
+        return true;
+      }
+    } catch {
     }
   }
   return false;
@@ -5529,7 +5534,7 @@ async function handleMoveCard(app, payload) {
       } catch (err) {
         console.error("Failed to update task noteUUID:", err);
       }
-      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed" || payload.toColumnId === "completed" || payload.toColumnName === "Completed";
+      const isDoneSection = String(payload.toSectionId || "").toLowerCase() === "completed" || String(payload.toSectionName || "").trim().toLowerCase() === "completed" || String(payload.toColumnId || "").toLowerCase() === "completed" || String(payload.toColumnName || "").trim().toLowerCase() === "completed" || AUTO_COMPLETE_ON_DONE_HEADER && (/^(done|completed|finished|closed|archive)/i.test(String(payload.toSectionName || "").trim()) || /^(done|completed|finished|closed|archive)/i.test(String(payload.toColumnName || "").trim()));
       if (isDoneSection) {
         await setTaskCompleted(app, payload.cardId, true);
       } else {
@@ -5553,7 +5558,7 @@ async function handleMoveCard(app, payload) {
         completedAt: isDoneSection ? Math.floor(Date.now() / 1e3) : null
       };
     } else if (payload.toSectionId || payload.targetCardId) {
-      const isDoneSection = payload.toSectionId === "completed" || payload.toSectionName === "Completed" || payload.toColumnId === "completed" || payload.toColumnName === "Completed";
+      const isDoneSection = String(payload.toSectionId || "").toLowerCase() === "completed" || String(payload.toSectionName || "").trim().toLowerCase() === "completed" || String(payload.toColumnId || "").toLowerCase() === "completed" || String(payload.toColumnName || "").trim().toLowerCase() === "completed" || AUTO_COMPLETE_ON_DONE_HEADER && (/^(done|completed|finished|closed|archive)/i.test(String(payload.toSectionName || "").trim()) || /^(done|completed|finished|closed|archive)/i.test(String(payload.toColumnName || "").trim()));
       if (isDoneSection) {
         await setTaskCompleted(app, payload.cardId, true);
       } else {
@@ -5575,7 +5580,7 @@ async function handleMoveCard(app, payload) {
     if (payload.forceRerender) await rerender(app);
     return { ok: true };
   }
-  const doneTarget = await isLastColumn(app, tab.noteUUID, payload.toColumnId, payload.toColumnName);
+  const doneTarget = await isCompletedColumn(app, tab.noteUUID, payload.toColumnId, payload.toColumnName);
   const status = await moveTaskToColumn(app, tab.noteUUID, payload.cardId, {
     columnId: payload.toColumnId,
     columnName: payload.toColumnName,

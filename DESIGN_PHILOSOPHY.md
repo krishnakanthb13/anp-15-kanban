@@ -269,4 +269,16 @@ When moving tasks between notes (e.g. across note columns in Tag Boards or Multi
 
 **Why:** Moving work across projects should preserve the task's identity, timestamps, subtasks, and score without generating duplicate orphan tasks at the top of the document.
 
+---
+
+## 28. Separation of Workflow Stage Headings from System Completion Lifecycle
+
+A Kanban system must distinguish between *workflow stage categories* (markdown headings) and *task lifecycle completion* (Amplenote's `completedAt` state):
+- **Headings are Active Stages**: Markdown headings (such as `# To Do`, `# In Progress`, `# Review`, or user-created `# Done`) represent active phases of work. Moving tasks between these headings moves their physical line in the document while keeping them active.
+- **Dedicated System Completion Column**: Completed and dismissed tasks are automatically isolated in the built-in system **`Completed`** column at the right end of the board. Dropping tasks into `Completed` marks them done; dragging them out reopens them.
+- **Feature Flag Extensibility**: Rather than forcing rigid behavior, semantic completion rules and default board templates are governed by clean configuration flags (`AUTO_COMPLETE_ON_DONE_HEADER`, `NEW_NOTE_BOARD_INCLUDES_DONE_HEADER`) in `constants.js`.
+
+**Why:** Treating headings named "Done" as automatic triggers to close tasks creates confusing duplicate columns (`[Done] [Completed]`) and strips user control. Clear separation guarantees predictable document structure while preserving seamless lifecycle transitions.
+
+
 

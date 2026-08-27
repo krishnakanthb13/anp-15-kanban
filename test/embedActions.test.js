@@ -203,26 +203,31 @@ describe("embedActions", () => {
   });
 
   describe("handleMoveCard", () => {
-    it("moves to the last column and completes the task", async () => {
+    it("moves to the completed column and completes the task", async () => {
       const app = withNoteTab(makeApp());
-      // NOTE_MD columns: Alpha id "0", Beta id "2" (last)
-      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "2" });
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "completed", toColumnName: "Completed" });
 
       const [, updates] = app.updateTask.mock.calls[0];
       expect(typeof updates.completedAt).toBe("number");
-      expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
       expect(app.context.renderEmbed).not.toHaveBeenCalled();
+    });
+
+    it("moves to a markdown heading column (even named Done) without completing the task", async () => {
+      const app = withNoteTab(makeApp());
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "2", toColumnName: "Done" });
+
+      expect(app.updateTask).toHaveBeenCalledWith("u1", { completedAt: null });
+      expect(app.replaceNoteContent).toHaveBeenCalledTimes(1);
     });
 
     it("triggers re-render when forceRerender is true", async () => {
       const app = withNoteTab(makeApp());
-      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "2", forceRerender: true });
+      await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "completed", toColumnName: "Completed", forceRerender: true });
       expect(app.context.renderEmbed).toHaveBeenCalledTimes(1);
     });
 
-    it("moves to a non-last column and reopens the task", async () => {
-      // Task sits in Done (last); moving it to Alpha must reopen it.
-      const md = ["# Alpha", "# Done", "- [ ] one <!-- {\"uuid\":\"u1\"} -->"].join("\n");
+    it("moves to another column and reopens the task if it was completed", async () => {
+      const md = ["# Alpha", "# Beta", "- [ ] one <!-- {\"uuid\":\"u1\"} -->"].join("\n");
       const app = withNoteTab(makeApp(md));
       await handleMoveCard(app, { tabId: "t1", cardId: "u1", toColumnId: "0" });
       expect(app.updateTask).toHaveBeenCalledWith("u1", { completedAt: null });

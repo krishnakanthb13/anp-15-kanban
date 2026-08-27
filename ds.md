@@ -110,3 +110,192 @@ one more set of things we need to implement
 2. Beside the header in tag, notes, note Tab - should create a task under that header - it should be just below the header in the view as well as the markdown file - with a newline.
 
 ---
+
+---
+
+## 🔍 Code Audit Report — 2026-08-26
+
+Full audit of the `anp-15-kanban` plugin codebase covering bugs, edge cases, integrity issues, and quality improvements. Files audited across `kanban.js`, `kanban-board.js`, `lib/api/*`, `lib/core/*`, `lib/features/*`, `lib/ui/*`, `lib/utils/*`.
+
+---
+
+### 🔴 CRITICAL — Bugs & Data Integrity Risks
+
+#### 1. Race condition: `taskOps.js` reads-then-writes without locking - ✅ Done
+**Files:** `taskOps.js` (all of `moveTaskToColumn`, `createTaskInColumn`, `sortTasksInNoteMarkdown`)
+**Issue:** `columnOps.js` correctly implements `withNoteLock()` for `reorderColumns`, but **no task operation uses it**. Two rapid card drags on the same note will both read the same markdown, compute their diffs independently, and the second `replaceNoteContent` call silently overwrites the first — causing task loss.
+**Fix:** Wrap every `taskOps` function that calls `replaceNoteContent` with `withNoteLock(noteUUID, ...)`.
+
+#### 2. `deleteColumn` inserts extracted content at stale indices - ✅ Done
+**File:** `columnOps.js:85-100`
+**Fix:** Simplified `deleteColumn` to delete strictly the heading line `lines.splice(span.startLine, 1)`. All tasks and content remain in place, naturally merging into the preceding heading (or into Unsorted preamble if deleting the first heading), eliminating line-splicing index arithmetic entirely.
+
+#### 3. `moveTaskToColumn` — `completedAt` uses `Date.now()` (milliseconds) instead of seconds - ✅ Done
+**File:** `taskOps.js:93`
+**Fix:** Replaced `Date.now()` with `nowSeconds()` (Unix epoch seconds).
+
+#### 4. `kanban-board.js` regex bug — `headingRegex` with `exec` in a loop over split lines - ✅ Done
+**File:** `kanban-board.js:69-80`
+**Issue:** `headingRegex` is defined with the `g` flag and used with `.exec(line)` inside a for-of loop. Because the regex retains its `lastIndex` between iterations, it will **skip headings** after a match on a previous line (the regex's internal cursor advances past the line length, then wraps erratically).
+**Fix:** Either create the regex inside the loop body or use `String.match()` instead of `RegExp.exec()`.
+
+#### 5. Same `headingRegex` bug in `kanban-board.js:83` — `taskRegex` also has the `g` flag - ✅ Done
+**File:** `kanban-board.js:70,83`
+**Issue:** Identical `g`-flag + `exec()` misuse for `taskRegex`. Tasks after the first match per line will be skipped.
+**Fix:** Same as above.
+
+---
+
+### 🟠 HIGH — Edge Cases & Robustness
+
+#### 6. `rerender()` silently no-ops — no fallback when `app.context.renderEmbed` is unavailable
+**File:** `embedActions.js:43-47`
+**Issue:** If `app.context.renderEmbed` is not a function (e.g., older Amplenote versions, or the embed context not yet initialized), `rerender` does nothing and the UI stays stale after a write operation. The user sees no feedback.
+**Improvement:** Return a boolean or throw, so callers can trigger a full-page reload as fallback.
+
+#### 7. `settings.js:96` — `await` on a non-async property access
+**File:** `settings.js:96`
+```js
+const legacyTheme = await app.settings?.[SETTINGS_KEYS.theme];
+```
+`app.settings` is a plain object (per Amplenote docs), not a promise. The `await` is harmless but misleading, and if the API ever returns `undefined` for the key, the subsequent `isValidThemeId(legacyTheme)` check is correct. But if `app.settings` itself is `undefined`, the optional chaining returns `undefined` and `await undefined` is fine. **Low risk but code smell.**
+**Fix:** Remove the `await`; this is a synchronous property access.
+
+#### 8. `buildColumnSpans` doesn't filter to the shallowest heading level
+**File:** `markdownIndex.js:64-87`
+**Issue:** When `columnLevel` is not provided (which is the default call path from `noteBoard.js:45` and `tagBoard.js:44`), the function uses **all** headings as columns — including nested H3/H4 sub-headings. This means a note with `# Title` → `## Col A` → `### Sub-section` will treat `### Sub-section` as its own column rather than nesting it inside `## Col A`.
+The `findColumnLevel()` function exists but is **never called** from the main code path.
+**Fix:** Call `findColumnLevel(headings)` in `buildColumnSpans` when `columnLevel` is not provided, and filter `columnHeadings` to that level.
+
+#### 9. `noteLocks` map never cleans up — unbounded memory growth
+**File:** `columnOps.js:125`
+**Issue:** `noteLocks` is a module-level `Map` that grows by one entry for every unique noteUUID ever touched. Since the plugin execution context is kept loaded (Appendix II), this map grows for the entire session. After hundreds of operations, it retains resolved promises for notes no longer in use.
+**Fix:** Delete the entry after the promise resolves: `next.finally(() => noteLocks.delete(key))`.
+
+#### 10. `handleMoveCard` for tag/notes boards — cross-note move does markdown removal + `updateTask` without lock
+**File:** `embedActions.js:388-410`
+**Issue:** When moving a card between notes in a tag board, the code:
+1. Reads source note markdown
+2. Removes the task line
+3. `replaceNoteContent` on source
+4. `updateTask` to change `noteUUID`
+
+Steps 2-4 are not locked. A concurrent move from the same source note can read stale markdown between steps 1 and 3.
+
+#### 11. `createTaskInColumn` — double `replaceNoteContent` write for unsorted insertion
+**File:** `taskOps.js:149-267`
+**Issue:** When creating a task in the "unsorted" position, the function first calls `app.insertTask` (which Amplenote may place at the top), then immediately reads the markdown back and does a full `replaceNoteContent` to reposition. If Amplenote's `insertTask` is asynchronous and the markdown hasn't been flushed to `getNoteContent` yet, the task line won't be found, triggering the fallback path (line 207-228) which may duplicate the task text.
+
+---
+
+### 🟡 MEDIUM — Code Quality & Maintainability
+
+#### 12. `embedActions.js` is 1645 lines — monolithic action handler
+**Issue:** Every single action handler lives in one file. This makes it hard to reason about, test in isolation, and increases merge conflict surface.
+**Improvement:** Split into focused files: `tabActions.js`, `cardActions.js`, `columnActions.js`, `dateActions.js`, `searchActions.js`.
+
+#### 13. Duplicated card model construction in `handleCreateCard`
+**File:** `embedActions.js:518-534` and `embedActions.js:590-606`
+**Issue:** The "new card" fallback object is manually constructed in two places with identical shape. If the card model evolves, both must be updated.
+**Fix:** Extract a `newCardStub(taskUuid, content)` factory function.
+
+#### 14. `NOTE_PREFIX` exported from both `tagBoard.js` and `notesBoard.js`
+**Files:** `tagBoard.js:4`, `notesBoard.js:12`
+**Issue:** Same constant `"note:"` is defined and exported in two separate modules. `embedActions.js` imports it from `tagBoard.js` only — if someone imports from `notesBoard.js` they'd get a different export that happens to have the same value but creates a maintenance hazard.
+**Fix:** Define `NOTE_PREFIX` once in `constants.js`.
+
+#### 15. `resolveSpan` numeric fallback can collide with line-index IDs
+**File:** `markdownIndex.js:296-300`
+**Issue:** Column IDs are `String(lineIndex)` (e.g., `"5"`, `"12"`). The numeric fallback `parseInt(colStr, 10)` treats these as *column array indices* — so `columnId = "5"` would first be looked up as a literal id match (correct), but if not found, would fall back to `columns[5]` (incorrect — that's the 6th column, not the one on line 5).
+**Risk:** Low because the literal id match will usually succeed, but if a column is deleted between client render and server action, the fallback could silently move content to the wrong column.
+**Fix:** Only use the numeric fallback when the id doesn't look like a valid line-index (e.g., check if it starts with a known prefix).
+
+#### 16. `formatTimestamp.js` ignores the user's configured `dateFormat`
+**File:** `formatTimestamp.js`
+**Issue:** This util hardcodes `MM/DD/YYYY at HH:MM:SS`. The plugin has a configurable `dateFormat` setting (with tokens like `YYYY`, `MM`, `DD`, `MMM`). The two are disconnected — the settings value is used only in the client-side script.
+**Fix:** Either remove this util (it's unused in the main flow) or wire it to use the settings format.
+
+#### 17. `renderCardHtml` serializes cards sequentially — N+1 API calls
+**File:** `noteBoard.js:142-152`
+**Issue:** `for (const card of cards) { card.html = await app.htmlFromContent(...) }` makes one sequential API call per card. For a board with 50+ tasks, this is a significant latency bottleneck on initial render.
+**Improvement:** Batch with `Promise.all` (or chunked concurrency) — Amplenote's embed runtime should handle parallel calls.
+
+#### 18. `buildNotesBoard` filters completed tasks client-side after fetching with `includeDone: false`
+**File:** `notesBoard.js:38-39`
+```js
+const rawTasks = (await app.getNoteTasks(…, { includeDone: false })) || [];
+const tasks = rawTasks.filter(t => !t.completedAt && !t.completed && !t.dismissedAt);
+```
+**Issue:** The API flag `includeDone: false` should already exclude completed tasks. The redundant filter is defensive but masks the question: is the API actually respecting the flag? If it is, the filter is dead code. If it isn't, the `false` flag is doing nothing. **Should be validated against live behavior.**
+
+#### 19. No input sanitization on markdown injected via `createTaskInColumn`
+**File:** `taskOps.js:186`
+```js
+const taskLine = `- [ ] ${cleanInputContent} <!-- {"uuid":"${taskUuid}"} -->`;
+```
+**Issue:** If `cleanInputContent` contains `<!-- -->` or raw HTML, it could break the metadata comment parsing or create malformed markdown. Not a security issue (runs in the user's own context) but an integrity concern.
+**Fix:** Escape or strip HTML comment markers from user input.
+
+---
+
+### 🟢 LOW — Polish & Best Practices
+
+#### 20. `kanban.js:103` — template literal XSS in error fallback HTML
+**File:** `kanban.js:103`
+```js
+return `…<p>${error?.message || "An unexpected error occurred."}</p>…`;
+```
+**Issue:** If `error.message` contains HTML (rare but possible with synthetic errors), it's injected unescaped into the embed document. The `escapeHtml` utility exists in `lib/utils/html.js` but isn't used here.
+**Fix:** `escapeHtml(error?.message || "An unexpected error occurred.")`.
+
+#### 21. `kanban-board.js` — `this.noteUUID` stored on `this` (plugin object) is fragile
+**File:** `kanban-board.js:10`
+**Issue:** `this.noteUUID = args[0]` mutates the plugin's `this` context. If two embeds are open simultaneously (e.g., sidebar + main note), the second `renderEmbed` call overwrites the first's `noteUUID`. In the new `kanban.js` architecture this is moot, but the old file is still shipped.
+
+#### 22. `kanban-board.js:62-66` — CORS proxy fetch has no error handling
+**File:** `kanban-board.js:59-67`
+**Issue:** `fetch(proxyURL)` has no `.catch()` and doesn't check `response.ok`. Network failures will throw unhandled promise rejections.
+
+#### 23. Missing `return` in `handleRenameNote` / `handleDeleteNote` early exits
+**File:** `embedActions.js:1468,1492`
+**Issue:** When `!payload.columnId`, the function returns `undefined` — no `{ ok: false }` — so the client can't distinguish "cancelled" from "failed".
+**Fix:** Return `{ ok: false }` for consistency with other handlers.
+
+#### 24. `demoBoard.js` — demo `completedAt` value `1755000000` is stale
+**File:** `demoBoard.js:37`
+**Issue:** `1755000000` is August 2025 — already in the past. While cosmetic, it would display as an old date in the demo board. Consider using `Math.floor(Date.now() / 1000) - 86400` for "yesterday".
+
+#### 25. `toJsonForScript` — doesn't escape `>` character
+**File:** `html.js:28-33`
+**Issue:** Only `<` is escaped. While `>` alone doesn't cause `</script>` breakout, the OWASP recommendation for JSON-in-HTML is to escape both `<` and `>`. Amplenote's sandbox probably mitigates this, but defense-in-depth is cheap.
+
+---
+
+### 💡 Suggested Quality Improvements
+
+| # | Area | Suggestion |
+|---|------|-----------|
+| A | **Concurrency** | Apply `withNoteLock` to all `taskOps` and `embedActions` write paths, not just `reorderColumns`. |
+| B | **Performance** | Parallelize `renderCardHtml` with `Promise.allSettled` (batch of 5-10) to cut initial render time. |
+| C | **Error UX** | Surface `{ ok: false, error: "message" }` consistently from all handlers so the client can show meaningful toasts. |
+| D | **Module split** | Break `embedActions.js` (1645 lines) into `tabActions`, `cardActions`, `columnActions`, `dateActions`. |
+| E | **Constants hygiene** | Move `NOTE_PREFIX` to `constants.js`; single source of truth. |
+| F | **Test coverage** | `taskOps.js` has test coverage but `embedActions.js` tests don't cover cross-note moves, date edge cases, or concurrent operations. Add integration-style tests for card moves between tag-board columns. |
+| G | **Heading level auto-detect** | Wire `findColumnLevel()` into the default `buildColumnSpans()` path so sub-headings stop appearing as top-level columns. |
+| H | **Settings sync** | `formatTimestamp.js` should either be removed (unused) or connected to the user's `dateFormat` setting. |
+| I | **Memory** | Add `finally(() => noteLocks.delete(key))` cleanup to prevent unbounded Map growth. |
+| J | **Defensive markdown** | Strip/escape `<!-- -->` from user-supplied task content before embedding it in metadata comments. |
+
+---
+
+### Amplenote-Specific Observations
+
+1. **`app.settings` is synchronous** — The `await` on `app.settings?.[key]` in `settings.js:96,103` is unnecessary. Amplenote settings are pre-loaded into the plugin context as a plain object.
+2. **`insertTask` placement** — Amplenote's `insertTask` API places tasks at the top of the note by default. The `createTaskInColumn` function correctly compensates for this by relocating the task line afterward, but the double read-write introduces a timing window.
+3. **`replaceNoteContent` atomicity** — Amplenote docs note that `app.settings` writes are not immediately reflected. The same likely applies to `replaceNoteContent` — subsequent `getNoteContent` calls within the same handler execution may return stale data. The codebase correctly re-reads fresh markdown before each write, but concurrent handlers sharing the same note are unprotected.
+4. **`getNoteSections`** — Used in `handleEditTaskDetails` to populate the "Move to Section" dropdown. This API returns sections split at every heading level, which is correct for the UI but could return unexpected results if the note has deeply nested sub-headings.
+5. **`htmlFromContent`** — Sequential calls in `renderCardHtml` are the biggest latency bottleneck. Since this is Amplenote's own API, check if it supports batch rendering or can be called in parallel without rate limiting.
+
+---
+
+---

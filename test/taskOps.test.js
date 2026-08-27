@@ -5,6 +5,7 @@ import {
   setTaskCompleted,
   updateCardContent,
   addLabelToTask,
+  sortTasksInNoteMarkdown,
 } from '../lib/api/taskOps.js';
 
 const MD_A_B = [
@@ -244,6 +245,87 @@ describe("taskOps", () => {
       app.getTask.mockResolvedValue(null);
       await addLabelToTask(app, "ghost", "X");
       expect(app.updateTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("concurrency & write locks", () => {
+    it("serializes concurrent moveTaskToColumn operations on the same note", async () => {
+      let currentContent = [
+        "# Alpha",
+        "- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->",
+        "- [ ] task 2 <!-- {\"uuid\":\"u2\"} -->",
+        "# Beta",
+      ].join("\n");
+
+      const executionOrder = [];
+
+      const app = {
+        getNoteContent: jest.fn(async () => {
+          // Add artificial delay to simulate async network latency
+          await new Promise(r => setTimeout(r, 10));
+          return currentContent;
+        }),
+        replaceNoteContent: jest.fn(async ({ uuid }, newContent) => {
+          executionOrder.push(newContent);
+          currentContent = newContent;
+          return true;
+        }),
+        getTask: jest.fn(async (id) => ({ uuid: id, content: `task ${id === 'u1' ? '1' : '2'}` })),
+        updateTask: jest.fn().mockResolvedValue(true),
+      };
+
+      // Trigger two rapid moves concurrently on the same note
+      const p1 = moveTaskToColumn(app, "n1", "u1", { columnId: "3", columnName: "Beta" });
+      const p2 = moveTaskToColumn(app, "n1", "u2", { columnId: "3", columnName: "Beta" });
+
+      const results = await Promise.all([p1, p2]);
+      expect(results).toEqual(["moved", "moved"]);
+      expect(app.replaceNoteContent).toHaveBeenCalledTimes(2);
+
+      // Final content should have BOTH tasks under # Beta (no silent overwrite / data loss)
+      expect(currentContent).toContain("# Alpha");
+      expect(currentContent).toContain("# Beta");
+      expect(currentContent).toContain("- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->");
+      expect(currentContent).toContain("- [ ] task 2 <!-- {\"uuid\":\"u2\"} -->");
+    });
+
+    it("completes task with unix timestamp in seconds when moved to Completed column", async () => {
+      const app = makeApp();
+      await moveTaskToColumn(app, "n1", "u1", { columnId: "completed" });
+      expect(app.updateTask).toHaveBeenCalled();
+      const [uuid, updates] = app.updateTask.mock.calls[0];
+      expect(uuid).toBe("u1");
+      // Timestamp in seconds is 10 digits (e.g. ~1.7e9), milliseconds is 13 digits (>1e12)
+      expect(updates.completedAt).toBeLessThan(1e11);
+      expect(updates.completedAt).toBeGreaterThan(1e9);
+    });
+  });
+
+  describe("sortTasksInNoteMarkdown", () => {
+    it("sorts tasks in note markdown by score", async () => {
+      const markdown = [
+        "# Col 1",
+        "- [ ] Low score <!-- {\"uuid\":\"t1\"} -->",
+        "- [ ] High score <!-- {\"uuid\":\"t2\"} -->",
+      ].join("\n");
+
+      const app = {
+        getNoteContent: jest.fn().mockResolvedValue(markdown),
+        getNoteTasks: jest.fn().mockResolvedValue([
+          { uuid: "t1", score: 10 },
+          { uuid: "t2", score: 50 },
+        ]),
+        replaceNoteContent: jest.fn().mockResolvedValue(true),
+      };
+
+      const result = await sortTasksInNoteMarkdown(app, "n1", "score");
+      expect(result).toBe(true);
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toBe([
+        "# Col 1",
+        "- [ ] High score <!-- {\"uuid\":\"t2\"} -->",
+        "- [ ] Low score <!-- {\"uuid\":\"t1\"} -->",
+      ].join("\n"));
     });
   });
 });

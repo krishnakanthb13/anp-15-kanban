@@ -11,7 +11,7 @@ All operations across notes, headers, tasks, tabs, and buttons have been validat
 | Feature / Action | Amplenote Backend API Used | Technical Implementation & Safeguards | Source Module |
 | :--- | :--- | :--- | :--- |
 | **Launch Plugin Embed** | `app.openEmbed()` + `app.navigate()` | Opens persistent full-page embed view and navigates to the plugin URL (`https://www.amplenote.com/notes/plugins/{uuid}`). | [`kanban.js`](./kanban.js) |
-| **Create Note Board Tab** | `app.createNote(title, ["-reports/-kanban"])` | Automatically creates a new note in `-reports/-kanban` and seeds it with default markdown columns (`# To Do\n\n# In Progress\n\n# Done\n`). | [`lib/features/embedActions.js`](./lib/features/embedActions.js) |
+| **Create Note Board Tab** | `app.createNote(title, ["-reports/-kanban"])` | Automatically creates a new note in `-reports/-kanban` and seeds it with default markdown columns (`# To Do\n\n# In Progress\n`). Completed tasks are automatically displayed in the built-in `Completed` column. | [`lib/features/embedActions.js`](./lib/features/embedActions.js) |
 | **Link Existing Note Tab** | `app.prompt()` with `{ type: "note" }` | Returns a `noteHandle` object with `uuid` and `name`. Headings become columns; tasks become cards. | [`lib/features/embedActions.js`](./lib/features/embedActions.js) |
 | **Tag Board Tab (Collapsible)** | `app.filterNotes({ tag })` + `app.getTags()` | Queries live notes matching the tag. Resolves tag badge colors from Amplenote account palette. Headings inside notes become collapsible sections. | [`lib/api/tagBoard.js`](./lib/api/tagBoard.js) |
 | **Multi-Note Board Tab (Flat)** | `app.filterNotes({ tag })` + `app.getNoteTasks()` | Queries live notes matching the tag; each note is a column with flat task cards. | [`lib/api/notesBoard.js`](./lib/api/notesBoard.js) |
@@ -68,7 +68,7 @@ flowchart TD
 
 ### 3.1. Launch & Tab System
 - [x] **Launch**: Open via plugin launcher (`Open Kanban Board`); verify persistent embed view renders cleanly.
-- [x] **Create New Note Tab**: Click `+` tab -> choose *Create New Note Board* -> verify note is created in `-reports/-kanban` with default columns (`To Do`, `In Progress`, `Done`).
+- [x] **Create New Note Tab**: Click `+` tab -> choose *Create New Note Board* -> verify note is created in `-reports/-kanban` with default columns (`To Do`, `In Progress`).
 - [x] **Link Existing Note Tab**: Click `+` tab -> choose *Existing Note Board* -> pick an existing note -> verify all headings appear as columns.
 - [x] **Tag Board Tab (Collapsible Headings)**: Click `+` tab -> choose *Tag Board* -> enter a tag (e.g. `projects`) -> verify all notes with that tag become columns, each with collapsible heading sections.
 - [x] **Multi-Note Board Tab (Flat Tasks)**: Click `+` tab -> choose *Multi-Note Board* -> verify notes become columns with flat task cards.

@@ -95,18 +95,18 @@ describe("columnOps", () => {
   });
 
   describe("deleteColumn", () => {
-    it("moves tasks of the FIRST column into the next remaining heading", async () => {
+    it("deletes the FIRST column heading so its tasks naturally become Unsorted preamble", async () => {
       const app = makeApp();
       const ok = await deleteColumn(app, "n1", "1"); // Alpha starts at line 1
 
       expect(ok).toBe(true);
       const written = app.replaceNoteContent.mock.calls[0][1];
       const lines = written.split("\n");
-      // Tasks from Alpha land inside ## sub (the immediate next remaining heading)
+      // Tasks from Alpha sit in preamble before ## sub
       const subIdx = lines.findIndex(l => l.startsWith("## sub"));
       const u1Idx = lines.findIndex(l => l.includes("u1"));
       expect(subIdx).toBeGreaterThan(-1);
-      expect(u1Idx).toBeGreaterThan(subIdx);
+      expect(u1Idx).toBeLessThan(subIdx);
       expect(written).not.toContain("# Alpha");
       expect(written).toContain("## sub");
     });

@@ -93,7 +93,7 @@ Amplenote tasks map into rich card objects with all native metadata:
 
 - **Step 2 (Context-Specific Prompt)**: Sequentially displays only the required input:
   - **If `note`**: Displays a single `{ type: "note" }` picker prompt.
-  - **If `new_note`**: Displays a single `{ type: "string" }` prompt for the board title (falling back to `defaultKanbanNoteName()` if blank). Creates note under tag `["-reports/-kanban"]` with default `# To Do`, `# In Progress`, `# Done` headings.
+  - **If `new_note`**: Displays a single `{ type: "string" }` prompt for the board title (falling back to `defaultKanbanNoteName()` if blank). Creates note under tag `["-reports/-kanban"]` with default `# To Do` and `# In Progress` headings (completed tasks are automatically managed in the built-in `Completed` column).
   - **If `tag` or `notes`**: Displays a single `{ type: "tags", limit: 1 }` tag selector prompt.
 
 ### Tab Architecture & Data Model Comparison
@@ -154,8 +154,12 @@ Amplenote tasks map into rich card objects with all native metadata:
 4. **Physical Note Line Order by Default (`assignTasksToColumns`)**:
    - Rather than relying on `app.getNoteTasks` API database return order, tasks in every column and section are sorted strictly by their physical `lineIndex` in the note markdown, matching the author's note sequence 1-to-1.
 
-5. **Semantic Completion Targeting (`isDoneTarget` / `isLastColumn`)**:
-   - Only marks tasks completed when dragged into an explicitly designated completion column (e.g. named `Done`, `Completed`, `Finished`, `Closed`, `Archive`), avoiding false completion when moving between general custom note headings.
+5. **System Completion vs Stage Headings (`isCompletedColumn` & Feature Flags)**:
+   - Tasks are only marked completed (`completedAt: unixSeconds`) when dragged into the dedicated system **"Completed"** column (`toColumnId: "completed"`).
+   - Moving tasks to any user markdown heading (`# Done`, `# To Do`, `# In Progress`, etc.) preserves active task status and relocates the task line under that heading without closing it.
+   - Configurable feature flags in [`lib/core/constants.js`](lib/core/constants.js):
+     - `AUTO_COMPLETE_ON_DONE_HEADER = false`: When true, heading names matching `/^(done|completed|finished|closed|archive)/i` will also auto-complete tasks.
+     - `NEW_NOTE_BOARD_INCLUDES_DONE_HEADER = false`: When true, "Create New Note Board" seeds `# Done` alongside `# To Do` and `# In Progress`.
 
 6. **Task State & Lifecycle Routing (`assignTasksToColumns`)**:
    - **Completed & Dismissed Tasks** (`task.completedAt`, `task.completed`, `task.dismissedAt`): In single note boards, these tasks are isolated and routed into the dedicated **"Completed"** column at the far right of the board. Completed tasks display a `✓ {timestamp}` chip, while dismissed tasks display a `✕ {timestamp}` chip.
@@ -270,8 +274,8 @@ All communication from the sandboxed iframe routes through `handleEmbedAction`:
       - `info` (theme accent `var(--kb-accent)`): Theme changes, Density cycling, View option toggles, Sort mode changes, Outside link warnings.
     - Positive completion toasts are dispatched upon verified backend operations (`res.ok === true`).
     - If a background mutation fails or rejects, an error alert is displayed and `handlePluginResult` automatically fetches fresh board state via `refreshTab` to rollback the UI to the source note's true state.
-  - **Sequential Write Lock (`withNoteLock` in `columnOps.js`)**:
-    - Serializes concurrent note mutation requests across rapid UI interactions into a Promise chain, eliminating ProseMirror editor selection conflicts and data collisions.
+  - **Sequential Mutex Write Locks (`withNoteLock` across `taskOps.js` & `columnOps.js`)**:
+    - Serializes concurrent note mutation requests (`moveTaskToColumn`, `createTaskInColumn`, `sortTasksInNoteMarkdown`, `renameColumn`, `deleteColumn`, `transferColumn`) per `noteUUID` into an error-resilient Promise chain, eliminating read-modify-write race conditions and data collisions during rapid user interactions.
   - **Dual-Matching Column Resolution (`resolveSpan` in `markdownIndex.js`)**:
     - Matches column spans by both line ID and normalized column heading names, preventing failed moves when markdown line numbers shift dynamically between rapid reorders.
   - DOM rendering, drag-and-drop ghost animations, 1-click source note navigation (`#kb-open-note-btn`, tab chip tools, column header tools), density cycler (`#kb-density-btn`), cycling sort mode switching (`#kb-sort-btn`), empty column visibility filtering, expand/collapse all info inspector, quick `@` date & time mode, search filtering, card inspector, right-end column/task creation group, tag board section tools, 0ms client theme cycler with unified cloud and local persistence, native scroll listeners (`wheel` exclusively vertical, `Shift + wheel` exclusively horizontal), click interception for Amplenote note links (routes to `openCard`), interactive Rich Footnote handling (shows dedicated toast `📌 {text}` on click with `.kb-rich-footnote` dotted underline styling), outside link protection with bottom-right toasts, clean default `1.0` score suppression, recursive parent/child task tree hierarchy, full-resolution image Lightbox viewer (`openImageLightbox`), and image artifact stripping.
@@ -312,7 +316,7 @@ For full live validation steps, see [`checklist.md`](./checklist.md).
 ## Testing Strategy
 
 ```bash
-node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban # Jest test suite (19 suites, 229 tests)
+node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban # Jest test suite (19 suites, 249 tests)
 node esbuild.js 15                                                        # Compiles bundle to build/kanban.compiled.js
 node anp-15-kanban/test/smoke.bundle.cjs                                  # End-to-end bundle verification
 ```

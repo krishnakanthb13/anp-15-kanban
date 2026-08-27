@@ -120,7 +120,7 @@ The Kanban board provides tactile visual feedback with **glowing accent insertio
   - **Visual Indicator**: Hovering over a card shows a horizontal glowing indicator line **above** or **below** the card based on cursor position.
   - **Across Headers**: Moving a card across different column headings shifts the task markdown under the target heading at the exact slot.
   - **Within the Same Header**: Dragging a card before or after another card within the same column rewrites the note markdown to persist the exact custom task ordering.
-  - **Auto-Completion & Dedicated Completed Column**: In single note boards, all completed tasks are automatically aggregated into a dedicated **"Completed"** column at the far right of the board. Dragging any active task into "Completed" (or any column named "Done" / "Completed") marks it complete (`completedAt: timestamp`). Dragging a completed task out of "Completed" into any heading reopens the task (`completedAt: null`) directly under that heading in your note. Moving between custom headers preserves active task state.
+  - **Auto-Completion & Dedicated Completed Column**: In single note boards, all completed tasks are automatically aggregated into a dedicated **"Completed"** column at the far right of the board. Dragging any active task into the dedicated "Completed" column marks it complete (`completedAt: timestamp`). Dragging a completed task out of "Completed" into any heading reopens the task (`completedAt: null`) directly under that heading in your note. Moving tasks between markdown headings (including `# Done`, `# To Do`, `# In Progress`) preserves active task state and moves the task line under that heading without closing it (configurable via `AUTO_COMPLETE_ON_DONE_HEADER`).
 - **Columns**: Hovering a column header shows a vertical drop line in the board gap to the left or right, allowing seamless column reordering.
 - **Tabs**: Hovering a tab displays a vertical accent line on the left or right edge, enabling instant tab bar reordering.
 
@@ -433,7 +433,7 @@ lib/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: npx jest "anp-15-kanban/test") (19 suites, 213 tests)
+test/                      # Jest suites (run: node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban) (19 suites, 249 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```
