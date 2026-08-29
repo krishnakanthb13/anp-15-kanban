@@ -62,4 +62,11 @@ describe("boardTemplate", () => {
     expect(html).toContain("@media (max-width: 720px)");
     expect(html).toContain("scrollbar-width: none");
   });
+
+  it("includes styles for tags tabs, note cards, and column buttons", () => {
+    expect(html).toContain(".kb-tab-badge-tags");
+    expect(html).toContain(".kb-card-note");
+    expect(html).toContain(".kb-note-meta");
+    expect(html).toContain(".kb-col-add-note-btn");
+  });
 });

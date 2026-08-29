@@ -1,3 +1,50 @@
+## v0.0.48 (2026-08-29)
+
+### 🚀 New Features
+- **Tags Board Paradigm (`tags`)**:
+  - Introduced the 4th major board model: tags as columns and notes matching each tag as draggable cards.
+  - Added **Option 5 in the 2-step Add Tab wizard**: "Tags Board (tags as columns, notes as cards)" with custom board title input and multi-tag selector (up to 10 tags).
+  - Tag columns render with matching color accent dots derived directly from your Amplenote account palette (`app.getTags()`).
+- **Drag-and-Drop Note Retagging (`swapNoteTag`)**:
+  - Dragging a note card from one tag column to another seamlessly removes the source column's tag and adds the destination column's tag in real time.
+- **Column Header Tools & Inline Note Creation**:
+  - Each tag column features **`↗` Open Tag in Amplenote**, **`+` Create Note with Tag**, and **`✕` Remove Tag Column**.
+  - Added a dedicated **`+ Add Note` button at the bottom of each tag column** to quickly create a note with that column's tag.
+  - Added a **`+ Add Tag` card on the far right of the canvas** to dynamically append new tag columns with search and autocomplete.
+
+### ⚡ Improvements & UX Refinements
+- **Unified Note Details Info Box (`kb-task-details`)**:
+  - Note cards now display Created date, Modified date, and Tags in a clean expandable info card (`ℹ`).
+  - Removed tag pills from the outer card face to keep cards clean and scannable; tags are displayed inside the info box as compact, flexible inline bubbles (`#tag1`, `#tag2`).
+  - Aligned header and content on single lines (`<b>Created:</b> 2024-11-04 at 13:41:54`, `<b>Modified:</b> 2026-08-04 at 12:37:31`).
+  - Added full-width horizontal rule dividers (`<hr>`) with clean borders matching the task details card in other tabs.
+- **Context-Adaptive Sorting ("Sort Notes" vs "Sort Tasks")**:
+  - The toolbar sort button dynamically transforms into **"Sort Notes"** on Tags boards, cycling through **Default** (Amplenote modified order), **Sort: Name** (alphabetical A-Z), **Sort: Created** (newest first), and **Sort: Updated** (recently modified first).
+  - Continues to operate as **"Sort Tasks"** (Score, Date, Important, Urgent, Default) on task boards.
+- **Context-Aware Header Navigation Controls**:
+  - Top toolbar button automatically hides `# Open Tag` on Tags boards because each individual column provides its own dedicated `↗` tool.
+  - Hardened single-tag routing sanitizer in `openTag` avoiding multi-tag client router incompatibilities.
+
+### 📚 Documentation & Testing
+- Updated all core documentation files (`README.md`, `CODE_DOCUMENTATION.md`, `DESIGN_PHILOSOPHY.md`, `SECURITY.md`).
+- Added full unit test coverage in `tagsBoard.test.js`, expanding the test suite to **21 test suites (275 tests)** with 100% passing rate.
+
+---
+
+## v0.0.47 (2026-08-29)
+
+### 🚀 New Features & Enhancements
+- **Responsive Viewport Adaptation**:
+  - Multi-tier responsive breakpoints (`@media (max-width: 980px)`, `720px`, `540px`) designed for side-by-side multitasking with Amplenote's **Peek Viewer** and narrower split-screen windows.
+  - Dynamic button padding, search bar fluid width contraction, and brand label collapse preventing toolbar clipping and line wrapping.
+- **Smooth Wheel-Scrollable Toolbar & Tab Navigation**:
+  - Mouse wheel rotations and trackpad gestures over the **Header Options Bar** (`.kb-header-right`), **Header** (`.kb-header`), or **Tab Bar** (`#kb-tabs`) smoothly scroll horizontally with zero friction.
+  - Preserves strictly separated canvas navigation: standard mouse wheel for native vertical card scrolling, and `Shift + Wheel` for horizontal canvas panning.
+- **Concurrency & Concurrency Locking**:
+  - Tail-verified mutex lock eviction in `withNoteLock` (`columnOps.js`) ensures thread-safe execution across rapid successive actions.
+
+---
+
 ## v0.0.46
 
 - **In-Flight Note & Board Creation Locking**:

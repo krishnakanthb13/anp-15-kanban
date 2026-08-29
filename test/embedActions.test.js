@@ -36,6 +36,10 @@ import {
   linkNoteInTaskContent,
   normalizeTagList,
   handleOpenTag,
+  handleAddTagColumn,
+  handleRemoveTagColumn,
+  handleCreateNoteInTagColumn,
+  handleReorderTagColumns,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -1109,6 +1113,104 @@ describe("embedActions", () => {
         const d = new Date(updated.startAt * 1000);
         expect(d.getHours()).toBe(15);
         expect(d.getMinutes()).toBe(45);
+      });
+    });
+
+    describe("Tags Board Actions", () => {
+      function withTagsTab(app, tags = ["todo", "doing", "done"]) {
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t_tags", kind: "tags", name: "Sprint Board", tags }],
+          activeTabId: "t_tags",
+          settings: {},
+        });
+        return app;
+      }
+
+      it("adds a tags board via handleAddTab prompt", async () => {
+        const app = makeApp();
+        app.prompt
+          .mockResolvedValueOnce(["tags"])
+          .mockResolvedValueOnce(["Sprint Tags", ["todo", "doing"]]);
+
+        await handleAddTab(app);
+
+        expect(app.setSetting).toHaveBeenCalledWith(
+          SETTINGS_KEYS.tabs,
+          expect.stringContaining('"kind":"tags"')
+        );
+      });
+
+      it("moves note card between tag columns via handleMoveCard", async () => {
+        const app = withTagsTab(makeApp());
+        app.removeNoteTag = jest.fn().mockResolvedValue(true);
+        app.addNoteTag = jest.fn().mockResolvedValue(true);
+
+        const res = await handleMoveCard(app, {
+          tabId: "t_tags",
+          cardId: "note-1",
+          fromColumnId: "tag:todo",
+          toColumnId: "tag:doing",
+        });
+
+        expect(res.ok).toBe(true);
+        expect(app.removeNoteTag).toHaveBeenCalledWith({ uuid: "note-1" }, "todo");
+        expect(app.addNoteTag).toHaveBeenCalledWith({ uuid: "note-1" }, "doing");
+        expect(res.toast).toContain("Note moved to #doing");
+      });
+
+      it("adds a tag column to tags board tab", async () => {
+        const app = withTagsTab(makeApp(), ["todo", "doing"]);
+        app.prompt.mockResolvedValueOnce(["done"]);
+
+        const res = await handleAddTagColumn(app, { tabId: "t_tags" });
+
+        expect(res.ok).toBe(true);
+        expect(res.toast).toContain("#done");
+        expect(app.setSetting).toHaveBeenCalledWith(
+          SETTINGS_KEYS.tabs,
+          expect.stringContaining('"tags":["todo","doing","done"]')
+        );
+      });
+
+      it("removes a tag column from tags board tab", async () => {
+        const app = withTagsTab(makeApp(), ["todo", "doing", "done"]);
+
+        const res = await handleRemoveTagColumn(app, { tabId: "t_tags", tag: "done" });
+
+        expect(res.ok).toBe(true);
+        expect(res.toast).toContain("#done removed");
+        expect(app.setSetting).toHaveBeenCalledWith(
+          SETTINGS_KEYS.tabs,
+          expect.stringContaining('"tags":["todo","doing"]')
+        );
+      });
+
+      it("creates a note in a tag column via handleCreateNoteInTagColumn", async () => {
+        const app = withTagsTab(makeApp());
+        app.createNote = jest.fn().mockResolvedValue("new-note-uuid");
+        app.prompt.mockResolvedValueOnce(["My Note Title"]);
+
+        const res = await handleCreateNoteInTagColumn(app, { tabId: "t_tags", tag: "todo" });
+
+        expect(res.ok).toBe(true);
+        expect(app.createNote).toHaveBeenCalledWith("My Note Title", ["todo"]);
+        expect(res.noteUUID).toBe("new-note-uuid");
+        expect(res.toast).toContain("Note created in #todo");
+      });
+
+      it("reorders tag columns via handleReorderTagColumns", async () => {
+        const app = withTagsTab(makeApp(), ["todo", "doing", "done"]);
+
+        const res = await handleReorderTagColumns(app, {
+          tabId: "t_tags",
+          tagOrder: ["done", "doing", "todo"],
+        });
+
+        expect(res.ok).toBe(true);
+        expect(app.setSetting).toHaveBeenCalledWith(
+          SETTINGS_KEYS.tabs,
+          expect.stringContaining('"tags":["done","doing","todo"]')
+        );
       });
     });
   });

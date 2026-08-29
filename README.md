@@ -94,6 +94,7 @@ The tab bar sits above the board:
 │  ○ Create New Note Board (auto-creates note with columns)     → 'note' │
 │  ○ Tag Board (notes as columns with collapsible sections)     → 'tag'  │
 │  ○ Multi-Note Board (one note per project, flat task cards)   → 'notes'│
+│  ○ Tags Board (tags as columns, notes as cards)               → 'tags' │
 └────────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
@@ -103,6 +104,7 @@ The tab bar sits above the board:
 │ • If 'note': Prompts for Note Picker (select existing note)            │
 │ • If 'new_note': Prompts for Board Title (creates note with columns)   │
 │ • If 'tag' or 'notes': Prompts for Tag Picker (select #tag)            │
+│ • If 'tags': Prompts for Board Title & Tag Picker / Comma-List         │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -120,6 +122,7 @@ The Kanban board provides tactile visual feedback with **glowing accent insertio
   - **Visual Indicator**: Hovering over a card shows a horizontal glowing indicator line **above** or **below** the card based on cursor position.
   - **Across Headers**: Moving a card across different column headings shifts the task markdown under the target heading at the exact slot.
   - **Within the Same Header**: Dragging a card before or after another card within the same column rewrites the note markdown to persist the exact custom task ordering.
+  - **Across Tag Columns (`tags` board)**: Dragging a note card between tag columns removes the source column tag and applies the destination column tag on the note in real time while preserving all other unrelated note tags.
   - **Auto-Completion & Dedicated Completed Column**: In single note boards, all completed tasks are automatically aggregated into a dedicated **"Completed"** column at the far right of the board. Dragging any active task into the dedicated "Completed" column marks it complete (`completedAt: timestamp`). Dragging a completed task out of "Completed" into any heading reopens the task (`completedAt: null`) directly under that heading in your note. Moving tasks between markdown headings (including `# Done`, `# To Do`, `# In Progress`) preserves active task state and moves the task line under that heading without closing it (configurable via `AUTO_COMPLETE_ON_DONE_HEADER`).
 - **Columns**: Hovering a column header shows a vertical drop line in the board gap to the left or right, allowing seamless column reordering.
 - **Tabs**: Hovering a tab displays a vertical accent line on the left or right edge, enabling instant tab bar reordering.
@@ -139,13 +142,14 @@ Amplenote tasks carry multiple lifecycle states that the Kanban plugin maps nati
 
 ---
 
-### Board Types: `note` vs `tag` vs `notes`
+### Board Types: `note` vs `tag` vs `notes` vs `tags`
 
 | Tab Kind | Badge | Source of Truth | Columns Represent | Cards Represent | Drag & Drop Action |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`note`** *(Single Note Board)* | <span style="color:#2563eb">`NOTE`</span> | **1 specific note** (`noteUUID`) | **Headings** inside that note (`# To Do`, `# In Progress`) | **Tasks** under each heading | Moves task markdown line between headings or reorders within the same heading |
 | **`notes`** *(Multi-Note Project Board)* | <span style="color:#8b5cf6">`NOTES`</span> | **All notes with a tag** (`tag`) | **Notes** with that tag | **All tasks** in each note (flat card list) | Migrates tasks between notes |
 | **`tag`** *(Tag Hierarchy Board)* | <span style="color:#dc2626">`TAG`</span> | **All notes with a tag** (`tag`) | **Notes** with that tag | **Tasks** grouped into **collapsible heading sections** within each note | Moves tasks across headings or migrates tasks between notes |
+| **`tags`** *(Tags as Columns Board)* | <span style="color:#0ea5e9">`TAGS`</span> | **List of tags** (`tags`) | **Tags** as columns (`#todo`, `#in-progress`, `#done`) | **Notes** with that tag (click to open, expandable Created/Modified dates and tags) | Moves note between tag columns by replacing source tag with destination tag |
 
 ```
 1. Note Board (`note`):
@@ -157,6 +161,17 @@ Amplenote tasks carry multiple lifecycle states that the Kanban plugin maps nati
    [ Tag: #clients  ] ──► [ Col: Client A Note ] ──► [ Flat Task 1 ]
                                                   ──► [ Flat Task 2 ]
                       ──► [ Col: Client B Note ] ──► [ Flat Task 3 ]
+
+3. Tag Board (`tag`):
+   [ Tag: #projects ] ──► [ Col: Project Note A ] ──► [ Section: # Sprint 1 ] ──► [ Card: Task 1 ]
+                                                  ──► [ Section: # Sprint 2 ] ──► [ Card: Task 2 ]
+                      ──► [ Col: Project Note B ] ──► [ Section: # Backlog ]  ──► [ Card: Task 3 ]
+
+4. Tags Board (`tags`):
+   [ Board: Sprints ] ──► [ Col: #todo ]        ──► [ Note Card: Client Spec ] (Created/Modified dates, ℹ info)
+                      ──► [ Col: #in-progress ] ──► [ Note Card: Feature PR ]
+                      ──► [ Col: #done ]        ──► [ Note Card: Release Notes ]
+```
 
 3. Tag Board (`tag`):
    [ Tag: #projects ] ──► [ Col: Note A ] ──► [ Sec: # Backlog ] ──► [ Task 1 ]
@@ -258,11 +273,27 @@ The third kind maps a tag where notes act as columns and active tasks inside eac
 - **Inline `Add Header +` Card in Each Note Column**: Add headings directly to individual project notes from the board.
 - **`+ Add Note` card at the right end of the board**: Click to create a new project/client note with native search & autocomplete tag selection (up to 10 tags).
 
+### 4. Tags Boards (`tags`)
+
+The fourth kind maps multiple Amplenote tags as columns and notes matching each tag as cards:
+
+- **Columns** = tags configured in the board (e.g. `#todo`, `#doing`, `#done` or `#project/alpha`, `#project/beta`), with tag color dots matching your Amplenote account palette.
+- **Cards** = all notes tagged with that column's tag (displays note title with note icon, and click to open the note directly in Amplenote).
+- **Drag & Drop Retagging**: Dragging a note card from one tag column to another seamlessly removes the source column's tag and adds the destination column's tag (`swapNoteTag`), updating the note's tags in real time.
+- **Column Tools**:
+  - **Open Tag in Amplenote (`↗` on column header)**: Opens `https://www.amplenote.com/notes?tag={tag}` for that specific column in Amplenote.
+  - **Add Note to Tag Column (`+` on column header)**: Creates a new note tagged with that column's tag.
+  - **Remove Tag Column (`✕` on column header)**: Removes the tag column from the active board view (persisted in tabs config).
+  - **`+ Add Note` button at the bottom of each column**: 1-click button to quickly create a note with that column's tag.
+- **`+ Add Tag` card at the right end of the board**: Click to add a new tag column to the active board via search & autocomplete dropdown.
+- **Expandable Note Info (ℹ)**: Clean, single-line inline layout with `<b>Created:</b>`, `<b>Modified:</b>`, and `<b>Tags:</b> #tag1, #tag2` as compact inline bubbles, separated by horizontal rule (`<hr>`) divider lines matching the task details card formatting.
+
 ### Board Navigation (`↗ Open Note` & `↗ Open Tag`)
 
 - **Dynamic Toolbar Button**: The top toolbar button dynamically adapts to the active board:
   - **Note Boards**: Displays **`↗ Open Note`**, navigating directly to the note in Amplenote.
   - **Tag & Notes Boards**: Displays **`↗ Open Tag`**, navigating directly to `https://www.amplenote.com/notes?tag={tag}` in Amplenote.
+  - **Tags Boards**: The top toolbar button is automatically hidden because each individual tag column provides its own dedicated **`↗`** tool.
 - **Tab Chip Tools**: Hovering over any tab chip provides a dedicated **`↗`** tool to open that specific note or tag immediately.
 
 ### Rich Card Badges & Conditional Indicators
@@ -283,15 +314,21 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 ### Dynamic Sorting & Persisting to Note
 
-- **🔀 Sort Tasks Cycling Button**: Click the header sort button to cycle through client-side sorting:
-  - **Sort Tasks** (Source note sequence)
-  - **Sort: Score** (High to low)
-  - **Sort: Date** (Scheduled/start date)
-  - **Sort: Important** (Eisenhower Important first)
-  - **Sort: Urgent** (Eisenhower Urgent first)
-  *Visual dashboard sorting is non-destructive and does not rewrite the note.*
+- **🔀 Context-Adaptive Sorting Button**:
+  - **On Task Boards (`note`, `tag`, `notes`)**: Cycles through **Sort Tasks** client-side sorting:
+    - **Sort Tasks** (Source note sequence)
+    - **Sort: Score** (High to low)
+    - **Sort: Date** (Scheduled/start date)
+    - **Sort: Important** (Eisenhower Important first)
+    - **Sort: Urgent** (Eisenhower Urgent first)
+  - **On Tags Boards (`tags`)**: Cycles through **Sort Notes** client-side sorting:
+    - **Sort Notes** (Default Amplenote note order)
+    - **Sort: Name** (Alphabetical A-Z by note title)
+    - **Sort: Created** (Most recently created notes first)
+    - **Sort: Updated** (Most recently modified notes first)
+  *Visual dashboard sorting is non-destructive and does not rewrite notes.*
 - **💾 Save Sort**: When a sort mode is active on a Note Board, the `💾 Save Sort` button appears on the left of the sort button. Clicking it prompts for confirmation and re-arranges physical task lines inside each heading in the underlying note markdown for the **active tab's note only** (leaving other tabs and notes completely untouched).
-- **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task order.
+- **↺ Reset Sort**: Instantly restores the dashboard view back to the natural task/note order.
 - **🔄 Tab & All Refresh**: Clicking **Refresh Tab** or **Refresh All** animates the theme-adaptive progress bar and automatically resets sort to natural document order.
 
 ### View Toolbar Controls (Density, Empty Columns, Expand Info, Quick @ Date, Search & Clear)

@@ -6,6 +6,7 @@ import { handleEmbedAction } from "./lib/features/embedActions.js";
 import { buildNoteBoard } from "./lib/api/noteBoard.js";
 import { buildTagBoard } from "./lib/api/tagBoard.js";
 import { buildNotesBoard } from "./lib/api/notesBoard.js";
+import { buildTagsBoard } from "./lib/api/tagsBoard.js";
 import { loadPluginSettings } from "./lib/core/settings.js";
 import { escapeHtml } from "./lib/utils/html.js";
 
@@ -13,7 +14,9 @@ import { escapeHtml } from "./lib/utils/html.js";
 /**
  * Kanban Plugin
  * A multi-tab visual Kanban board: note boards (headings = columns,
- * tasks = cards) and tag boards (sub-tags = columns, notes = cards).
+ * tasks = cards), tag boards (notes = columns, headings = sections),
+ * notes boards (tagged notes = columns, flat tasks = cards), and
+ * tags boards (tags = columns, notes = cards).
  * The board lives in a persistent app.openEmbed section.
  */
 const plugin = {
@@ -55,6 +58,8 @@ const plugin = {
           boards[tab.id] = await buildTagBoard(app, tab.tag);
         } else if (tab.kind === "notes" && tab.tag) {
           boards[tab.id] = await buildNotesBoard(app, tab.tag);
+        } else if (tab.kind === "tags") {
+          boards[tab.id] = await buildTagsBoard(app, tab.tags || []);
         }
       } catch (error) {
         console.error(`Failed to build board for tab ${tab.id}:`, error);

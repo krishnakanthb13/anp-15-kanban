@@ -92,14 +92,15 @@ All user preferences and top-bar button states (Theme, Date format, Empty column
 
 ---
 
-## 12. Tri-Modal Board Paradigms (Single Note vs Tag Hierarchy vs Multi-Note)
+## 12. Quad-Modal Board Paradigms (Single Note vs Tag Hierarchy vs Multi-Note vs Tags Board)
 
-The Kanban plugin embraces three distinct, purpose-built board models to reflect how knowledge workers organize information:
+The Kanban plugin embraces four distinct, purpose-built board models to reflect how knowledge workers organize information:
 1. **Single Note Boards (`note`)**: Headings = columns, tasks = cards. Ideal for sprint backlogs, daily planners, and self-contained document workflows.
 2. **Tag Hierarchy Boards (`tag`)**: Notes = columns, headings = collapsible sections. Ideal for high-level portfolio oversight where each note represents a major workstream with internal stages.
 3. **Multi-Note Project Boards (`notes`)**: Notes = columns, all active tasks = flat cards. Ideal for "one note per project/client" workflows where dragging cards moves work across projects without altering note headings, automatically omitting completed tasks to keep project pipelines clean and actionable.
+4. **Tags Boards (`tags`)**: Tags = columns, matching notes = cards. Ideal for high-level note lifecycle management (e.g. `#todo`, `#in-progress`, `#done`), allowing users to visually triage notes and drag notes across stages to replace tags in real time.
 
-**Why:** Forcing all Amplenote structures into a single rigid column model either breaks note-level encapsulation or loses heading granularity. Providing three clear paradigms lets users match their board directly to their organizational hierarchy without friction.
+**Why:** Forcing all Amplenote structures into a single rigid column model either breaks note-level encapsulation or loses heading granularity. Providing four clear paradigms lets users match their board directly to their organizational hierarchy without friction.
 
 ---
 
@@ -312,6 +313,18 @@ Productivity workspaces are fluid environments where viewport widths fluctuate d
 - **Tiered Responsive Breakpoints**: Search inputs flex smoothly, redundant label text condenses on narrow screens, and touch/trackpad gestures remain fluid.
 
 **Why:** Power users should never have their tools hidden, truncated, or broken simply because they opened a side document. Responsive flex architecture combined with frictionless wheel scrolling ensures that all board capabilities remain 100% accessible in any screen layout.
+
+---
+
+## 32. Tag-Level Stage Progression & First-Class Note Kanban
+
+Knowledge management often transcends individual task lists, requiring a macro view where entire notes serve as work units moving through workflow stages:
+- **Tags as Visual Pipeline Columns**: By treating Amplenote tags (e.g. `#backlog`, `#in-progress`, `#review`, `#published`) as distinct columns, users gain a bird's-eye view of their knowledge artifacts across the entire account.
+- **Surgical Tag Swapping on Drag**: Dragging a note card between tag columns surgically removes the source stage tag (`#backlog`) and adds the target stage tag (`#in-progress`) via `swapNoteTag`, while preserving all other unrelated tags (e.g. `#work`, `#client-x`).
+- **Rich Note Metadata & 1-Click Navigation**: Note cards expose Created and Last Modified timestamps, tag pills, and instant 1-click note opening in Amplenote, bridging high-level visual pipeline tracking with deep document editing.
+- **Frictionless Note Creation in Stages**: Column header `+` buttons and bottom `+ Add Note` cards allow creating new tagged notes directly in the active stage without context switching.
+
+**Why:** Many Amplenote power users organize projects by tagging notes rather than writing headings inside a single note. Supporting Tags Boards elevates the Kanban plugin to a comprehensive workspace manager that handles both micro-task tracking and macro-document pipelines with equal finesse.
 
 
 

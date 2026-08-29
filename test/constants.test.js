@@ -7,14 +7,16 @@ import {
   AUTO_COMPLETE_ON_DONE_HEADER,
   NEW_NOTE_BOARD_INCLUDES_DONE_HEADER,
   NOTE_PREFIX,
+  TAG_PREFIX,
 } from '../lib/core/constants.js';
 
 describe("constants", () => {
   describe("feature flags and prefixes", () => {
-    it("exposes boolean feature flags and NOTE_PREFIX", () => {
+    it("exposes boolean feature flags and prefixes", () => {
       expect(typeof AUTO_COMPLETE_ON_DONE_HEADER).toBe("boolean");
       expect(typeof NEW_NOTE_BOARD_INCLUDES_DONE_HEADER).toBe("boolean");
       expect(NOTE_PREFIX).toBe("note:");
+      expect(TAG_PREFIX).toBe("tag:");
     });
   });
 
@@ -49,10 +51,11 @@ describe("constants", () => {
   });
 
   describe("isValidTab", () => {
-    it("accepts note and tag tabs with ids", () => {
+    it("accepts note, tag, notes, and tags tabs with ids", () => {
       expect(isValidTab({ id: "tab_1", kind: "note" })).toBe(true);
       expect(isValidTab({ id: "tab_2", kind: "tag" })).toBe(true);
       expect(isValidTab({ id: "tab_3", kind: "notes" })).toBe(true);
+      expect(isValidTab({ id: "tab_4", kind: "tags" })).toBe(true);
     });
 
     it("rejects malformed tabs", () => {

@@ -90,13 +90,23 @@ describe("tabsConfig", () => {
   });
 
   describe("createTab", () => {
-    it("creates note and tag tabs with generated ids", () => {
+    it("creates note, tag, notes, and tags tabs with generated ids", () => {
       const noteTab = createTab({ kind: "note", name: "My Note", noteUUID: "uuid-1" });
       expect(noteTab).toMatchObject({ kind: "note", name: "My Note", noteUUID: "uuid-1", tag: null });
       expect(noteTab.id).toMatch(/^tab_/);
 
       const tagTab = createTab({ kind: "tag", name: "work", tag: "work" });
       expect(tagTab).toMatchObject({ kind: "tag", name: "work", tag: "work", noteUUID: null });
+
+      const tagsTab = createTab({ kind: "tags", name: "Sprint Board", tags: ["todo", "doing", "done"] });
+      expect(tagsTab).toMatchObject({ kind: "tags", name: "Sprint Board", tags: ["todo", "doing", "done"] });
+    });
+
+    it("normalizes tags on tags tabs in normalizeConfig", () => {
+      const config = normalizeConfig({
+        tabs: [{ id: "t_tags", kind: "tags", name: "My Tags", tags: [" #todo ", "#doing", "done"] }],
+      });
+      expect(config.tabs[0].tags).toEqual(["todo", "doing", "done"]);
     });
 
     it("defaults the name and rejects bad kinds", () => {

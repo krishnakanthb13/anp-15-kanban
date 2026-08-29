@@ -32,10 +32,11 @@ lib/
     noteBoard.js       # buildNoteBoard(): assembles note board snapshot with full task attributes
     tagBoard.js        # buildTagBoard(): notes as columns with collapsible heading sections & tasks
     notesBoard.js      # buildNotesBoard(): tagged notes as columns, tasks as cards
+    tagsBoard.js       # buildTagsBoard(): tags as columns, notes matching each tag as cards
     taskOps.js         # Mutations: moveTaskToColumn, createTaskInColumn, setTaskCompleted,
                        # updateCardContent, addLabelToTask, sortTasksInNoteMarkdown
     columnOps.js       # Structural heading ops: create/rename/delete/reorder/transfer
-    noteOps.js         # Note operations: createTaggedNote, openNote
+    noteOps.js         # Note operations: createTaggedNote, swapNoteTag, openNote, openTag
   features/
     embedActions.js    # Command dispatch table: handleAddTab, handleMoveCard, handleCreateCard,
                        # handleEditTaskDetails, handleSaveSortToNote, handleCardMenu, etc.
@@ -85,16 +86,18 @@ Amplenote tasks map into rich card objects with all native metadata:
 
 `handleAddTab` executes a 2-step progressive disclosure wizard:
 
-- **Step 1 (Board Type Selection)**: Prompts user with a 4-option radio selector:
+- **Step 1 (Board Type Selection)**: Prompts user with a 5-option radio selector:
   1. `note`: Existing Note Board (headings as columns)
   2. `new_note`: Create New Note Board (auto-creates note with columns)
   3. `tag`: Tag Board (notes as columns with collapsible heading sections)
   4. `notes`: Multi-Note Board (one note per project, flat task cards)
+  5. `tags`: Tags Board (tags as columns, notes as cards)
 
 - **Step 2 (Context-Specific Prompt)**: Sequentially displays only the required input:
   - **If `note`**: Displays a single `{ type: "note" }` picker prompt.
   - **If `new_note`**: Displays a single `{ type: "string" }` prompt for the board title (falling back to `defaultKanbanNoteName()` if blank). Creates note under tag `["-reports/-kanban"]` with default `# To Do` and `# In Progress` headings (completed tasks are automatically managed in the built-in `Completed` column).
   - **If `tag` or `notes`**: Displays a single `{ type: "tags", limit: 1 }` tag selector prompt.
+  - **If `tags`**: Displays a title prompt (`text`) and multi-tag selector (`tags`, limit: 10).
 
 ### Tab Architecture & Data Model Comparison
 
@@ -103,14 +106,17 @@ Amplenote tasks map into rich card objects with all native metadata:
 | **`note`** | `NOTE` | Accent Blue (`--kb-accent`) | `tab.noteUUID` | Headings in note (`# To Do`, `# Doing`) | Tasks under each heading | Moves task markdown line between headings or reorders within the same heading |
 | **`notes`** | `NOTES` | Violet Purple (`#8b5cf6`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Active tasks in note (flat list) | Migrates task across notes via markdown splice & insertTask |
 | **`tag`** | `TAG` | Coral Red (`--kb-danger`) | `tab.tag` | Notes with tag (`filterNotes({ tag })`) | Tasks inside collapsible heading sections per note | Relocates under heading or migrates task across notes |
+| **`tags`** | `TAGS` | Sky Blue (`#0ea5e9`) | `tab.tags` | Tags as columns (`#todo`, `#in-progress`) | Notes with each tag (cards show title, Created/Modified dates, tags) | Swaps source tag with destination tag on note |
 
 ### Sorting Architecture Across Board Types
 
 1. **Columns Order**:
    - **`note` Boards**: Parsed in strict physical markdown heading sequence (`parseHeadings`).
    - **`tag` / `notes` Boards**: Initialized via Amplenote API's `app.filterNotes({ tag })` (ordered by **Last Updated / Recently Modified**). Reordering columns via drag-and-drop or `<` / `>` persists custom order in `tab.columnOrder`.
+   - **`tags` Boards**: Configured in `tab.tags` array. Reordering columns via drag-and-drop persists custom tag order in `tab.tags`.
 2. **Cards Order Inside Columns / Sections**:
-   - In all board types (`note`, `notes`, `tag`), tasks are ordered strictly by their **physical document `lineIndex` in the note markdown** (top-to-bottom). Dragging cards updates the markdown document line order.
+   - In `note`, `notes`, `tag` boards, tasks are ordered strictly by their **physical document `lineIndex` in the note markdown** (top-to-bottom). Dragging cards updates the markdown document line order.
+   - In `tags` boards, notes inside tag columns are ordered by **Recently Modified** timestamp.
 
 ```
 1. Note Board (`kind: "note"`):
@@ -129,6 +135,11 @@ Amplenote tasks map into rich card objects with all native metadata:
                                           ──► [ Sec: # Done    ] ──► [ Task 2 ]
                                           ──► [ Sec: Completed ] ──► [ Task 3 (done) ]
                       ──► [ Col: Note B ] ──► [ Sec: # Sprint  ] ──► [ Task 4 ]
+
+4. Tags Board (`kind: "tags"`):
+   [ Board: Sprints ] ──► [ Col: #todo ]        ──► [ Note Card: Client Spec ] (Created/Modified dates, ℹ info)
+                      ──► [ Col: #in-progress ] ──► [ Note Card: Feature PR ]
+                      ──► [ Col: #done ]        ──► [ Note Card: Release Notes ]
 ```
 
 ---
@@ -325,6 +336,6 @@ For full live validation steps, see [`checklist.md`](./checklist.md).
 ## Testing Strategy
 
 ```bash
-npm test anp-15-kanban                                                    # Jest test suite (20 suites, 259 tests)
+npm test anp-15-kanban                                                    # Jest test suite (21 suites, 275 tests)
 node esbuild.js 15                                                        # Compiles bundle to build/kanban.compiled.js
 ```

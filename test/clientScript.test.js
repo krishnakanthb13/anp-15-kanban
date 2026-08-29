@@ -61,6 +61,16 @@ describe("clientScript", () => {
     expect(script).toContain("kb-section-tools");
   });
 
+  it("supports tags board features (tags as columns, notes as cards)", () => {
+    expect(script).toContain("addTagColumn");
+    expect(script).toContain("removeTagColumn");
+    expect(script).toContain("createNoteInTagColumn");
+    expect(script).toContain("reorderTagColumns");
+    expect(script).toContain("kb-card-note");
+    expect(script).toContain("kb-note-header");
+    expect(script).toContain("kb-col-add-note-btn");
+  });
+
   it("contains no template literal interpolation that could leak server data", () => {
     expect(script).not.toContain("${");
   });

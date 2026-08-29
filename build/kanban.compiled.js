@@ -21,6 +21,7 @@ var DEFAULT_SETTINGS = {
 var AUTO_COMPLETE_ON_DONE_HEADER = false;
 var NEW_NOTE_BOARD_INCLUDES_DONE_HEADER = true;
 var NOTE_PREFIX = "note:";
+var TAG_PREFIX = "tag:";
 function emptyTabsConfig() {
   return {
     tabs: [],
@@ -28,7 +29,7 @@ function emptyTabsConfig() {
     settings: { dateFormat: DEFAULT_DATE_FORMAT }
   };
 }
-var TAB_KINDS = /* @__PURE__ */ new Set(["note", "tag", "notes"]);
+var TAB_KINDS = /* @__PURE__ */ new Set(["note", "tag", "notes", "tags"]);
 function newId(prefix) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -232,6 +233,10 @@ function buildClientScript() {
     note: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
     notes: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
     tag: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+    tags: '<svg class="kb-icon kb-icon-stroke" width="13" height="13" viewBox="0 0 24 24"><path d="M9 5H2v7l6.29 6.29c.94.94 2.48.94 3.42 0l3.58-3.58c.94-.94.94-2.48 0-3.42L9 5Z"></path><path d="M6 9.01V9"></path><path d="m15 5 6.3 6.3a2.4 2.4 0 0 1 0 3.4L17 19"></path></svg>',
+    calendar: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
+    clock: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+    noteCard: '<svg class="kb-icon kb-icon-stroke" width="12" height="12" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
     chevronUp: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>',
     chevronDown: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>',
     chevronLeft: '<svg class="kb-icon kb-icon-stroke" width="11" height="11" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>',
@@ -420,11 +425,12 @@ function buildClientScript() {
       chip.setAttribute("data-tab-index", String(tabIdx));
       var isNotes = tab.kind === "notes";
       var isTag = tab.kind === "tag";
-      chip.title = (isTag ? "Tag Board: #" : isNotes ? "Multi-Note Board: #" : "Note Board: ") + tab.name;
+      var isTags = tab.kind === "tags";
+      chip.title = (isTag ? "Tag Board: #" : isNotes ? "Multi-Note Board: #" : isTags ? "Tags Board: " : "Note Board: ") + tab.name;
 
-      var kindLabel = isTag ? "TAG" : isNotes ? "NOTES" : "NOTE";
+      var kindLabel = isTag ? "TAG" : isNotes ? "NOTES" : isTags ? "TAGS" : "NOTE";
       var badge = el("span", "kb-tab-badge kb-tab-badge-" + tab.kind);
-      badge.appendChild(svg(isTag ? "tag" : isNotes ? "notes" : "note"));
+      badge.appendChild(svg(isTag ? "tag" : isNotes ? "notes" : isTags ? "tags" : "note"));
       badge.appendChild(document.createTextNode(kindLabel));
       chip.appendChild(badge);
 
@@ -604,8 +610,8 @@ function buildClientScript() {
 
   /* ---------------- sorting ---------------- */
 
-  var SORT_MODES = ["none", "score", "startDate", "important", "urgent"];
-  var SORT_LABELS = {
+  var SORT_MODES_TASKS = ["none", "score", "startDate", "important", "urgent"];
+  var SORT_LABELS_TASKS = {
     none: "Sort Tasks",
     score: "Sort: Score",
     startDate: "Sort: Date",
@@ -613,8 +619,41 @@ function buildClientScript() {
     urgent: "Sort: Urgent"
   };
 
+  var SORT_MODES_NOTES = ["none", "name", "created", "updated"];
+  var SORT_LABELS_NOTES = {
+    none: "Sort Notes",
+    name: "Sort: Name",
+    created: "Sort: Created",
+    updated: "Sort: Updated"
+  };
+
   function applySort(cards) {
+    if (!cards || !cards.length) return [];
     var copy = cards.slice();
+    var tab = activeTab();
+    var isTagsBoard = tab && tab.kind === "tags";
+
+    if (isTagsBoard) {
+      if (sortMode === "name") {
+        copy.sort(function (a, b) {
+          return (a.title || "").localeCompare(b.title || "");
+        });
+      } else if (sortMode === "created") {
+        copy.sort(function (a, b) {
+          var tA = a.rawCreated || Date.parse(a.created) || 0;
+          var tB = b.rawCreated || Date.parse(b.created) || 0;
+          return tB - tA;
+        });
+      } else if (sortMode === "updated") {
+        copy.sort(function (a, b) {
+          var tA = a.rawUpdated || Date.parse(a.updated) || 0;
+          var tB = b.rawUpdated || Date.parse(b.updated) || 0;
+          return tB - tA;
+        });
+      }
+      return copy;
+    }
+
     if (sortMode === "score") {
       copy.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
     } else if (sortMode === "startDate") {
@@ -628,28 +667,41 @@ function buildClientScript() {
   }
 
   function cycleSort() {
-    var idx = SORT_MODES.indexOf(sortMode);
-    sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
+    var tab = activeTab();
+    var isTagsBoard = tab && tab.kind === "tags";
+    var modes = isTagsBoard ? SORT_MODES_NOTES : SORT_MODES_TASKS;
+    var labels = isTagsBoard ? SORT_LABELS_NOTES : SORT_LABELS_TASKS;
+
+    var idx = modes.indexOf(sortMode);
+    if (idx === -1) idx = 0;
+    sortMode = modes[(idx + 1) % modes.length];
     setLocalSetting("sortMode", sortMode);
     callPlugin("saveSetting", { sortMode: sortMode });
     updateSortUi();
     renderBoard();
     if (sortMode !== "none") {
-      showToast("Sorted by " + (SORT_LABELS[sortMode] || sortMode).replace("Sort: ", ""));
+      showToast("Sorted by " + (labels[sortMode] || sortMode).replace("Sort: ", ""));
     } else {
-      showToast("Reset to default task order");
+      showToast(isTagsBoard ? "Reset to default note order" : "Reset to default task order");
     }
   }
 
   function updateSortUi() {
+    var tab = activeTab();
+    var isTagsBoard = tab && tab.kind === "tags";
+    var isNoteBoard = tab && tab.kind === "note";
+    var modes = isTagsBoard ? SORT_MODES_NOTES : SORT_MODES_TASKS;
+    var labels = isTagsBoard ? SORT_LABELS_NOTES : SORT_LABELS_TASKS;
+
+    var isSorted = sortMode !== "none" && modes.indexOf(sortMode) !== -1;
     var sortBtn = document.getElementById("kb-sort-btn");
     var sortLbl = document.getElementById("kb-sort-label");
-    var isSorted = sortMode !== "none";
-    if (sortLbl) sortLbl.textContent = SORT_LABELS[sortMode] || "Sort Tasks";
-    if (sortBtn) sortBtn.classList.toggle("kb-btn-active", isSorted);
 
-    var tab = activeTab();
-    var isNoteBoard = tab && tab.kind === "note";
+    if (sortLbl) sortLbl.textContent = labels[sortMode] || (isTagsBoard ? "Sort Notes" : "Sort Tasks");
+    if (sortBtn) {
+      sortBtn.title = isTagsBoard ? "Cycle note sort order (Name, Created, Updated, Default)" : "Cycle task sort order (Score, Date, Important, Urgent, Default)";
+      sortBtn.classList.toggle("kb-btn-active", isSorted);
+    }
 
     var saveSortBtn = document.getElementById("kb-save-sort-btn");
     if (saveSortBtn) saveSortBtn.style.display = (isSorted && isNoteBoard) ? "inline-flex" : "none";
@@ -675,12 +727,14 @@ function buildClientScript() {
   }
 
   function resetSort() {
+    var tab = activeTab();
+    var isTagsBoard = tab && tab.kind === "tags";
     sortMode = "none";
     setLocalSetting("sortMode", "none");
     callPlugin("saveSetting", { sortMode: "none" });
     updateSortUi();
     renderBoard();
-    showToast("Reset to default task order");
+    showToast(isTagsBoard ? "Reset to default note order" : "Reset to default task order");
   }
 
   /* ---------------- density management ---------------- */
@@ -733,6 +787,7 @@ function buildClientScript() {
     columns.forEach(function (col, colIndex) {
       var isLast = colIndex === columns.length - 1;
       var isTagBoard = data.kind === "tag";
+      var isTagsBoard = data.kind === "tags";
 
       var allColCards = col.cards || [];
       if (isTagBoard && col.sections) {
@@ -866,6 +921,16 @@ function buildClientScript() {
               }
             });
           }
+        } else if (data.kind === "tags") {
+          var tagOrder = columns.map(function (c) { return c.tag || c.id; });
+          callPlugin("reorderTagColumns", {
+            tabId: STATE.activeTabId,
+            tagOrder: tagOrder
+          }).then(function (res) {
+            if (res && res.board && res.tabId) {
+              STATE.boards[res.tabId] = res.board;
+            }
+          });
         }
       });
 
@@ -1009,6 +1074,17 @@ function buildClientScript() {
           handlePluginResult(callPlugin("deleteNote", { tabId: STATE.activeTabId, columnId: col.id, noteUUID: col.noteUUID, noteName: col.name }));
         });
         head.appendChild(ttools);
+      } else if (isTagsBoard) {
+        var tagTools = el("div", "kb-col-tools");
+        addColToolSvg(tagTools, "externalLink", "Open tag #" + col.tag + " in Amplenote", function (e) {
+          e.stopPropagation();
+          callPlugin("openTag", { tag: col.tag });
+        });
+        addColToolSvg(tagTools, "trash", "Remove tag column from board", function (e) {
+          e.stopPropagation();
+          handlePluginResult(callPlugin("removeTagColumn", { tabId: STATE.activeTabId, tag: col.tag }));
+        });
+        head.appendChild(tagTools);
       }
 
       var over = data.kind === "note" && col.wipLimit && visibleCards.length > col.wipLimit;
@@ -1023,7 +1099,17 @@ function buildClientScript() {
       }
       actionsWrap.appendChild(count);
 
-      if (col.id !== "completed") {
+      if (isTagsBoard) {
+        var addNoteBtn = el("button", "kb-add-card");
+        addNoteBtn.type = "button";
+        addNoteBtn.title = "Create new note with tag #" + col.tag;
+        addNoteBtn.appendChild(svg("plus"));
+        addNoteBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          handlePluginResult(callPlugin("createNoteInTagColumn", { tabId: STATE.activeTabId, tag: col.tag }));
+        });
+        actionsWrap.appendChild(addNoteBtn);
+      } else if (col.id !== "completed") {
         var addBtn = el("button", "kb-add-card");
         addBtn.type = "button";
         addBtn.title = "Add card to " + col.name;
@@ -1244,7 +1330,7 @@ function buildClientScript() {
         var list = el("div", "kb-cards");
         wireDropZone(list, col.id, null, col.name, null);
         applySort(visibleCards).forEach(function (card) {
-          list.appendChild(buildCardEl(card));
+          list.appendChild(buildCardEl(card, col));
         });
 
         if (isTagBoard) {
@@ -1259,6 +1345,17 @@ function buildClientScript() {
             handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId, noteUUID: col.noteUUID, columnId: col.id }));
           });
           list.appendChild(addNotesSecCard);
+        } else if (isTagsBoard) {
+          var addNoteBottom = el("button", "kb-col-add-note-btn");
+          addNoteBottom.type = "button";
+          var anIcon = el("span", "kb-add-column-icon");
+          anIcon.appendChild(svg("plus"));
+          addNoteBottom.appendChild(anIcon);
+          addNoteBottom.appendChild(document.createTextNode("Add Note"));
+          addNoteBottom.addEventListener("click", function () {
+            handlePluginResult(callPlugin("createNoteInTagColumn", { tabId: STATE.activeTabId, tag: col.tag }));
+          });
+          list.appendChild(addNoteBottom);
         }
 
         colEl.appendChild(list);
@@ -1267,54 +1364,59 @@ function buildClientScript() {
       board.appendChild(colEl);
     });
 
-    // Add Column / Add Task group at the right end of the board (stacked in one column)
-    var isNoteTab = data.kind === "note";
-    var addGroupEl = el("div", "kb-add-column-group");
+    // Add Column / Add Task group at the right end of the board
+    if (data.kind === "tags") {
+      var addTagGroup = el("div", "kb-add-column-group");
+      var addTagCard = el("div", "kb-add-column-card");
+      addTagCard.title = "Add new tag column to board";
+      var atIcon = el("div", "kb-add-column-icon");
+      atIcon.appendChild(svg("plus"));
+      addTagCard.appendChild(atIcon);
+      addTagCard.appendChild(el("span", "kb-add-column-label", "+ Add Tag"));
+      addTagCard.appendChild(el("span", "kb-add-column-sub", "New tag column"));
+      addTagCard.addEventListener("click", function () {
+        handlePluginResult(callPlugin("addTagColumn", { tabId: STATE.activeTabId }));
+      });
+      addTagGroup.appendChild(addTagCard);
+      board.appendChild(addTagGroup);
+    } else {
+      var isNoteTab = data.kind === "note";
+      var addGroupEl = el("div", "kb-add-column-group");
 
-    var addHeaderCardEl = el("div", "kb-add-column-card");
-    addHeaderCardEl.title = isNoteTab
-      ? "Add new column / header to note"
-      : ("Create new note under tag " + (data.tag ? "#" + data.tag : ""));
+      var addHeaderCardEl = el("div", "kb-add-column-card");
+      addHeaderCardEl.title = isNoteTab
+        ? "Add new column / header to note"
+        : ("Create new note under tag " + (data.tag ? "#" + data.tag : ""));
 
-    var iconWrap = el("div", "kb-add-column-icon");
-    iconWrap.appendChild(svg("plus"));
-    addHeaderCardEl.appendChild(iconWrap);
+      var iconWrap = el("div", "kb-add-column-icon");
+      iconWrap.appendChild(svg("plus"));
+      addHeaderCardEl.appendChild(iconWrap);
 
-    addHeaderCardEl.appendChild(el("span", "kb-add-column-label", isNoteTab ? "+ Add Header" : "+ Add Note"));
-    addHeaderCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "New column heading" : "New column note"));
+      addHeaderCardEl.appendChild(el("span", "kb-add-column-label", isNoteTab ? "+ Add Header" : "+ Add Note"));
+      addHeaderCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "New column heading" : "New column note"));
 
-    addHeaderCardEl.addEventListener("click", function () {
-      if (isNoteTab) {
-        handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId }));
-      } else {
-        handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
-      }
-    });
-    addGroupEl.appendChild(addHeaderCardEl);
+      addHeaderCardEl.addEventListener("click", function () {
+        if (isNoteTab) {
+          handlePluginResult(callPlugin("createColumn", { tabId: STATE.activeTabId }));
+        } else {
+          handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
+        }
+      });
+      addGroupEl.appendChild(addHeaderCardEl);
 
-    var addTaskCardEl = el("div", "kb-add-column-card kb-add-task-card");
-    addTaskCardEl.title = isNoteTab
-      ? "Add task at top of note (Unsorted)"
-      : "Add task to board";
+      var addTaskCardEl = el("div", "kb-add-column-card kb-add-task-card");
+      addTaskCardEl.title = isNoteTab
+        ? "Add task at top of note (Unsorted)"
+        : "Add task to board";
 
-    var taskIconWrap = el("div", "kb-add-column-icon");
-    taskIconWrap.appendChild(svg("plus"));
-    addTaskCardEl.appendChild(taskIconWrap);
-    addTaskCardEl.appendChild(el("span", "kb-add-column-label", "+ Add Task"));
-    addTaskCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "Add to Unsorted" : "New task"));
-    addTaskCardEl.addEventListener("click", function () {
-      if (isNoteTab) {
-        callPlugin("createCard", { tabId: STATE.activeTabId, columnId: "unsorted", columnName: "Unsorted" }).then(function (res) {
-          if (res && res.board && res.tabId) {
-            STATE.boards[res.tabId] = res.board;
-            renderBoard();
-            showToast("Task added");
-          }
-        });
-      } else {
-        var firstCol = data && data.columns && data.columns[0];
-        if (firstCol) {
-          callPlugin("createCard", { tabId: STATE.activeTabId, columnId: firstCol.id, columnName: firstCol.name }).then(function (res) {
+      var taskIconWrap = el("div", "kb-add-column-icon");
+      taskIconWrap.appendChild(svg("plus"));
+      addTaskCardEl.appendChild(taskIconWrap);
+      addTaskCardEl.appendChild(el("span", "kb-add-column-label", "+ Add Task"));
+      addTaskCardEl.appendChild(el("span", "kb-add-column-sub", isNoteTab ? "Add to Unsorted" : "New task"));
+      addTaskCardEl.addEventListener("click", function () {
+        if (isNoteTab) {
+          callPlugin("createCard", { tabId: STATE.activeTabId, columnId: "unsorted", columnName: "Unsorted" }).then(function (res) {
             if (res && res.board && res.tabId) {
               STATE.boards[res.tabId] = res.board;
               renderBoard();
@@ -1322,13 +1424,24 @@ function buildClientScript() {
             }
           });
         } else {
-          handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
+          var firstCol = data && data.columns && data.columns[0];
+          if (firstCol) {
+            callPlugin("createCard", { tabId: STATE.activeTabId, columnId: firstCol.id, columnName: firstCol.name }).then(function (res) {
+              if (res && res.board && res.tabId) {
+                STATE.boards[res.tabId] = res.board;
+                renderBoard();
+                showToast("Task added");
+              }
+            });
+          } else {
+            handlePluginResult(callPlugin("createColumnNote", { tabId: STATE.activeTabId }));
+          }
         }
-      }
-    });
-    addGroupEl.appendChild(addTaskCardEl);
+      });
+      addGroupEl.appendChild(addTaskCardEl);
 
-    board.appendChild(addGroupEl);
+      board.appendChild(addGroupEl);
+    }
 
     if (!anyVisible) {
       var emptyEl = el("div", "kb-empty");
@@ -1407,7 +1520,85 @@ function buildClientScript() {
 
   /* ---------------- card building ---------------- */
 
-  function buildCardEl(card) {
+  function buildNoteCardEl(card, col) {
+    var cardEl = el("article", "kb-card kb-card-note");
+    cardEl.setAttribute("data-card-id", card.id);
+    cardEl.setAttribute("data-note-uuid", card.noteUUID);
+    cardEl.setAttribute("draggable", "true");
+
+    var header = el("div", "kb-note-header");
+    var title = el("div", "kb-note-title");
+    title.appendChild(svg("noteCard"));
+    title.appendChild(document.createTextNode(" " + (card.title || "Untitled note")));
+    header.appendChild(title);
+    cardEl.appendChild(header);
+
+    // Card Action Buttons (Top Right)
+    var actions = el("div", "kb-card-actions");
+    var infoBtn = el("button", "kb-card-info-btn");
+    infoBtn.type = "button";
+    infoBtn.title = "View note details";
+    infoBtn.appendChild(svg("info"));
+    infoBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var wasOpen = openInfoCards[card.id] !== undefined ? !!openInfoCards[card.id] : expandCardInfo;
+      openInfoCards[card.id] = !wasOpen;
+      renderBoard();
+    });
+    actions.appendChild(infoBtn);
+    cardEl.appendChild(actions);
+
+    // Expandable info section (unified kb-task-details look & formatting)
+    var isCardInfoOpen = openInfoCards[card.id] !== undefined ? !!openInfoCards[card.id] : expandCardInfo;
+    if (isCardInfoOpen) {
+      var details = el("div", "kb-task-details");
+      var parts = [];
+
+      var dates = [];
+      if (card.created) dates.push("<b>Created:</b> " + card.created);
+      if (card.updated) dates.push("<b>Modified:</b> " + card.updated);
+      if (dates.length) parts.push(dates.join("<br>"));
+
+      if (card.tags && card.tags.length) {
+        var tagChipsHtml = card.tags.map(function (t) {
+          return '<span class="kb-tag-chip">#' + t + '</span>';
+        }).join(" ");
+        parts.push("<b>Tags:</b> " + tagChipsHtml);
+      }
+
+      details.innerHTML = parts.join("<hr>");
+      cardEl.appendChild(details);
+    }
+
+    cardEl.addEventListener("click", function (e) {
+      if (dragCardId || dragType) return;
+      if (e.target && e.target.closest && e.target.closest("button")) return;
+      callPlugin("openCard", { noteUUID: card.noteUUID });
+    });
+
+    cardEl.addEventListener("dragstart", function (e) {
+      dragType = "noteCard";
+      dragCardId = card.id;
+      dragColId = col ? col.id : null;
+      e.dataTransfer.setData("text/plain", "note::" + card.id);
+      e.dataTransfer.effectAllowed = "move";
+      cardEl.classList.add("kb-dragging", "kb-card-dragging");
+    });
+
+    cardEl.addEventListener("dragend", function () {
+      dragType = null;
+      dragCardId = null;
+      dragColId = null;
+      cardEl.classList.remove("kb-dragging", "kb-card-dragging");
+    });
+
+    return cardEl;
+  }
+
+  function buildCardEl(card, col) {
+    if (card.isNoteCard) {
+      return buildNoteCardEl(card, col);
+    }
     var depth = card.subtaskDepth || (card.isSubtask ? 1 : 0);
     var isDoneState = !!(card.completedAt || card.completed || card.dismissedAt);
     var cardClasses = "kb-card" + (isDoneState ? " kb-card-done" : "") + (depth > 0 ? " kb-card-subtask" : "");
@@ -1713,12 +1904,12 @@ function buildClientScript() {
 
   function wireDropZone(listEl, columnId, sectionId, columnName, sectionName) {
     listEl.addEventListener("dragover", function (e) {
-      if (dragType && dragType !== "card") return;
+      if (dragType && dragType !== "card" && dragType !== "noteCard") return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      var targetCard = e.target && e.target.closest ? e.target.closest(".kb-card") : null;
-      var allCards = listEl.querySelectorAll(".kb-card");
+      var targetCard = e.target && e.target.closest ? (e.target.closest(".kb-card") || e.target.closest(".kb-card-note")) : null;
+      var allCards = listEl.querySelectorAll(".kb-card, .kb-card-note");
       allCards.forEach(function (c) {
         if (c !== targetCard) {
           c.classList.remove("kb-card-drop-before", "kb-card-drop-after");
@@ -1739,7 +1930,7 @@ function buildClientScript() {
     listEl.addEventListener("dragleave", function (e) {
       if (!listEl.contains(e.relatedTarget)) {
         listEl.classList.remove("kb-drop-hover");
-        var allCards = listEl.querySelectorAll(".kb-card");
+        var allCards = listEl.querySelectorAll(".kb-card, .kb-card-note");
         allCards.forEach(function (c) {
           c.classList.remove("kb-card-drop-before", "kb-card-drop-after");
         });
@@ -1747,22 +1938,24 @@ function buildClientScript() {
     });
 
     listEl.addEventListener("drop", function (e) {
-      if (dragType && dragType !== "card") return;
+      if (dragType && dragType !== "card" && dragType !== "noteCard") return;
       e.preventDefault();
       listEl.classList.remove("kb-drop-hover");
-      var allCards = listEl.querySelectorAll(".kb-card");
+      var allCards = listEl.querySelectorAll(".kb-card, .kb-card-note");
       allCards.forEach(function (c) {
         c.classList.remove("kb-card-drop-before", "kb-card-drop-after");
       });
 
-      var raw = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || ("card::" + dragCardId);
-      var cardId = raw.indexOf("card::") === 0 ? raw.slice(6) : (dragCardId || raw);
+      var isNoteCard = dragType === "noteCard";
+      var raw = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || (isNoteCard ? ("note::" + dragCardId) : ("card::" + dragCardId));
+      if (raw.indexOf("note::") === 0) isNoteCard = true;
+      var cardId = raw.indexOf("card::") === 0 ? raw.slice(6) : (raw.indexOf("note::") === 0 ? raw.slice(6) : (dragCardId || raw));
       if (!cardId) return;
 
       var board = document.getElementById("kb-board");
-      var cardEl = board && board.querySelector('[data-card-id="' + cssEscape(cardId) + '"]');
+      var cardEl = board && (board.querySelector('[data-card-id="' + cssEscape(cardId) + '"]') || board.querySelector('[data-note-uuid="' + cssEscape(cardId) + '"]'));
 
-      var targetCard = e.target && e.target.closest ? e.target.closest(".kb-card") : null;
+      var targetCard = e.target && e.target.closest ? (e.target.closest(".kb-card") || e.target.closest(".kb-card-note")) : null;
       var targetCardId = null;
       var position = "top";
 
@@ -1781,6 +1974,25 @@ function buildClientScript() {
           listEl.appendChild(cardEl);
           position = "bottom";
         }
+      }
+
+      if (isNoteCard) {
+        callPlugin("moveCard", {
+          tabId: STATE.activeTabId,
+          cardId: cardId,
+          fromColumnId: dragColId,
+          toColumnId: columnId,
+          toColumnName: columnName,
+        }).then(function (res) {
+          if (res && res.board && res.tabId) {
+            STATE.boards[res.tabId] = res.board;
+            renderBoard();
+          }
+          if (res && res.toast) {
+            showToast(res.toast);
+          }
+        });
+        return;
       }
 
       callPlugin("moveCard", {
@@ -2867,6 +3079,11 @@ function buildBaseCss() {
         color: var(--kb-danger);
         border: 1px solid color-mix(in srgb, var(--kb-danger) 28%, transparent);
     }
+    .kb-tab-badge-tags {
+        background: color-mix(in srgb, #0ea5e9 16%, transparent);
+        color: color-mix(in srgb, #0ea5e9 90%, var(--kb-text));
+        border: 1px solid color-mix(in srgb, #0ea5e9 35%, transparent);
+    }
     .kb-tab-tools {
         position: absolute;
         right: 4px;
@@ -3665,7 +3882,8 @@ function buildBaseCss() {
         box-shadow: 0 1px 4px var(--kb-shadow);
         border: 1px solid var(--kb-border);
     }
-    .kb-card:hover .kb-card-actions {
+    .kb-card:hover .kb-card-actions,
+    .kb-card-note:hover .kb-card-actions {
         opacity: 1;
         pointer-events: auto;
     }
@@ -3744,6 +3962,81 @@ function buildBaseCss() {
         font-size: var(--kb-card-title-font);
         font-weight: 500;
         line-height: 1.35;
+    }
+    .kb-card-note {
+        background: var(--kb-bg-card);
+        border: 1px solid var(--kb-border);
+        border-radius: var(--kb-card-radius);
+        padding: var(--kb-card-pad);
+        box-shadow: 0 1px 3px var(--kb-shadow);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        flex-shrink: 0;
+        min-height: fit-content;
+        transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+    }
+    .kb-card-note:hover {
+        border-color: color-mix(in srgb, var(--kb-accent) 60%, var(--kb-border));
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px var(--kb-shadow);
+    }
+    .kb-card-note.kb-card-dragging {
+        opacity: 0.45;
+        transform: scale(0.98) rotate(1deg);
+        cursor: grabbing;
+    }
+    .kb-note-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding-right: 22px;
+    }
+    .kb-note-title {
+        font-size: var(--kb-card-title-font);
+        font-weight: 600;
+        color: var(--kb-text);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        line-height: 1.35;
+        word-break: break-word;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .kb-note-meta {
+        font-size: 11px;
+        color: var(--kb-text);
+        line-height: 1.45;
+    }
+    .kb-col-add-note-btn {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px dashed var(--kb-border);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--kb-text-muted);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 6px;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+    }
+    .kb-col-add-note-btn:hover {
+        border-color: var(--kb-accent);
+        color: var(--kb-accent);
+        background: color-mix(in srgb, var(--kb-accent) 6%, transparent);
     }
     .kb-card-body {
         font-size: var(--kb-card-font);
@@ -3988,6 +4281,28 @@ function buildBaseCss() {
         border-radius: 6px;
         font-size: 11px;
         color: var(--kb-text);
+        line-height: 1.45;
+        box-sizing: border-box;
+        width: 100%;
+    }
+    .kb-task-details hr {
+        border: none;
+        border-top: 1px solid var(--kb-border);
+        margin: 5px 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .kb-task-details b {
+        color: var(--kb-text);
+        font-weight: 600;
+    }
+    .kb-task-details .kb-tag-chip {
+        display: inline-flex;
+        width: auto;
+        font-size: 10px;
+        padding: 1px 6px;
+        margin: 1px 3px 1px 0;
+        vertical-align: baseline;
     }
     .kb-task-details table {
         width: 100%;
@@ -4374,7 +4689,13 @@ function normalizeColumnLimits(raw) {
 function normalizeConfig(raw) {
   const base = emptyTabsConfig();
   if (!raw || typeof raw !== "object") return base;
-  const tabs = Array.isArray(raw.tabs) ? raw.tabs.filter(isValidTab).map((t) => ({ ...t, columnLimits: normalizeColumnLimits(t.columnLimits) })) : [];
+  const tabs = Array.isArray(raw.tabs) ? raw.tabs.filter(isValidTab).map((t) => {
+    const cleanTab = { ...t, columnLimits: normalizeColumnLimits(t.columnLimits) };
+    if (t.kind === "tags") {
+      cleanTab.tags = Array.isArray(t.tags) ? t.tags.map((s) => typeof s === "string" ? s.trim().replace(/^#/, "") : "").filter(Boolean) : [];
+    }
+    return cleanTab;
+  }) : [];
   const activeTabId = typeof raw.activeTabId === "string" && tabs.some((t) => t.id === raw.activeTabId) ? raw.activeTabId : tabs[0] ? tabs[0].id : null;
   const dateFormat = typeof raw.settings?.dateFormat === "string" && raw.settings.dateFormat.trim() ? raw.settings.dateFormat : base.settings.dateFormat;
   return { tabs, activeTabId, settings: { dateFormat } };
@@ -4392,12 +4713,17 @@ async function saveTabsConfig(app, config) {
   await app.setSetting(SETTINGS_KEYS.tabs, JSON.stringify(normalizeConfig(config)));
   return config;
 }
-function createTab({ kind, name, noteUUID = null, tag = null }) {
-  if (kind !== "note" && kind !== "tag" && kind !== "notes") {
+function createTab({ kind, name, noteUUID = null, tag = null, tags = [] }) {
+  if (kind !== "note" && kind !== "tag" && kind !== "notes" && kind !== "tags") {
     throw new Error(`Invalid tab kind: ${kind}`);
   }
   const cleanNoteUUID = typeof noteUUID === "object" && noteUUID !== null ? noteUUID.uuid || noteUUID.id || null : noteUUID;
-  return { id: newId("tab"), kind, name: String(name || "Untitled"), noteUUID: cleanNoteUUID, tag };
+  const cleanTags = Array.isArray(tags) ? tags.map((s) => typeof s === "string" ? s.trim().replace(/^#/, "") : "").filter(Boolean) : [];
+  const tab = { id: newId("tab"), kind, name: String(name || "Untitled"), noteUUID: cleanNoteUUID, tag };
+  if (kind === "tags") {
+    tab.tags = cleanTags;
+  }
+  return tab;
 }
 function addTab(config, tab) {
   const tabs = [...config.tabs, tab];
@@ -5332,6 +5658,29 @@ async function buildTagBoard(app, tag) {
 }
 
 // anp-15-kanban/lib/api/noteOps.js
+async function swapNoteTag(app, noteUUID, fromTag, toTag) {
+  const handle = { uuid: noteUUID };
+  let changed = false;
+  const cleanFrom = fromTag ? String(fromTag).replace(/^#/, "").trim() : null;
+  const cleanTo = toTag ? String(toTag).replace(/^#/, "").trim() : null;
+  if (cleanFrom && cleanFrom !== cleanTo) {
+    try {
+      await app.removeNoteTag(handle, cleanFrom);
+      changed = true;
+    } catch (err) {
+      console.warn("Failed to remove tag from note:", err);
+    }
+  }
+  if (cleanTo && cleanTo !== cleanFrom) {
+    try {
+      await app.addNoteTag(handle, cleanTo);
+      changed = true;
+    } catch (err) {
+      console.warn("Failed to add tag to note:", err);
+    }
+  }
+  return changed;
+}
 async function createTaggedNote(app, title, tags = []) {
   const clean = String(title || "").trim();
   if (!clean) return null;
@@ -5341,9 +5690,104 @@ async function openNote(app, noteUUID) {
   await app.navigate(`https://www.amplenote.com/notes/${noteUUID}`);
 }
 async function openTag(app, tag) {
-  const clean = String(tag || "").replace(/^#/, "").trim();
+  const clean = String(tag || "").trim().replace(/^#/, "").trim();
   if (!clean) return;
   await app.navigate(`https://www.amplenote.com/notes?tag=${encodeURIComponent(clean)}`);
+}
+
+// anp-15-kanban/lib/utils/formatTimestamp.js
+function formatTimestamp(timestamp, format = DEFAULT_DATE_FORMAT) {
+  if (!timestamp || typeof timestamp !== "number") {
+    return "Not Set!";
+  }
+  const date = new Date(timestamp * 1e3);
+  if (isNaN(date.getTime())) return "Not Set!";
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  const datePart = String(format || DEFAULT_DATE_FORMAT).replace(/YYYY/g, year).replace(/MM/g, month).replace(/DD/g, day);
+  const formattedTime = `${hours}:${minutes}:${seconds}`;
+  return `${datePart} at ${formattedTime}`;
+}
+
+// anp-15-kanban/lib/api/tagsBoard.js
+function normalizeDateStr(val, dateFormat) {
+  if (!val) return null;
+  if (typeof val === "number") {
+    const sec = val > 1e11 ? Math.floor(val / 1e3) : val;
+    return formatTimestamp(sec, dateFormat);
+  }
+  if (typeof val === "string") {
+    const parsed = Date.parse(val);
+    if (!isNaN(parsed)) {
+      return formatTimestamp(Math.floor(parsed / 1e3), dateFormat);
+    }
+    return val;
+  }
+  return null;
+}
+async function buildTagsBoard(app, tags = [], options = {}) {
+  const cleanTags = Array.isArray(tags) ? tags.map((t) => typeof t === "string" ? t.trim().replace(/^#/, "") : "").filter(Boolean) : [];
+  let colorMap = {};
+  try {
+    const allTags = await app.getTags() || [];
+    allTags.forEach((t) => {
+      if (t?.text) {
+        colorMap[t.text.toLowerCase().replace(/^#/, "")] = t.color || null;
+      }
+    });
+  } catch {
+    colorMap = {};
+  }
+  const columns = [];
+  for (const tag of cleanTags) {
+    let notes = [];
+    try {
+      notes = await app.filterNotes({ tag }) || [];
+    } catch (err) {
+      console.warn(`Failed to filter notes for tag ${tag}:`, err);
+      notes = [];
+    }
+    const cards = notes.map((note) => {
+      const createdStr = normalizeDateStr(note.created, options.dateFormat) || normalizeDateStr(note.createdAt, options.dateFormat) || "Not Set!";
+      const updatedStr = normalizeDateStr(note.updated, options.dateFormat) || normalizeDateStr(note.updatedAt, options.dateFormat) || "Not Set!";
+      const tagList = Array.isArray(note.tags) ? note.tags.map((t) => (typeof t === "string" ? t.replace(/^#/, "") : String(t || "")).trim()).filter(Boolean) : [];
+      const rawCreated = typeof note.created === "number" ? note.created : typeof note.createdAt === "number" ? note.createdAt : Date.parse(note.created || note.createdAt) || 0;
+      const rawUpdated = typeof note.updated === "number" ? note.updated : typeof note.updatedAt === "number" ? note.updatedAt : Date.parse(note.updated || note.updatedAt) || 0;
+      return {
+        id: note.uuid,
+        title: note.name || "Untitled note",
+        noteUUID: note.uuid,
+        tags: tagList,
+        created: createdStr,
+        updated: updatedStr,
+        rawCreated,
+        rawUpdated,
+        isNoteCard: true,
+        isTask: false,
+        columnTag: tag
+      };
+    });
+    const tagColor = colorMap[tag.toLowerCase()] || null;
+    columns.push({
+      id: TAG_PREFIX + tag,
+      name: "#" + tag,
+      tag,
+      color: tagColor,
+      wipLimit: null,
+      cards,
+      isTagColumn: true
+    });
+  }
+  return {
+    kind: "tags",
+    tags: cleanTags,
+    columns,
+    hasHeadings: false
+  };
 }
 
 // anp-15-kanban/lib/utils/prompt.js
@@ -5456,6 +5900,8 @@ async function buildSingleBoard(app, tab) {
     return await buildTagBoard(app, tab.tag);
   } else if (tab.kind === "notes" && tab.tag) {
     return await buildNotesBoard(app, tab.tag);
+  } else if (tab.kind === "tags") {
+    return await buildTagsBoard(app, tab.tags || []);
   }
   return { kind: tab.kind, columns: [], hasHeadings: false };
 }
@@ -5502,7 +5948,8 @@ async function handleAddTab(app) {
             { label: "Existing Note Board (headings as columns)", value: "note" },
             { label: "Create New Note Board (auto-creates note with columns)", value: "new_note" },
             { label: "Tag Board (notes as columns with collapsible heading sections)", value: "tag" },
-            { label: "Multi-Note Board (one note per project, flat task cards)", value: "notes" }
+            { label: "Multi-Note Board (one note per project, flat task cards)", value: "notes" },
+            { label: "Tags Board (tags as columns, notes as cards)", value: "tags" }
           ]
         }
       ]
@@ -5593,6 +6040,26 @@ async function handleAddTab(app) {
       if (!tagText || !String(tagText).trim()) return;
       const clean = String(tagText).trim();
       tab = createTab({ kind: "notes", name: clean, tag: clean });
+    } else if (choice === "tags") {
+      const res = await app.prompt("Create Tags Board (Tags as Columns)", {
+        inputs: [
+          {
+            label: "Board title:",
+            type: "text",
+            value: "Tags Board"
+          },
+          {
+            label: "Tag(s) for columns (select or type comma-separated):",
+            type: "tags",
+            limit: 10
+          }
+        ]
+      });
+      if (!res) return;
+      const [titleInput, tagsInput] = Array.isArray(res) ? res : [res, ""];
+      const title = titleInput && String(titleInput).trim() || "Tags Board";
+      const tagsList = normalizeTagList(tagsInput);
+      tab = createTab({ kind: "tags", name: title, tags: tagsList });
     } else {
       return;
     }
@@ -5643,6 +6110,7 @@ async function resolveNoteTab(app, payload) {
   if (!tab) return null;
   if (tab.kind === "note" && !tab.noteUUID) return null;
   if ((tab.kind === "tag" || tab.kind === "notes") && !tab.tag) return null;
+  if (tab.kind === "tags" && (!tab.tags || !Array.isArray(tab.tags))) return null;
   return tab;
 }
 async function resolveCurrentBoardTab(app, payload) {
@@ -5675,6 +6143,19 @@ async function isCompletedColumn(app, noteUUID, columnId, columnName) {
 async function handleMoveCard(app, payload) {
   const tab = await resolveNoteTab(app, payload);
   if (!tab || !payload.cardId || !payload.toColumnId) return { ok: false };
+  if (tab.kind === "tags") {
+    const fromTag = String(payload.fromColumnId || payload.fromColumnName || "").replace(/^tag:/, "").replace(/^#/, "").trim();
+    const toTag = String(payload.toColumnId || payload.toColumnName || "").replace(/^tag:/, "").replace(/^#/, "").trim();
+    if (!toTag) return { ok: false };
+    const changed = await swapNoteTag(app, payload.cardId, fromTag, toTag);
+    const board = await buildSingleBoard(app, tab);
+    return {
+      ok: true,
+      tabId: tab.id,
+      board,
+      toast: changed ? `Note moved to #${toTag}` : void 0
+    };
+  }
   if (tab.kind === "tag" || tab.kind === "notes") {
     const isPrefixed = String(payload.toColumnId).startsWith(NOTE_PREFIX);
     const targetUUID = isPrefixed ? payload.toColumnId.slice(NOTE_PREFIX.length) : String(payload.toColumnId).length > 1 ? payload.toColumnId : null;
@@ -6606,6 +7087,83 @@ async function handleOpenTag(app, payload) {
   if (!tag) return;
   await openTag(app, tag);
 }
+async function handleAddTagColumn(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || tab.kind !== "tags") return { ok: false };
+  let tag = payload?.tag;
+  if (!tag) {
+    const result = await app.prompt("Add Tag Column", {
+      inputs: [
+        { label: "Select or enter tag name:", type: "tags", limit: 1 }
+      ]
+    });
+    const tagVal = Array.isArray(result) ? result[0] : result;
+    tag = tagVal ? String(tagVal).replace(/^#/, "").trim() : "";
+  }
+  if (!tag) return { ok: false, canceled: true };
+  const cleanTag = String(tag).replace(/^#/, "").trim();
+  const currentTags = Array.isArray(tab.tags) ? [...tab.tags] : [];
+  if (!currentTags.includes(cleanTag)) {
+    currentTags.push(cleanTag);
+    tab.tags = currentTags;
+    const config = await loadTabsConfig(app);
+    const tabInConfig = config.tabs.find((t) => t.id === tab.id);
+    if (tabInConfig) {
+      tabInConfig.tags = currentTags;
+      await saveTabsConfig(app, config);
+    }
+  }
+  const board = await buildSingleBoard(app, tab);
+  return { ok: true, tabId: tab.id, board, toast: `Tag #${cleanTag} added`, showEmpty: true };
+}
+async function handleRemoveTagColumn(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || tab.kind !== "tags") return { ok: false };
+  const tag = payload?.tag || payload?.columnId && String(payload.columnId).replace(/^tag:/, "").replace(/^#/, "").trim();
+  if (!tag) return { ok: false };
+  const currentTags = (tab.tags || []).filter((t) => t !== tag && t !== `#${tag}`);
+  tab.tags = currentTags;
+  const config = await loadTabsConfig(app);
+  const tabInConfig = config.tabs.find((t) => t.id === tab.id);
+  if (tabInConfig) {
+    tabInConfig.tags = currentTags;
+    await saveTabsConfig(app, config);
+  }
+  const board = await buildSingleBoard(app, tab);
+  return { ok: true, tabId: tab.id, board, toast: `Tag #${tag} removed` };
+}
+async function handleCreateNoteInTagColumn(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || tab.kind !== "tags") return { ok: false };
+  const tag = payload?.tag || payload?.columnId && String(payload.columnId).replace(/^tag:/, "").replace(/^#/, "").trim();
+  if (!tag) return { ok: false };
+  const result = await app.prompt(`Create New Note in #${tag}`, {
+    inputs: [
+      { label: "Note title:", type: "text" }
+    ]
+  });
+  const title = firstValue(result);
+  if (!title || !String(title).trim()) return { ok: false, canceled: true };
+  const cleanTitle = String(title).trim();
+  const createdUuid = await app.createNote(cleanTitle, [tag]);
+  const cleanUUID = typeof createdUuid === "object" && createdUuid !== null ? createdUuid.uuid || createdUuid.id : createdUuid;
+  const board = await buildSingleBoard(app, tab);
+  return { ok: true, tabId: tab.id, board, noteUUID: cleanUUID, toast: `Note created in #${tag}` };
+}
+async function handleReorderTagColumns(app, payload) {
+  const tab = await resolveNoteTab(app, payload);
+  if (!tab || tab.kind !== "tags" || !Array.isArray(payload?.tagOrder)) return { ok: false };
+  const cleanOrder = payload.tagOrder.map((t) => String(t).replace(/^tag:/, "").replace(/^#/, "").trim()).filter(Boolean);
+  tab.tags = cleanOrder;
+  const config = await loadTabsConfig(app);
+  const tabInConfig = config.tabs.find((t) => t.id === tab.id);
+  if (tabInConfig) {
+    tabInConfig.tags = cleanOrder;
+    await saveTabsConfig(app, config);
+  }
+  const board = await buildSingleBoard(app, tab);
+  return { ok: true, tabId: tab.id, board, toast: "Tag columns reordered" };
+}
 var ACTIONS = {
   ping: handlePing,
   saveTheme: handleSaveTheme,
@@ -6645,7 +7203,11 @@ var ACTIONS = {
   moveColumnToTab: handleMoveColumnToTab,
   moveSectionToNote: handleMoveColumnToTab,
   renameNote: handleRenameNote,
-  deleteNote: handleDeleteNote
+  deleteNote: handleDeleteNote,
+  addTagColumn: handleAddTagColumn,
+  removeTagColumn: handleRemoveTagColumn,
+  createNoteInTagColumn: handleCreateNoteInTagColumn,
+  reorderTagColumns: handleReorderTagColumns
 };
 async function handleEmbedAction(app, args) {
   const [action, payload] = args || [];
@@ -6694,6 +7256,8 @@ var plugin = {
           boards[tab.id] = await buildTagBoard(app, tab.tag);
         } else if (tab.kind === "notes" && tab.tag) {
           boards[tab.id] = await buildNotesBoard(app, tab.tag);
+        } else if (tab.kind === "tags") {
+          boards[tab.id] = await buildTagsBoard(app, tab.tags || []);
         }
       } catch (error) {
         console.error(`Failed to build board for tab ${tab.id}:`, error);

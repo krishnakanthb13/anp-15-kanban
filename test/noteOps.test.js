@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { retagNote, createTaggedNote, openNote, openTag } from '../lib/api/noteOps.js';
+import { retagNote, swapNoteTag, createTaggedNote, openNote, openTag } from '../lib/api/noteOps.js';
 
 function makeApp() {
   return {
@@ -44,6 +44,34 @@ describe("noteOps", () => {
       expect(await retagNote(app, "n1", {})).toBe(false);
       expect(app.addNoteTag).not.toHaveBeenCalled();
       expect(app.removeNoteTag).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("swapNoteTag", () => {
+    it("removes fromTag and adds toTag on note", async () => {
+      const app = makeApp();
+      const changed = await swapNoteTag(app, "n1", "todo", "in-progress");
+
+      expect(changed).toBe(true);
+      expect(app.removeNoteTag).toHaveBeenCalledWith({ uuid: "n1" }, "todo");
+      expect(app.addNoteTag).toHaveBeenCalledWith({ uuid: "n1" }, "in-progress");
+    });
+
+    it("handles hashes in tag names", async () => {
+      const app = makeApp();
+      const changed = await swapNoteTag(app, "n1", "#todo", "#done");
+
+      expect(changed).toBe(true);
+      expect(app.removeNoteTag).toHaveBeenCalledWith({ uuid: "n1" }, "todo");
+      expect(app.addNoteTag).toHaveBeenCalledWith({ uuid: "n1" }, "done");
+    });
+
+    it("does nothing when fromTag and toTag are the same", async () => {
+      const app = makeApp();
+      const changed = await swapNoteTag(app, "n1", "todo", "todo");
+      expect(changed).toBe(false);
+      expect(app.removeNoteTag).not.toHaveBeenCalled();
+      expect(app.addNoteTag).not.toHaveBeenCalled();
     });
   });
 
