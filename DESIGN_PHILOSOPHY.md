@@ -302,5 +302,16 @@ Optimistic UI updates should never diverge in structure from official database q
 
 **Why:** Duplicating card object literals across action handlers creates subtle bugs where newly created cards lack methods, chips, or styling until a page reload. A unified factory guarantees immediate visual fidelity.
 
+---
+
+## 31. Adaptive Multi-Pane Ergonomics & Wheel-Scrollable Toolbars
+
+Productivity workspaces are fluid environments where viewport widths fluctuate dynamically as users open side peek viewers, references, and split panes:
+- **Multi-Pane Coexistence**: When the board container narrows (e.g. down to 600px or less alongside Amplenote's Peek Viewer), the toolbar flexes gracefully without dropping buttons into jagged multi-line wraps or clipping actions off-screen.
+- **Intuitive Wheel Translation**: Modern desktop users expect horizontal toolbars and tab bars to scroll with the mouse wheel. Translating vertical wheel ticks (`deltaY`) and trackpad gestures (`deltaX`) into horizontal `scrollLeft` allows users to glide through options (`Open Note`, `Sort Tasks`, `Density`, `Empty`, `Info`, `@ Date`, `Date Format`, `Theme`) effortlessly.
+- **Tiered Responsive Breakpoints**: Search inputs flex smoothly, redundant label text condenses on narrow screens, and touch/trackpad gestures remain fluid.
+
+**Why:** Power users should never have their tools hidden, truncated, or broken simply because they opened a side document. Responsive flex architecture combined with frictionless wheel scrolling ensures that all board capabilities remain 100% accessible in any screen layout.
+
 
 

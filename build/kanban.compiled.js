@@ -2213,16 +2213,63 @@ function buildClientScript() {
     }
 
     window.addEventListener("wheel", function (e) {
-      // Shift + Wheel: strictly for horizontal scrolling across board columns
+      var headerRight = document.querySelector(".kb-header-right");
+      var header = document.querySelector(".kb-header");
+      var tabs = document.getElementById("kb-tabs");
+
+      // 1. Wheel scroll over header options (.kb-header-right)
+      if (headerRight && (headerRight.contains(e.target) || e.target === headerRight)) {
+        if (headerRight.scrollWidth > headerRight.clientWidth) {
+          var deltaHR = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (deltaHR !== 0) {
+            e.preventDefault();
+            headerRight.scrollLeft += deltaHR;
+            return;
+          }
+        }
+      }
+
+      // 2. Wheel scroll over header container (.kb-header)
+      if (header && (header.contains(e.target) || e.target === header)) {
+        if (headerRight && headerRight.scrollWidth > headerRight.clientWidth) {
+          var deltaH = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (deltaH !== 0) {
+            e.preventDefault();
+            headerRight.scrollLeft += deltaH;
+            return;
+          }
+        } else if (header.scrollWidth > header.clientWidth) {
+          var deltaH2 = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (deltaH2 !== 0) {
+            e.preventDefault();
+            header.scrollLeft += deltaH2;
+            return;
+          }
+        }
+      }
+
+      // 3. Wheel scroll over tab navigation bar (#kb-tabs)
+      if (tabs && (tabs.contains(e.target) || e.target === tabs)) {
+        if (tabs.scrollWidth > tabs.clientWidth) {
+          var deltaT = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (deltaT !== 0) {
+            e.preventDefault();
+            tabs.scrollLeft += deltaT;
+            return;
+          }
+        }
+      }
+
+      // 4. Shift + Wheel: strictly for horizontal scrolling across board columns
       if (e.shiftKey) {
         var boardEl = document.getElementById("kb-board");
         if (boardEl) {
           e.preventDefault();
-          var delta = e.deltaY || e.deltaX;
-          boardEl.scrollLeft += delta * 1.5;
+          var deltaB = e.deltaY || e.deltaX;
+          boardEl.scrollLeft += deltaB * 1.5;
         }
       }
-      // Without Shift: pure native vertical scroll only
+      // Without Shift: pure native vertical scroll on column card lists
     }, { passive: false });
 
     window.addEventListener("keydown", function (e) {
@@ -2371,8 +2418,8 @@ function buildBaseCss() {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
-        padding: 9px 18px;
+        gap: 12px;
+        padding: 8px 14px;
         background: var(--kb-bg-header);
         border-bottom: 1px solid var(--kb-border);
         position: sticky;
@@ -2381,26 +2428,51 @@ function buildBaseCss() {
         flex: 0 0 auto;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .kb-header::-webkit-scrollbar {
+        display: none;
     }
     .kb-header-left {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         flex: 0 0 auto;
+        min-width: 0;
     }
     .kb-header-center {
         display: flex;
         align-items: center;
         justify-content: center;
-        flex: 1 1 auto;
-        max-width: 480px;
-        min-width: 220px;
+        flex: 1 1 240px;
+        max-width: 440px;
+        min-width: 110px;
     }
     .kb-header-right {
         display: flex;
         align-items: center;
-        gap: 8px;
-        flex: 0 0 auto;
+        gap: 6px;
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+    }
+    .kb-header-right::-webkit-scrollbar {
+        display: none;
+    }
+    .kb-header-right .kb-btn-group,
+    .kb-header-right .kb-btn {
+        flex-shrink: 0;
     }
     .kb-btn-group {
         display: inline-flex;
@@ -2512,7 +2584,7 @@ function buildBaseCss() {
         align-items: center;
         width: 100%;
         max-width: 440px;
-        min-width: 240px;
+        min-width: 100px;
     }
     .kb-search-icon {
         position: absolute;
@@ -4094,20 +4166,74 @@ function buildBaseCss() {
         }
     }
 
-    @media (max-width: 600px) {
-        .kb-header-left, .kb-header-right {
-            width: auto;
+    @media (max-width: 980px) {
+        .kb-header {
+            gap: 8px;
+            padding: 7px 10px;
         }
+        .kb-header-center {
+            max-width: 260px;
+            min-width: 100px;
+        }
+        .kb-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            gap: 5px;
+        }
+        .kb-btn-group .kb-btn {
+            padding: 4px 8px;
+        }
+    }
+
+    @media (max-width: 720px) {
         .kb-brand span {
             display: none;
         }
+        .kb-header-center {
+            max-width: 180px;
+            min-width: 80px;
+        }
+        .kb-search {
+            height: 32px !important;
+            line-height: 30px !important;
+            padding: 0 28px 0 30px !important;
+            font-size: 12px;
+        }
+        .kb-search-icon {
+            left: 8px;
+            width: 14px;
+            height: 14px;
+        }
+        .kb-search-shortcut {
+            display: none;
+        }
+    }
+
+    @media (max-width: 540px) {
+        .kb-header {
+            gap: 6px;
+            padding: 6px 8px;
+        }
+        .kb-tabs {
+            padding: 6px 8px 0 8px;
+            gap: 4px;
+        }
+        .kb-tab {
+            padding: 5px 8px;
+            font-size: 11.5px;
+            max-width: 160px;
+        }
+        .kb-tab-add {
+            padding: 5px 8px;
+            font-size: 11.5px;
+        }
         .kb-column {
-            width: 280px;
+            width: 260px;
         }
         .kb-toast-container {
-            bottom: 16px;
-            right: 16px;
-            left: 16px;
+            bottom: 12px;
+            right: 12px;
+            left: 12px;
             max-width: none;
         }
     }

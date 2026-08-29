@@ -1,491 +1,296 @@
-(node:14224) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:13992) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 PASS anp-15-kanban/test/boardTemplate.test.js
   boardTemplate
-    ΓêÜ produces a complete HTML document (47 ms)
-    ΓêÜ embeds state and theme registry as script globals (2 ms)
+    ΓêÜ produces a complete HTML document (18 ms)
+    ΓêÜ embeds state and theme registry as script globals (1 ms)
     ΓêÜ prevents script breakout from embedded state (1 ms)
-    ΓêÜ includes theme CSS blocks and base layout (1 ms)
-    ΓêÜ includes the header controls and containers (3 ms)
-    ΓêÜ inlines the client script
+    ΓêÜ includes theme CSS blocks and base layout (2 ms)
+    ΓêÜ includes the header controls and containers (2 ms)
+    ΓêÜ inlines the client script (1 ms)
+    ΓêÜ includes responsive header styling and media queries (1 ms)
 
-(node:14060) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:6256) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-PASS anp-15-kanban/test/tabsConfig.test.js
-  tabsConfig
-    normalizeConfig
-      ΓêÜ returns defaults for null/undefined/garbage (25 ms)
-      ΓêÜ drops invalid tabs and keeps valid ones (3 ms)
-      ΓêÜ repairs activeTabId when it points at a removed tab (1 ms)
-      ΓêÜ keeps a valid activeTabId (1 ms)
-      ΓêÜ falls back to default date format when missing/blank (3 ms)
-      ΓêÜ sanitizes per-tab columnLimits (WIP maps) (1 ms)
-      ΓêÜ defaults missing columnLimits to an empty object (1 ms)
-    loadTabsConfig / saveTabsConfig
-      ΓêÜ loads defaults when setting is unset or corrupt JSON (57 ms)
-      ΓêÜ round-trips a saved config (3 ms)
-    createTab
-      ΓêÜ creates note and tag tabs with generated ids (2 ms)
-      ΓêÜ defaults the name and rejects bad kinds (11 ms)
-    addTab
-      ΓêÜ appends and activates the first tab (2 ms)
-    removeTab
-      ΓêÜ removes and repairs activeTabId (3 ms)
-      ΓêÜ keeps activeTabId when removing another tab (1 ms)
-    setActiveTab
-      ΓêÜ ignores unknown tab ids (3 ms)
-    moveTab
-      ΓêÜ reorders tabs (2 ms)
-      ΓêÜ is a no-op for out-of-range indices (2 ms)
-    tabById
-      ΓêÜ finds tabs or returns null (10 ms)
+PASS anp-15-kanban/test/taskOps.test.js
+  taskOps
+    moveTaskToColumn
+      ΓêÜ moves a task line under the destination heading (forward) (25 ms)
+      ΓêÜ handles index shift when moving backward (4 ms)
+      ΓêÜ reports same-column drops without writing when no targetCardId is provided (2 ms)
+      ΓêÜ reorders tasks within the same column when targetCardId is provided (3 ms)
+      ΓêÜ reorders tasks after a target card within the same column (1 ms)
+      ΓêÜ moves a task from one header to a specific card position in another header (2 ms)
+      ΓêÜ reports no-task / no-target / no-columns without writing (6 ms)
+    createTaskInColumn
+      ΓêÜ inserts the task then relocates it into the target column (6 ms)
+      ΓêÜ relocates task to line 0 (before headers) when target is unsorted (1 ms)
+      ΓêÜ preserves existing text under header when creating task in column (4 ms)
+      ΓêÜ sanitizes task content by stripping comment markers and collapsing newlines (7 ms)
+      ΓêÜ tolerates relocation failure and still returns the uuid (2 ms)
+    setTaskCompleted
+      ΓêÜ completes with a timestamp and reopens with null (1 ms)
+    updateCardContent
+      ΓêÜ writes new content
+    addLabelToTask
+      ΓêÜ appends a wiki-link label to the task content (1 ms)
+      ΓêÜ skips duplicates, blank names, and missing tasks (1 ms)
+    concurrency & write locks
+      ΓêÜ serializes concurrent moveTaskToColumn operations on the same note (33 ms)
+      ΓêÜ completes task with unix timestamp in seconds when moved to Completed column (2 ms)
+    sortTasksInNoteMarkdown
+      ΓêÜ sorts tasks in note markdown by score (5 ms)
+
+(node:15460) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS anp-15-kanban/test/constants.test.js
+  constants
+    feature flags and prefixes
+      ΓêÜ exposes boolean feature flags and NOTE_PREFIX (19 ms)
+    SETTINGS_KEYS
+      ΓêÜ exposes stable setting keys (1 ms)
+    emptyTabsConfig
+      ΓêÜ returns a fresh default config each call (5 ms)
+    newId
+      ΓêÜ uses the given prefix (2 ms)
+      ΓêÜ generates unique ids (1 ms)
+    isValidTab
+      ΓêÜ accepts note and tag tabs with ids (1 ms)
+      ΓêÜ rejects malformed tabs (1 ms)
+
+PASS anp-15-kanban/test/tagBoard.test.js
+  tagBoard
+    buildTagBoard
+      ΓêÜ builds note columns with collapsible heading sections and tasks as cards (17 ms)
+      ΓêÜ queries notes live by the board tag (2 ms)
+      ΓêÜ preserves empty notes and empty heading sections for empty toggle support (2 ms)
+      ΓêÜ returns an empty board for a missing tag (1 ms)
+
+PASS anp-15-kanban/test/kanban.test.js
+  kanban plugin entry
+    appOption launcher
+      ΓêÜ opens the embed section and navigates to the plugin URL (4 ms)
+    renderEmbed
+      ΓêÜ returns an HTML document with demo content when no tabs are configured (12 ms)
+      ΓêÜ uses configured tabs and persisted theme when available (2 ms)
+      ΓêÜ builds real boards for note tabs (8 ms)
+      ΓêÜ builds live tag boards for tag tabs (8 ms)
+      ΓêÜ keeps rendering when a note tab's board fails to build (3 ms)
+      ΓêÜ falls back to the default theme for unset/invalid theme settings (4 ms)
+    onEmbedCall
+      ΓêÜ dispatches actions and bumps the round-trip counter (7 ms)
+      ΓêÜ swallows handler errors so the embed never breaks (2 ms)
 
   console.warn
     Unknown embed action: bogus
 
-    [0m [90m 1638 |[39m   [36mconst[39m handler [33m=[39m [33mACTIONS[39m[action][33m;[39m
-     [90m 1639 |[39m   [36mif[39m ([33m![39mhandler) {
-    [31m[1m>[22m[39m[90m 1640 |[39m     console[33m.[39mwarn([32m`Unknown embed action: ${action}`[39m)[33m;[39m
+    [0m [90m 1648 |[39m   [36mconst[39m handler [33m=[39m [33mACTIONS[39m[action][33m;[39m
+     [90m 1649 |[39m   [36mif[39m ([33m![39mhandler) {
+    [31m[1m>[22m[39m[90m 1650 |[39m     console[33m.[39mwarn([32m`Unknown embed action: ${action}`[39m)[33m;[39m
      [90m      |[39m             [31m[1m^[22m[39m
-     [90m 1641 |[39m     [36mreturn[39m undefined[33m;[39m
-     [90m 1642 |[39m   }
-     [90m 1643 |[39m   [36mreturn[39m handler(app[33m,[39m payload)[33m;[39m[0m
+     [90m 1651 |[39m     [36mreturn[39m undefined[33m;[39m
+     [90m 1652 |[39m   }
+     [90m 1653 |[39m   [36mreturn[39m handler(app[33m,[39m payload)[33m;[39m[0m
 
-      at handleEmbedAction (anp-15-kanban/lib/features/embedActions.js:1640:13)
+      at handleEmbedAction (anp-15-kanban/lib/features/embedActions.js:1650:13)
       at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:98:28)
 
   console.warn
     Unknown embed action: undefined
 
-    [0m [90m 1638 |[39m   [36mconst[39m handler [33m=[39m [33mACTIONS[39m[action][33m;[39m
-     [90m 1639 |[39m   [36mif[39m ([33m![39mhandler) {
-    [31m[1m>[22m[39m[90m 1640 |[39m     console[33m.[39mwarn([32m`Unknown embed action: ${action}`[39m)[33m;[39m
+    [0m [90m 1648 |[39m   [36mconst[39m handler [33m=[39m [33mACTIONS[39m[action][33m;[39m
+     [90m 1649 |[39m   [36mif[39m ([33m![39mhandler) {
+    [31m[1m>[22m[39m[90m 1650 |[39m     console[33m.[39mwarn([32m`Unknown embed action: ${action}`[39m)[33m;[39m
      [90m      |[39m             [31m[1m^[22m[39m
-     [90m 1641 |[39m     [36mreturn[39m undefined[33m;[39m
-     [90m 1642 |[39m   }
-     [90m 1643 |[39m   [36mreturn[39m handler(app[33m,[39m payload)[33m;[39m[0m
+     [90m 1651 |[39m     [36mreturn[39m undefined[33m;[39m
+     [90m 1652 |[39m   }
+     [90m 1653 |[39m   [36mreturn[39m handler(app[33m,[39m payload)[33m;[39m[0m
 
-      at handleEmbedAction (anp-15-kanban/lib/features/embedActions.js:1640:13)
+      at handleEmbedAction (anp-15-kanban/lib/features/embedActions.js:1650:13)
       at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:105:20)
 
   console.warn
     Unknown embed action: undefined
 
-    [0m [90m 1638 |[39m   [36mconst[39m handler [33m=[39m [33mACTIONS[39m[action][33m;[39m
-     [90m 1639 |[39m   [36mif[39m ([33m![39mhandler) {
-    [31m[1m>[22m[39m[90m 1640 |[39m     console[33m.[39mwarn([32m`Unknown embed action: ${action}`[39m)[33m;[39m
+    [0m [90m 1648 |[39m   [36mconst[39m handler [33m=[39m [33mACTIONS[39m[action][33m;[39m
+     [90m 1649 |[39m   [36mif[39m ([33m![39mhandler) {
+    [31m[1m>[22m[39m[90m 1650 |[39m     console[33m.[39mwarn([32m`Unknown embed action: ${action}`[39m)[33m;[39m
      [90m      |[39m             [31m[1m^[22m[39m
-     [90m 1641 |[39m     [36mreturn[39m undefined[33m;[39m
-     [90m 1642 |[39m   }
-     [90m 1643 |[39m   [36mreturn[39m handler(app[33m,[39m payload)[33m;[39m[0m
+     [90m 1651 |[39m     [36mreturn[39m undefined[33m;[39m
+     [90m 1652 |[39m   }
+     [90m 1653 |[39m   [36mreturn[39m handler(app[33m,[39m payload)[33m;[39m[0m
 
-      at handleEmbedAction (anp-15-kanban/lib/features/embedActions.js:1640:13)
+      at handleEmbedAction (anp-15-kanban/lib/features/embedActions.js:1650:13)
       at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:106:20)
-
-  console.error
-    htmlFromContent failed for card: TypeError: app.htmlFromContent is not a function
-        at renderCardHtml (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\noteBoard.js:145:29)
-        at buildNotesBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\notesBoard.js:70:9)
-        at processTicksAndRejections (node:internal/process/task_queues:104:5)
-        at buildSingleBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:106:12)
-        at handleCreateCard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:509:19)
-        at Object.<anonymous> (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\test\embedActions.test.js:819:19)
-
-    [0m [90m 145 |[39m       card[33m.[39mhtml [33m=[39m [36mawait[39m app[33m.[39mhtmlFromContent(card[33m.[39mcontent)[33m;[39m
-     [90m 146 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 147 |[39m       console[33m.[39merror([32m"htmlFromContent failed for card:"[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 148 |[39m       card[33m.[39mhtml [33m=[39m [36mnull[39m[33m;[39m
-     [90m 149 |[39m     }
-     [90m 150 |[39m   }[0m
-
-      at renderCardHtml (anp-15-kanban/lib/api/noteBoard.js:147:15)
-      at buildNotesBoard (anp-15-kanban/lib/api/notesBoard.js:70:9)
-      at buildSingleBoard (anp-15-kanban/lib/features/embedActions.js:106:12)
-      at handleCreateCard (anp-15-kanban/lib/features/embedActions.js:509:19)
-      at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:819:19)
-
-  console.error
-    htmlFromContent failed for card: TypeError: app.htmlFromContent is not a function
-        at renderCardHtml (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\noteBoard.js:145:29)
-        at buildNotesBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\notesBoard.js:70:9)
-        at processTicksAndRejections (node:internal/process/task_queues:104:5)
-        at buildSingleBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:106:12)
-        at handleCreateCard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:509:19)
-        at Object.<anonymous> (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\test\embedActions.test.js:819:19)
-
-    [0m [90m 145 |[39m       card[33m.[39mhtml [33m=[39m [36mawait[39m app[33m.[39mhtmlFromContent(card[33m.[39mcontent)[33m;[39m
-     [90m 146 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 147 |[39m       console[33m.[39merror([32m"htmlFromContent failed for card:"[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 148 |[39m       card[33m.[39mhtml [33m=[39m [36mnull[39m[33m;[39m
-     [90m 149 |[39m     }
-     [90m 150 |[39m   }[0m
-
-      at renderCardHtml (anp-15-kanban/lib/api/noteBoard.js:147:15)
-      at buildNotesBoard (anp-15-kanban/lib/api/notesBoard.js:70:9)
-      at buildSingleBoard (anp-15-kanban/lib/features/embedActions.js:106:12)
-      at handleCreateCard (anp-15-kanban/lib/features/embedActions.js:509:19)
-      at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:819:19)
-
-  console.error
-    htmlFromContent failed for card: TypeError: app.htmlFromContent is not a function
-        at renderCardHtml (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\noteBoard.js:145:29)
-        at buildNotesBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\notesBoard.js:70:9)
-        at processTicksAndRejections (node:internal/process/task_queues:104:5)
-        at buildSingleBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:106:12)
-        at handleCreateColumnNote (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:953:19)
-        at Object.<anonymous> (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\test\embedActions.test.js:830:19)
-
-    [0m [90m 145 |[39m       card[33m.[39mhtml [33m=[39m [36mawait[39m app[33m.[39mhtmlFromContent(card[33m.[39mcontent)[33m;[39m
-     [90m 146 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 147 |[39m       console[33m.[39merror([32m"htmlFromContent failed for card:"[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 148 |[39m       card[33m.[39mhtml [33m=[39m [36mnull[39m[33m;[39m
-     [90m 149 |[39m     }
-     [90m 150 |[39m   }[0m
-
-      at renderCardHtml (anp-15-kanban/lib/api/noteBoard.js:147:15)
-      at buildNotesBoard (anp-15-kanban/lib/api/notesBoard.js:70:9)
-      at buildSingleBoard (anp-15-kanban/lib/features/embedActions.js:106:12)
-      at handleCreateColumnNote (anp-15-kanban/lib/features/embedActions.js:953:19)
-      at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:830:19)
-
-  console.error
-    htmlFromContent failed for card: TypeError: app.htmlFromContent is not a function
-        at renderCardHtml (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\noteBoard.js:145:29)
-        at buildNotesBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\notesBoard.js:70:9)
-        at processTicksAndRejections (node:internal/process/task_queues:104:5)
-        at buildSingleBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:106:12)
-        at handleCreateColumnNote (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:953:19)
-        at Object.<anonymous> (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\test\embedActions.test.js:830:19)
-
-    [0m [90m 145 |[39m       card[33m.[39mhtml [33m=[39m [36mawait[39m app[33m.[39mhtmlFromContent(card[33m.[39mcontent)[33m;[39m
-     [90m 146 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 147 |[39m       console[33m.[39merror([32m"htmlFromContent failed for card:"[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 148 |[39m       card[33m.[39mhtml [33m=[39m [36mnull[39m[33m;[39m
-     [90m 149 |[39m     }
-     [90m 150 |[39m   }[0m
-
-      at renderCardHtml (anp-15-kanban/lib/api/noteBoard.js:147:15)
-      at buildNotesBoard (anp-15-kanban/lib/api/notesBoard.js:70:9)
-      at buildSingleBoard (anp-15-kanban/lib/features/embedActions.js:106:12)
-      at handleCreateColumnNote (anp-15-kanban/lib/features/embedActions.js:953:19)
-      at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:830:19)
-
-  console.error
-    htmlFromContent failed for card: TypeError: app.htmlFromContent is not a function
-        at renderCardHtml (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\noteBoard.js:145:29)
-        at buildNotesBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\notesBoard.js:70:9)
-        at processTicksAndRejections (node:internal/process/task_queues:104:5)
-        at buildSingleBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:106:12)
-        at handleRenameNote (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:1482:17)
-        at Object.<anonymous> (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\test\embedActions.test.js:858:19)
-
-    [0m [90m 145 |[39m       card[33m.[39mhtml [33m=[39m [36mawait[39m app[33m.[39mhtmlFromContent(card[33m.[39mcontent)[33m;[39m
-     [90m 146 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 147 |[39m       console[33m.[39merror([32m"htmlFromContent failed for card:"[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 148 |[39m       card[33m.[39mhtml [33m=[39m [36mnull[39m[33m;[39m
-     [90m 149 |[39m     }
-     [90m 150 |[39m   }[0m
-
-      at renderCardHtml (anp-15-kanban/lib/api/noteBoard.js:147:15)
-      at buildNotesBoard (anp-15-kanban/lib/api/notesBoard.js:70:9)
-      at buildSingleBoard (anp-15-kanban/lib/features/embedActions.js:106:12)
-      at handleRenameNote (anp-15-kanban/lib/features/embedActions.js:1482:17)
-      at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:858:19)
-
-  console.error
-    htmlFromContent failed for card: TypeError: app.htmlFromContent is not a function
-        at renderCardHtml (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\noteBoard.js:145:29)
-        at buildNotesBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\api\notesBoard.js:70:9)
-        at processTicksAndRejections (node:internal/process/task_queues:104:5)
-        at buildSingleBoard (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:106:12)
-        at handleRenameNote (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\lib\features\embedActions.js:1482:17)
-        at Object.<anonymous> (C:\Users\ADMIN\OneDrive\Documents\GitHub\amplenote_stg_plugins\anp-15-kanban\test\embedActions.test.js:858:19)
-
-    [0m [90m 145 |[39m       card[33m.[39mhtml [33m=[39m [36mawait[39m app[33m.[39mhtmlFromContent(card[33m.[39mcontent)[33m;[39m
-     [90m 146 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 147 |[39m       console[33m.[39merror([32m"htmlFromContent failed for card:"[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 148 |[39m       card[33m.[39mhtml [33m=[39m [36mnull[39m[33m;[39m
-     [90m 149 |[39m     }
-     [90m 150 |[39m   }[0m
-
-      at renderCardHtml (anp-15-kanban/lib/api/noteBoard.js:147:15)
-      at buildNotesBoard (anp-15-kanban/lib/api/notesBoard.js:70:9)
-      at buildSingleBoard (anp-15-kanban/lib/features/embedActions.js:106:12)
-      at handleRenameNote (anp-15-kanban/lib/features/embedActions.js:1482:17)
-      at Object.<anonymous> (anp-15-kanban/test/embedActions.test.js:858:19)
-
-(node:352) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-PASS anp-15-kanban/test/embedActions.test.js
-  embedActions
-    handleEmbedAction dispatcher
-      ΓêÜ routes registered actions to handlers (58 ms)
-      ΓêÜ ignores unknown actions without throwing (410 ms)
-      ΓêÜ tolerates missing args (160 ms)
-    handleRefreshTab and handleRefreshAll
-      ΓêÜ handleRefreshTab returns fresh board data without calling renderEmbed (27 ms)
-      ΓêÜ handleRefreshAll returns all boards without calling renderEmbed (4 ms)
-    handlePing
-      ΓêÜ triggers a re-render (round trip proof) (2 ms)
-    handleSaveTheme
-      ΓêÜ persists valid theme ids into unified settings (3 ms)
-      ΓêÜ accepts string payload directly (1 ms)
-      ΓêÜ rejects invalid theme ids without writing (1 ms)
-    handleSaveSetting
-      ΓêÜ persists top-bar view settings to unified settings (1 ms)
-    handleSetActiveTab
-      ΓêÜ saves the active tab (1 ms)
-      ΓêÜ does nothing for missing tab ids (2 ms)
-    handleMoveCard
-      ΓêÜ moves to the last column and completes the task (4 ms)
-      ΓêÜ triggers re-render when forceRerender is true (2 ms)
-      ΓêÜ moves to a non-last column and reopens the task (1 ms)
-      ΓêÜ does nothing when the drop is a same-column no-op (2 ms)
-      ΓêÜ ignores invalid payloads and non-note tabs (27 ms)
-    handleCreateCard
-      ΓêÜ prompts, creates, relocates and returns fresh in-memory board snapshot without calling renderEmbed (5 ms)
-      ΓêÜ calls renderEmbed if forceRerender is true (2 ms)
-      ΓêÜ does nothing when the prompt is cancelled or empty (1 ms)
-    handleEditCard
-      ΓêÜ saves edited task details and returns updated board (3 ms)
-      ΓêÜ handles completed task details dialog and reopening (3 ms)
-      ΓêÜ skips writes when unchanged, cancelled, or task missing (2 ms)
-    tag boards (Phase 3)
-      ΓêÜ moveCard moves the task to target note column (2 ms)
-      ΓêÜ moveCard is a no-op for same note column drops
-      ΓêÜ createCard beside note creates a task at start of note (unsorted) (3 ms)
-      ΓêÜ createCard beside section header creates a task relocated under that header (3 ms)
-      ΓêÜ openCard navigates to the note (2 ms)
-      ΓêÜ structural column actions without sectionId are rejected on tag boards (4 ms)
-      ΓêÜ handleCreateColumnNote creates a new tagged note with custom tags and returns board (2 ms)
-      ΓêÜ handleDeleteNote prompts confirmation and deletes note via app.deleteNote (22 ms)
-      ΓêÜ handleDeleteNote aborts without confirmation (2 ms)
-      ΓêÜ header operations on a specific note within a tag tab work with noteUUID, sectionId, and heading level (15 ms)
-    tab management (Phase 4)
-      ΓêÜ addTab creates a note tab from a picked note and activates it (6 ms)
-      ΓêÜ addTab creates a new note board under -reports/-kanban (1 ms)
-      ΓêÜ addTab creates a tag tab named after the last path segment (2 ms)
-      ΓêÜ addTab creates a notes tab for multi-note project boards (1 ms)
-      ΓêÜ addTab aborts on cancel or missing selection
-      ΓêÜ closeTab removes the tab and repairs the active id (1 ms)
-      ΓêÜ moveTabDir swaps adjacent tabs without touching data (1 ms)
-      ΓêÜ setDateFormat persists a non-empty format and returns in-place result without flicker (2 ms)
-    extras (Phase 5)
-      handleCardMenu
-        ΓêÜ link-note branch appends an Amplenote note link from the picked note (3 ms)
-        ΓêÜ set-date branch writes a unix timestamp; blank clears (4 ms)
-        ΓêÜ create-note branch creates a fresh note and links it from the task (33 ms)
-        ΓêÜ complete and uncomplete branches toggle completion timestamp (2 ms)
-        ΓêÜ does nothing on cancel or missing task (1 ms)
-        linkNoteInTaskContent
-          ΓêÜ appends clean note link to existing task content (7 ms)
-          ΓêÜ does not duplicate note link if already present in content
-          ΓêÜ handles empty task content by returning only the note link
-      handleQuickSetDate and parseDateToUnixSeconds
-        ΓêÜ parses diverse date formats reliably (2 ms)
-        ΓêÜ prompts with current date and updates startAt timestamp (3 ms)
-        ΓêÜ handles numeric epoch timestamp returns from Amplenote prompt (1 ms)
-        ΓêÜ clears startAt when prompt submitted blank (1 ms)
-        ΓêÜ aborts when cancelled or task missing
-      handleGlobalSearch
-        ΓêÜ searches all notes and opens the pick (1 ms)
-        ΓêÜ alerts when nothing matches and ignores empty queries (1 ms)
-      handleMoveColumnToTab
-        ΓêÜ transfers the column after target selection + confirmation (2 ms)
-        ΓêÜ aborts without confirmation or candidate tabs (1 ms)
-    notes boards (third kind)
-      ΓêÜ moveCard moves the task to the target note natively (1 ms)
-      ΓêÜ moveCard is a no-op for same-column drops (1 ms)
-      ΓêÜ createCard inserts a task directly into the target note and returns in-memory board snapshot (43 ms)
-      ΓêÜ createColumnNote creates a note with tag prompt selection and refreshes board (16 ms)
-      ΓêÜ renameNote renames the column's note (27 ms)
-      ΓêÜ openTag navigates to tag in Amplenote (1 ms)
-      ΓêÜ openCard navigates to note in Amplenote (1 ms)
-      ΓêÜ structural heading actions are rejected on notes boards (1 ms)
-      normalizeTagList
-        ΓêÜ normalizes array of tag strings and enforces limit of 10 (1 ms)
-        ΓêÜ normalizes comma/space-separated string (1 ms)
-        ΓêÜ falls back to defaultTag when empty
-    column management (Phase 2)
-      handleCreateColumn
-        ΓêÜ prompts for a name and appends the heading (1 ms)
-        ΓêÜ does nothing when cancelled or blank (13 ms)
-      handleRenameColumn
-        ΓêÜ prefills the current name and writes renames (2 ms)
-        ΓêÜ skips unchanged names
-      handleDeleteColumn
-        ΓêÜ requires an affirmative confirmation checkbox (1 ms)
-      handleMoveColumn
-        ΓêÜ swaps with the right neighbor and re-renders (1 ms)
-        ΓêÜ swaps with the left neighbor and no-ops at edges (2 ms)
-      handleReorderColumns
-        ΓêÜ saves drag-and-drop column order into note and returns updated board (3 ms)
-      handleSetWipLimit
-        ΓêÜ saves a positive limit keyed by column name (1 ms)
-        ΓêÜ clears limits with 0 or blank and ignores cancels (1 ms)
-      handleReorderTabs
-        ΓêÜ reorders tabs array based on drag indices (1 ms)
-      handleSaveColumnsToNote / handleReorderColumns
-        ΓêÜ saves column order into note and returns updated board (1 ms)
-        ΓêÜ no-ops when missing tab or invalid columnIds
-      time helpers & handleQuickSetDate with time
-        ΓêÜ parses various time formats accurately (3 ms)
-        ΓêÜ combines date with time string
-        ΓêÜ handles quick set date and time prompt response (2 ms)
-
-PASS anp-15-kanban/test/noteBoard.test.js
-  noteBoard
-    buildNoteBoard
-      ΓêÜ builds columns from headings and routes completed tasks to dedicated Completed column (14 ms)
-      ΓêÜ requests completed tasks via includeDone (3 ms)
-      ΓêÜ marks completed cards (16 ms)
-      ΓêÜ returns an empty board for missing/invalid markdown (2 ms)
-      ΓêÜ survives a task API failure (12 ms)
-      ΓêÜ enriches cards with rendered HTML via htmlFromContent (6 ms)
-      ΓêÜ keeps cards usable when htmlFromContent fails (5 ms)
-      ΓêÜ maps per-column WIP limits by column name (1 ms)
-    toCardModel
-      ΓêÜ maps task fields to the card model (1 ms)
-      ΓêÜ parses rich footnotes into card.footnotes (1 ms)
-      ΓêÜ extracts the first inline image url (1 ms)
-    parseFootnotes
-      ΓêÜ extracts clean footnote text from Amplenote markdown (1 ms)
-      ΓêÜ returns empty object when no footnotes exist (1 ms)
-    firstImageUrl
-      ΓêÜ handles titles, query strings, and absence
-    renderCardHtml
-      ΓêÜ mutates cards in place and returns them (41 ms)
-    resolveLabels
-      ΓêÜ extracts unique wiki-link names and hashtags in order (1 ms)
-      ΓêÜ resolves colors case-insensitively from the tag map
-      ΓêÜ returns an empty array without labels
-    buildNoteBoard labels integration
-      ΓêÜ attaches parsed labels with colors to cards (1 ms)
-    plainPreview
-      ΓêÜ strips metadata comments, images, links and emphasis (1 ms)
-      ΓêÜ collapses whitespace across lines and trims
-
-PASS anp-15-kanban/test/kanban.test.js
-  kanban plugin entry
-    appOption launcher
-      ΓêÜ opens the embed section and navigates to the plugin URL (8 ms)
-    renderEmbed
-      ΓêÜ returns an HTML document with demo content when no tabs are configured (7 ms)
-      ΓêÜ uses configured tabs and persisted theme when available (2 ms)
-      ΓêÜ builds real boards for note tabs (7 ms)
-      ΓêÜ builds live tag boards for tag tabs (3 ms)
-      ΓêÜ keeps rendering when a note tab's board fails to build (3 ms)
-      ΓêÜ falls back to the default theme for unset/invalid theme settings (2 ms)
-    onEmbedCall
-      ΓêÜ dispatches actions and bumps the round-trip counter (17 ms)
-      ΓêÜ swallows handler errors so the embed never breaks (2 ms)
-
-PASS anp-15-kanban/test/columnOps.test.js
-  columnOps
-    createColumn
-      ΓêÜ appends a heading matching the shallowest existing level (7 ms)
-      ΓêÜ uses H2 when the note has no headings yet (1 ms)
-      ΓêÜ respects explicit heading levels (1, 2, 3) (1 ms)
-      ΓêÜ rejects blank names without writing (1 ms)
-    renameColumn
-      ΓêÜ rewrites the heading line preserving markers (4 ms)
-      ΓêÜ rejects blank names and unknown columns (1 ms)
-    deleteColumn
-      ΓêÜ moves tasks of the FIRST column into the next remaining heading (2 ms)
-      ΓêÜ moves tasks of a LATER column into the PREVIOUS heading (10 ms)
-      ΓêÜ refuses to delete the last remaining column (1 ms)
-      ΓêÜ returns false for unknown columns (1 ms)
-    reorderColumns
-      ΓêÜ rewrites the note with columns in the requested order (21 ms)
-      ΓêÜ rejects malformed orders without writing (1 ms)
-    transferColumn
-      ΓêÜ inserts into the target BEFORE removing from the source (1 ms)
-      ΓêÜ guards against same-note transfers and unknown columns
 
 PASS anp-15-kanban/test/themes.test.js
   themes
     registry
-      ΓêÜ has 8 themes with light/dark parity (5 ms)
+      ΓêÜ has 8 themes with light/dark parity (4 ms)
       ΓêÜ has unique ids and includes the default (1 ms)
     resolveTheme
       ΓêÜ resolves by id and falls back to default for unknown/null (1 ms)
     buildThemeCss
-      ΓêÜ emits a data-theme block per theme (2 ms)
+      ΓêÜ emits a data-theme block per theme (4 ms)
       ΓêÜ exposes all kanban tokens in every block (2 ms)
-      ΓêÜ uses only hex/rgba color values (no unresolved placeholders) (22 ms)
+      ΓêÜ uses only hex/rgba color values (no unresolved placeholders) (15 ms)
     themesJsonForClient
-      ΓêÜ serializes display metadata and escapes angle brackets (29 ms)
+      ΓêÜ serializes display metadata and escapes angle brackets (7 ms)
 
-PASS anp-15-kanban/test/markdownIndex.test.js
-  markdownIndex
-    parseHeadings
-      ΓêÜ finds headings in order with level and trimmed text (18 ms)
-      ΓêÜ returns empty for heading-less markdown
-    findColumnLevel
-      ΓêÜ picks the shallowest level and null when none (1 ms)
-    buildColumnSpans
-      ΓêÜ creates spans for all headings across different levels (3 ms)
-      ΓêÜ supports an explicit column level override (4 ms)
-      ΓêÜ handles heading-less notes (1 ms)
-    findTaskLines
-      ΓêÜ matches uuids tolerantly (spaces in metadata JSON) (2 ms)
-    assignTasksToColumns
-      ΓêÜ assigns tasks by position; preamble tasks go unsorted (3 ms)
-      ΓêÜ skips tasks whose lines cannot be found
-      ΓêÜ never matches non-task text/paragraphs as task lines in content fallback
-    sectionContent / removeLine / insertUnderHeading
-      ΓêÜ extracts content below the heading (2 ms)
-      ΓêÜ removeLine does not mutate input
-      ΓêÜ insertUnderHeading inserts directly below the heading line with text separation (1 ms)
-    resolveSpan
-      ΓêÜ resolves by id first, then name fallback, else null (1 ms)
+PASS anp-15-kanban/test/embedActions.test.js
+  embedActions
+    handleEmbedAction dispatcher
+      ΓêÜ routes registered actions to handlers (16 ms)
+      ΓêÜ ignores unknown actions without throwing (181 ms)
+      ΓêÜ tolerates missing args (78 ms)
+    handleRefreshTab and handleRefreshAll
+      ΓêÜ handleRefreshTab returns fresh board data without calling renderEmbed (5 ms)
+      ΓêÜ handleRefreshAll returns all boards without calling renderEmbed (2 ms)
+    handlePing
+      ΓêÜ triggers a re-render (round trip proof) (1 ms)
+    handleSaveTheme
+      ΓêÜ persists valid theme ids into unified settings (4 ms)
+      ΓêÜ accepts string payload directly (2 ms)
+      ΓêÜ rejects invalid theme ids without writing (4 ms)
+    handleSaveSetting
+      ΓêÜ persists top-bar view settings to unified settings (1 ms)
+    handleSetActiveTab
+      ΓêÜ saves the active tab (1 ms)
+      ΓêÜ does nothing for missing tab ids (1 ms)
+    handleMoveCard
+      ΓêÜ moves to the completed column and completes the task (4 ms)
+      ΓêÜ moves to a markdown heading column (even named Done) without completing the task (2 ms)
+      ΓêÜ triggers re-render when forceRerender is true (1 ms)
+      ΓêÜ moves to another column and reopens the task if it was completed (2 ms)
+      ΓêÜ does nothing when the drop is a same-column no-op (1 ms)
+      ΓêÜ ignores invalid payloads and non-note tabs (1 ms)
+    handleCreateCard
+      ΓêÜ prompts, creates, relocates and returns fresh in-memory board snapshot without calling renderEmbed (6 ms)
+      ΓêÜ calls renderEmbed if forceRerender is true (2 ms)
+      ΓêÜ does nothing when the prompt is cancelled or empty (2 ms)
+    handleEditCard
+      ΓêÜ saves edited task details and returns updated board (2 ms)
+      ΓêÜ handles completed task details dialog and reopening (1 ms)
+      ΓêÜ skips writes when unchanged, cancelled, or task missing (2 ms)
+    tag boards (Phase 3)
+      ΓêÜ moveCard moves the task to target note column (2 ms)
+      ΓêÜ moveCard is a no-op for same note column drops
+      ΓêÜ createCard beside note creates a task at start of note (unsorted) (4 ms)
+      ΓêÜ createCard beside section header creates a task relocated under that header (3 ms)
+      ΓêÜ openCard navigates to the note (1 ms)
+      ΓêÜ structural column actions without sectionId are rejected on tag boards (3 ms)
+      ΓêÜ handleCreateColumnNote creates a new tagged note with custom tags and returns board (2 ms)
+      ΓêÜ handleDeleteNote prompts confirmation and deletes note via app.deleteNote (3 ms)
+      ΓêÜ handleDeleteNote aborts without confirmation (1 ms)
+      ΓêÜ header operations on a specific note within a tag tab work with noteUUID, sectionId, and heading level (6 ms)
+    tab management (Phase 4)
+      ΓêÜ addTab creates a note tab from a picked note and activates it (3 ms)
+      ΓêÜ addTab creates a new note board under -reports/-kanban (1 ms)
+      ΓêÜ addTab locks in-flight execution to prevent duplicate notes on rapid concurrent calls (24 ms)
+      ΓêÜ addTab creates a tag tab named after the last path segment (1 ms)
+      ΓêÜ addTab creates a notes tab for multi-note project boards (1 ms)
+      ΓêÜ addTab aborts on cancel or missing selection (1 ms)
+      ΓêÜ closeTab removes the tab and repairs the active id (1 ms)
+      ΓêÜ moveTabDir swaps adjacent tabs without touching data (1 ms)
+      ΓêÜ setDateFormat persists a non-empty format and returns in-place result without flicker (1 ms)
+    extras (Phase 5)
+      handleCardMenu
+        ΓêÜ link-note branch appends an Amplenote note link from the picked note (2 ms)
+        ΓêÜ set-date branch writes a unix timestamp; blank clears (4 ms)
+        ΓêÜ create-note branch creates a fresh note and links it from the task (1 ms)
+        ΓêÜ complete and uncomplete branches toggle completion timestamp (1 ms)
+        ΓêÜ does nothing on cancel or missing task
+        linkNoteInTaskContent
+          ΓêÜ appends clean note link to existing task content (1 ms)
+          ΓêÜ does not duplicate note link if already present in content
+          ΓêÜ handles empty task content by returning only the note link (1 ms)
+      handleQuickSetDate and parseDateToUnixSeconds
+        ΓêÜ parses diverse date formats reliably (2 ms)
+        ΓêÜ prompts with current date and updates startAt timestamp (1 ms)
+        ΓêÜ handles numeric epoch timestamp returns from Amplenote prompt
+        ΓêÜ clears startAt when prompt submitted blank
+        ΓêÜ aborts when cancelled or task missing
+      handleGlobalSearch
+        ΓêÜ searches all notes and opens the pick (2 ms)
+        ΓêÜ alerts when nothing matches and ignores empty queries (1 ms)
+      handleMoveColumnToTab
+        ΓêÜ transfers the column after target selection + confirmation (2 ms)
+        ΓêÜ aborts without confirmation or candidate tabs (2 ms)
+    notes boards (third kind)
+      ΓêÜ moveCard moves the task to the target note natively (2 ms)
+      ΓêÜ moveCard is a no-op for same-column drops (1 ms)
+      ΓêÜ createCard inserts a task directly into the target note and returns in-memory board snapshot (3 ms)
+      ΓêÜ createColumnNote creates a note with tag prompt selection and refreshes board (2 ms)
+      ΓêÜ renameNote renames the column's note (3 ms)
+      ΓêÜ openTag navigates to tag in Amplenote (2 ms)
+      ΓêÜ openCard navigates to note in Amplenote (1 ms)
+      ΓêÜ structural heading actions are rejected on notes boards (1 ms)
+      normalizeTagList
+        ΓêÜ normalizes array of tag strings and enforces limit of 10
+        ΓêÜ normalizes comma/space-separated string (1 ms)
+        ΓêÜ falls back to defaultTag when empty (1 ms)
+    column management (Phase 2)
+      handleCreateColumn
+        ΓêÜ prompts for a name and appends the heading (1 ms)
+        ΓêÜ does nothing when cancelled or blank (1 ms)
+      handleRenameColumn
+        ΓêÜ prefills the current name and writes renames (1 ms)
+        ΓêÜ skips unchanged names (1 ms)
+      handleDeleteColumn
+        ΓêÜ requires an affirmative confirmation checkbox (1 ms)
+      handleMoveColumn
+        ΓêÜ swaps with the right neighbor and re-renders (2 ms)
+        ΓêÜ swaps with the left neighbor and no-ops at edges (2 ms)
+      handleReorderColumns
+        ΓêÜ saves drag-and-drop column order into note and returns updated board (2 ms)
+      handleSetWipLimit
+        ΓêÜ saves a positive limit keyed by column name (1 ms)
+        ΓêÜ clears limits with 0 or blank and ignores cancels (2 ms)
+      handleReorderTabs
+        ΓêÜ reorders tabs array based on drag indices (6 ms)
+      handleSaveColumnsToNote / handleReorderColumns
+        ΓêÜ saves column order into note and returns updated board (1 ms)
+        ΓêÜ no-ops when missing tab or invalid columnIds
+      time helpers & handleQuickSetDate with time
+        ΓêÜ parses various time formats accurately (2 ms)
+        ΓêÜ combines date with time string (4 ms)
+        ΓêÜ handles quick set date and time prompt response (3 ms)
 
-PASS anp-15-kanban/test/clientScript.test.js
-  clientScript
-    ΓêÜ boots from injected globals and bridges to the plugin host (4 ms)
-    ΓêÜ implements the cycling-themes standard (3 ms)
-    ΓêÜ wires the phase-0 controls (2 ms)
-    ΓêÜ wires the phase-2 column controls and rich card rendering (5 ms)
-    ΓêÜ wires the phase-3 tag-board behaviors (12 ms)
-    ΓêÜ wires the phase-4 tab management and date format controls (1 ms)
-    ΓêÜ wires the phase-5 extras (search, card menu, labels, transfer, toggles) (2 ms)
-    ΓêÜ supports note and tag board features (1 ms)
-    ΓêÜ contains no template literal interpolation that could leak server data (1 ms)
-    ΓêÜ compiles as valid JavaScript (guards against template-literal escape corruption) (4 ms)
-    ΓêÜ renders tabs, board, and meta from state (1 ms)
+PASS anp-15-kanban/test/columnOps.test.js
+  columnOps
+    createColumn
+      ΓêÜ appends a heading matching the shallowest existing level (8 ms)
+      ΓêÜ uses H2 when the note has no headings yet (1 ms)
+      ΓêÜ respects explicit heading levels (1, 2, 3) (2 ms)
+      ΓêÜ rejects blank names without writing (3 ms)
+    renameColumn
+      ΓêÜ rewrites the heading line preserving markers (2 ms)
+      ΓêÜ rejects blank names and unknown columns (16 ms)
+    deleteColumn
+      ΓêÜ deletes the FIRST column heading so its tasks naturally become Unsorted preamble (3 ms)
+      ΓêÜ moves tasks of a LATER column into the PREVIOUS heading (5 ms)
+      ΓêÜ refuses to delete the last remaining column (1 ms)
+      ΓêÜ returns false for unknown columns
+    reorderColumns
+      ΓêÜ rewrites the note with columns in the requested order (3 ms)
+      ΓêÜ rejects malformed orders without writing (1 ms)
+    transferColumn
+      ΓêÜ inserts into the target BEFORE removing from the source (2 ms)
+      ΓêÜ guards against same-note transfers and unknown columns (1 ms)
+    withNoteLock
+      ΓêÜ serializes concurrent operations and releases lock cleanly (13 ms)
 
-PASS anp-15-kanban/test/settings.test.js
-  settings
-    sanitizeSettings
-      ΓêÜ returns default settings for null / non-object input (7 ms)
-      ΓêÜ sanitizes partial updates and preserves valid values (18 ms)
-      ΓêÜ rejects invalid theme or sortMode and falls back to defaults (1 ms)
-    loadPluginSettings
-      ΓêÜ loads unified JSON settings from Kanban Settings (2 ms)
-      ΓêÜ falls back to legacy Kanban Theme when Kanban Settings is absent (1 ms)
-      ΓêÜ returns default settings when app settings are empty (1 ms)
-    savePluginSettings
-      ΓêÜ merges partial updates and writes JSON string to Kanban Settings (53 ms)
-
-PASS anp-15-kanban/test/notesBoard.test.js
-  notesBoard
-    ΓêÜ builds one column per tagged note, cards from its active tasks (10 ms)
-    ΓêÜ enriches cards with rich HTML and colored labels (2 ms)
-    ΓêÜ queries notes live by the board tag (1 ms)
-    ΓêÜ detects parent and child task hierarchy from markdown indentation (3 ms)
-    ΓêÜ returns an empty board for a missing tag (1 ms)
+PASS anp-15-kanban/test/prompt.test.js
+  prompt utils
+    ΓêÜ unwraps single-value resolutions (6 ms)
+    ΓêÜ unwraps array resolutions to the first input (1 ms)
+    ΓêÜ maps nullish results to null (1 ms)
 
 PASS anp-15-kanban/test/noteOps.test.js
   noteOps
     retagNote
-      ΓêÜ swaps sub-tags (remove old, add new) (5 ms)
-      ΓêÜ adds only when moving into a sub-tag from No sub-tag (2 ms)
+      ΓêÜ swaps sub-tags (remove old, add new) (8 ms)
+      ΓêÜ adds only when moving into a sub-tag from No sub-tag (1 ms)
       ΓêÜ removes only when moving into No sub-tag (1 ms)
       ΓêÜ changes nothing for identical or empty subs (2 ms)
     createTaggedNote
@@ -494,82 +299,161 @@ PASS anp-15-kanban/test/noteOps.test.js
     openNote
       ΓêÜ navigates to the note URL (1 ms)
     openTag
-      ΓêÜ navigates to the notes filtered by tag URL (1 ms)
+      ΓêÜ navigates to the notes filtered by tag URL
       ΓêÜ strips leading hash prefix if present (1 ms)
-      ΓêÜ does nothing if tag is empty (1 ms)
+      ΓêÜ does nothing if tag is empty (2 ms)
 
-PASS anp-15-kanban/test/taskOps.test.js
-  taskOps
-    moveTaskToColumn
-      ΓêÜ moves a task line under the destination heading (forward) (45 ms)
-      ΓêÜ handles index shift when moving backward (1 ms)
-      ΓêÜ reports same-column drops without writing when no targetCardId is provided (1 ms)
-      ΓêÜ reorders tasks within the same column when targetCardId is provided (1 ms)
-      ΓêÜ reorders tasks after a target card within the same column (1 ms)
-      ΓêÜ moves a task from one header to a specific card position in another header (2 ms)
-      ΓêÜ reports no-task / no-target / no-columns without writing (2 ms)
-    createTaskInColumn
-      ΓêÜ inserts the task then relocates it into the target column (3 ms)
-      ΓêÜ relocates task to line 0 (before headers) when target is unsorted (2 ms)
-      ΓêÜ preserves existing text under header when creating task in column (2 ms)
-      ΓêÜ tolerates relocation failure and still returns the uuid (2 ms)
-    setTaskCompleted
-      ΓêÜ completes with a timestamp and reopens with null (3 ms)
-    updateCardContent
-      ΓêÜ writes new content (1 ms)
-    addLabelToTask
-      ΓêÜ appends a wiki-link label to the task content (1 ms)
-      ΓêÜ skips duplicates, blank names, and missing tasks (1 ms)
-
-PASS anp-15-kanban/test/demoBoard.test.js
-  demoBoard
-    ΓêÜ injects a demo tab and board when no tabs are configured (12 ms)
-    ΓêÜ leaves states with existing tabs untouched
-
-PASS anp-15-kanban/test/prompt.test.js
-  prompt utils
-    ΓêÜ unwraps single-value resolutions (7 ms)
-    ΓêÜ unwraps array resolutions to the first input (1 ms)
-    ΓêÜ maps nullish results to null (1 ms)
-
-PASS anp-15-kanban/test/sessionState.test.js
-  sessionState
-    ΓêÜ bumps and snapshots the round-trip counter (3 ms)
-    ΓêÜ returns a copy (snapshot mutations do not leak) (3 ms)
-
-PASS anp-15-kanban/test/tagBoard.test.js
-  tagBoard
-    buildTagBoard
-      ΓêÜ builds note columns with collapsible heading sections and tasks as cards (54 ms)
-      ΓêÜ queries notes live by the board tag (1 ms)
-      ΓêÜ preserves empty notes and empty heading sections for empty toggle support (3 ms)
-      ΓêÜ returns an empty board for a missing tag (1 ms)
-
-PASS anp-15-kanban/test/constants.test.js
-  constants
-    SETTINGS_KEYS
-      ΓêÜ exposes stable setting keys (7 ms)
-    emptyTabsConfig
-      ΓêÜ returns a fresh default config each call (7 ms)
-    newId
-      ΓêÜ uses the given prefix (1 ms)
-      ΓêÜ generates unique ids (4 ms)
-    isValidTab
-      ΓêÜ accepts note and tag tabs with ids (1 ms)
-      ΓêÜ rejects malformed tabs (1 ms)
+PASS anp-15-kanban/test/noteBoard.test.js
+  noteBoard
+    buildNoteBoard
+      ΓêÜ builds columns from headings and routes completed tasks to dedicated Completed column (13 ms)
+      ΓêÜ requests completed tasks via includeDone (3 ms)
+      ΓêÜ marks completed cards (2 ms)
+      ΓêÜ returns an empty board for missing/invalid markdown (2 ms)
+      ΓêÜ survives a task API failure (9 ms)
+      ΓêÜ enriches cards with rendered HTML via htmlFromContent (3 ms)
+      ΓêÜ keeps cards usable when htmlFromContent fails (2 ms)
+      ΓêÜ maps per-column WIP limits by column name (2 ms)
+    toCardModel
+      ΓêÜ maps task fields to the card model (1 ms)
+      ΓêÜ parses rich footnotes into card.footnotes (1 ms)
+      ΓêÜ extracts the first inline image url (1 ms)
+    parseFootnotes
+      ΓêÜ extracts clean footnote text from Amplenote markdown (1 ms)
+      ΓêÜ returns empty object when no footnotes exist
+    firstImageUrl
+      ΓêÜ handles titles, query strings, and absence (1 ms)
+    renderCardHtml
+      ΓêÜ mutates cards in place and returns them (1 ms)
+    resolveLabels
+      ΓêÜ extracts unique wiki-link names and hashtags in order (1 ms)
+      ΓêÜ resolves colors case-insensitively from the tag map (5 ms)
+      ΓêÜ returns an empty array without labels (1 ms)
+    buildNoteBoard labels integration
+      ΓêÜ attaches parsed labels with colors to cards (1 ms)
+    plainPreview
+      ΓêÜ strips metadata comments, images, links and emphasis (1 ms)
+      ΓêÜ collapses whitespace across lines and trims
 
 PASS anp-15-kanban/test/html.test.js
   html utils
     escapeHtml
-      ΓêÜ escapes all dangerous entities (7 ms)
-      ΓêÜ handles non-strings and nullish values (2 ms)
+      ΓêÜ escapes all dangerous entities (4 ms)
+      ΓêÜ handles non-strings and nullish values (1 ms)
     toJsonForScript
-      ΓêÜ escapes </script> breakouts (3 ms)
-      ΓêÜ escapes line separator characters invalid in JS string literals (3 ms)
+      ΓêÜ escapes </script> breakouts and > characters (3 ms)
+      ΓêÜ escapes line separator characters invalid in JS string literals (1 ms)
       ΓêÜ round-trips plain data (1 ms)
 
-Test Suites: 19 passed, 19 total
-Tests:       244 passed, 244 total
+PASS anp-15-kanban/test/notesBoard.test.js
+  notesBoard
+    ΓêÜ builds one column per tagged note, cards from its active tasks (10 ms)
+    ΓêÜ enriches cards with rich HTML and colored labels (2 ms)
+    ΓêÜ queries notes live by the board tag (2 ms)
+    ΓêÜ detects parent and child task hierarchy from markdown indentation (4 ms)
+    ΓêÜ returns an empty board for a missing tag (1 ms)
+
+PASS anp-15-kanban/test/clientScript.test.js
+  clientScript
+    ΓêÜ boots from injected globals and bridges to the plugin host (7 ms)
+    ΓêÜ implements the cycling-themes standard (2 ms)
+    ΓêÜ wires the phase-0 controls (2 ms)
+    ΓêÜ wires the phase-2 column controls and rich card rendering (12 ms)
+    ΓêÜ wires the phase-3 tag-board behaviors (1 ms)
+    ΓêÜ wires the phase-4 tab management and date format controls (1 ms)
+    ΓêÜ wires the phase-5 extras (search, card menu, labels, transfer, toggles) (3 ms)
+    ΓêÜ supports note and tag board features (1 ms)
+    ΓêÜ contains no template literal interpolation that could leak server data (1 ms)
+    ΓêÜ compiles as valid JavaScript (guards against template-literal escape corruption) (15 ms)
+    ΓêÜ renders tabs, board, and meta from state (2 ms)
+    ΓêÜ handles wheel scrolling over header options and tabs (2 ms)
+
+PASS anp-15-kanban/test/tabsConfig.test.js
+  tabsConfig
+    normalizeConfig
+      ΓêÜ returns defaults for null/undefined/garbage (10 ms)
+      ΓêÜ drops invalid tabs and keeps valid ones (2 ms)
+      ΓêÜ repairs activeTabId when it points at a removed tab (1 ms)
+      ΓêÜ keeps a valid activeTabId (1 ms)
+      ΓêÜ falls back to default date format when missing/blank (3 ms)
+      ΓêÜ sanitizes per-tab columnLimits (WIP maps) (4 ms)
+      ΓêÜ defaults missing columnLimits to an empty object (1 ms)
+    loadTabsConfig / saveTabsConfig
+      ΓêÜ loads defaults when setting is unset or corrupt JSON (2 ms)
+      ΓêÜ round-trips a saved config (3 ms)
+    createTab
+      ΓêÜ creates note and tag tabs with generated ids (4 ms)
+      ΓêÜ defaults the name and rejects bad kinds (17 ms)
+    addTab
+      ΓêÜ appends and activates the first tab (1 ms)
+    removeTab
+      ΓêÜ removes and repairs activeTabId (1 ms)
+      ΓêÜ keeps activeTabId when removing another tab (1 ms)
+    setActiveTab
+      ΓêÜ ignores unknown tab ids (1 ms)
+    moveTab
+      ΓêÜ reorders tabs (1 ms)
+      ΓêÜ is a no-op for out-of-range indices (1 ms)
+    tabById
+      ΓêÜ finds tabs or returns null (1 ms)
+
+PASS anp-15-kanban/test/formatTimestamp.test.js
+  formatTimestamp
+    ΓêÜ returns 'Not Set!' for null/undefined/invalid timestamp (11 ms)
+    ΓêÜ formats timestamp with default YYYY-MM-DD format (3 ms)
+    ΓêÜ formats timestamp with custom DD/MM/YYYY format (2 ms)
+    ΓêÜ formats timestamp with custom MM/DD/YYYY format (2 ms)
+
+PASS anp-15-kanban/test/markdownIndex.test.js
+  markdownIndex
+    parseHeadings
+      ΓêÜ finds headings in order with level and trimmed text (6 ms)
+      ΓêÜ returns empty for heading-less markdown (1 ms)
+    findColumnLevel
+      ΓêÜ picks the shallowest level and null when none (2 ms)
+    buildColumnSpans
+      ΓêÜ creates spans for all headings across different levels (4 ms)
+      ΓêÜ supports an explicit column level override (3 ms)
+      ΓêÜ handles heading-less notes (1 ms)
+    findTaskLines
+      ΓêÜ matches uuids tolerantly (spaces in metadata JSON) (2 ms)
+    assignTasksToColumns
+      ΓêÜ assigns tasks by position; preamble tasks go unsorted (3 ms)
+      ΓêÜ skips tasks whose lines cannot be found (2 ms)
+      ΓêÜ never matches non-task text/paragraphs as task lines in content fallback (3 ms)
+    sectionContent / removeLine / insertUnderHeading
+      ΓêÜ extracts content below the heading (4 ms)
+      ΓêÜ removeLine does not mutate input (1 ms)
+      ΓêÜ insertUnderHeading inserts directly below the heading line with text separation (1 ms)
+    resolveSpan
+      ΓêÜ resolves by id first, then name fallback, else null (2 ms)
+      ΓêÜ prevents numeric line string collision with column array index (2 ms)
+
+PASS anp-15-kanban/test/sessionState.test.js
+  sessionState
+    ΓêÜ bumps and snapshots the round-trip counter (3 ms)
+    ΓêÜ returns a copy (snapshot mutations do not leak) (2 ms)
+
+PASS anp-15-kanban/test/settings.test.js
+  settings
+    sanitizeSettings
+      ΓêÜ returns default settings for null / non-object input (8 ms)
+      ΓêÜ sanitizes partial updates and preserves valid values
+      ΓêÜ rejects invalid theme or sortMode and falls back to defaults (2 ms)
+    loadPluginSettings
+      ΓêÜ loads unified JSON settings from Kanban Settings (2 ms)
+      ΓêÜ falls back to legacy Kanban Theme when Kanban Settings is absent (2 ms)
+      ΓêÜ returns default settings when app settings are empty (1 ms)
+    savePluginSettings
+      ΓêÜ merges partial updates and writes JSON string to Kanban Settings (3 ms)
+
+PASS anp-15-kanban/test/demoBoard.test.js
+  demoBoard
+    ΓêÜ injects a demo tab and board when no tabs are configured (11 ms)
+    ΓêÜ leaves states with existing tabs untouched (1 ms)
+
+Test Suites: 20 passed, 20 total
+Tests:       259 passed, 259 total
 Snapshots:   0 total
-Time:        7.609 s
+Time:        5.86 s
 Ran all test suites matching /anp-15-kanban/i.

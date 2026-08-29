@@ -77,4 +77,10 @@ describe("clientScript", () => {
       expect(script).toContain(fn);
     });
   });
+
+  it("handles wheel scrolling over header options and tabs", () => {
+    expect(script).toContain(".kb-header-right");
+    expect(script).toContain("headerRight.scrollLeft +=");
+    expect(script).toContain("tabs.scrollLeft +=");
+  });
 });

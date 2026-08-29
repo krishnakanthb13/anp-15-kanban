@@ -321,13 +321,22 @@ Task cards dynamically display badges and metadata chips **only when those value
 
 - **Drag Tabs**: Click and drag any tab in the top tab bar to reorder your boards. The new sequence is persisted quietly in the background.
 
-### Scrolling & Keyboard Shortcuts
+### Scrolling, Responsive Layout & Keyboard Shortcuts
 
-- **Mouse Wheel**: Native vertical scrolling over columns and cards.
-- **`Shift + Wheel`**: Horizontal scrolling across columns from anywhere on the canvas.
-- **`T` / `t`**: Cycle through the 8 themes with 0ms client-side switching.
-- **`/`**: Instantly focus and select the card filter search input.
-- **`Esc`**: Clear search filter, restore full board, and blur search input.
+- **Responsive Viewport Adaptation**:
+  - When the board window gets narrower (e.g. side-by-side with Amplenote's **Peek Viewer** or on smaller screens), the header toolbar, search bar, and tab navigation adapt automatically without clipping or line breaks.
+  - Multi-tier responsive breakpoints (`@media (max-width: 980px)`, `720px`, `540px`) optimize button padding, collapse redundant brand labels, and adjust search bar dimensions to preserve maximum working canvas.
+- **Wheel-Scrollable Header Options**:
+  - Simply hover the mouse cursor anywhere over the **Header Options Bar** or **Header** and roll the mouse wheel (or swipe with a trackpad) to smoothly scroll horizontally through all toolbar buttons (`Open Note`, `Sort Tasks`, `Density`, `Empty`, `Info`, `@ Date`, `Date Format`, `Theme`, `Ping`).
+- **Wheel-Scrollable Tabs**:
+  - Hovering over the tab bar (`#kb-tabs`) and rolling the mouse wheel scrolls horizontally across tabs with zero friction.
+- **Canvas & Column Scrolling**:
+  - **Mouse Wheel**: Native vertical scrolling over column card lists.
+  - **`Shift + Wheel`**: Horizontal scrolling across board columns from anywhere on the canvas.
+- **Keyboard Shortcuts**:
+  - **`T` / `t`**: Cycle through the 8 themes with 0ms client-side switching.
+  - **`/`**: Instantly focus and select the card filter search input.
+  - **`Esc`**: Clear search filter, restore full board, and blur search input.
 - **Live Toast Notifications**: Non-intrusive bottom-right feedback for theme changes, density/view toggles, sorting, column reordering, guardrail alerts, and note synchronization.
 
 ### Toast Notification System

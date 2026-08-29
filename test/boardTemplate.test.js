@@ -55,4 +55,11 @@ describe("boardTemplate", () => {
   it("inlines the client script", () => {
     expect(html).toContain("callAmplenotePlugin");
   });
+
+  it("includes responsive header styling and media queries", () => {
+    expect(html).toContain(".kb-header-right");
+    expect(html).toContain("@media (max-width: 980px)");
+    expect(html).toContain("@media (max-width: 720px)");
+    expect(html).toContain("scrollbar-width: none");
+  });
 });
