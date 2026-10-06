@@ -326,5 +326,13 @@ Knowledge management often transcends individual task lists, requiring a macro v
 
 **Why:** Many Amplenote power users organize projects by tagging notes rather than writing headings inside a single note. Supporting Tags Boards elevates the Kanban plugin to a comprehensive workspace manager that handles both micro-task tracking and macro-document pipelines with equal finesse.
 
+---
 
+## 33. Zero-Trust Client-Side HTML Sanitization in Sandboxed Views
 
+Even when code runs inside a sandboxed iframe with no direct `app.*` access, unescaped user-controlled content inside `innerHTML` represents a dangerous attack surface:
+- **Stored XSS Threat Model**: Note titles, tags, and task metadata in shared notes can originate from untrusted collaborators. If unescaped strings (such as `<img src=x onerror="...">`) are inserted into `details.innerHTML`, script execution occurs within the plugin iframe context.
+- **Bridge Exploitation Defense**: An in-iframe script could interact with `window.callAmplenotePlugin` to trigger unauthorized note mutations, delete notes, or manipulate settings.
+- **Strict Context-Aware Escaping**: All dynamic strings formatted into HTML fragments (note names, tags, formatted dates, timestamps, repeat rules) must pass through a strict client-side entity escaping layer (`escapeHtml`), while pure text nodes use `node.textContent`.
+
+**Why:** Defense-in-depth requires that sandboxed presentation layers never trust account data. Sanitizing all interpolated variables ensures that collaborative and shared notes remain completely safe against stored and DOM-based XSS.

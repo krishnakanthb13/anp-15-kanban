@@ -44,7 +44,7 @@ lib/
     themes.js          # 8-theme registry, palette tokens, CSS builder, isValidThemeId guard
     boardTemplate.js   # HTML document assembly (theme CSS + layout CSS + sort/save header controls)
     clientScript.js    # Embed-side JS: rendering, DnD, collapsible sections, conditional badges,
-                       # sort cycler, saveSort trigger, theme cycler (ES5 template-safe string).
+                       # sort cycler, saveSort trigger, theme cycler, client-side XSS escaping via escapeHtml (ES5 template-safe string).
   utils/
     html.js            # escapeHtml, toJsonForScript (script-safe JSON embedding)
     prompt.js          # firstValue(): normalizes single- vs multi-input prompt results
@@ -336,6 +336,6 @@ For full live validation steps, see [`checklist.md`](./checklist.md).
 ## Testing Strategy
 
 ```bash
-npm test anp-15-kanban                                                    # Jest test suite (21 suites, 275 tests)
+npm test anp-15-kanban                                                    # Jest test suite (21 suites, 276 tests)
 node esbuild.js 15                                                        # Compiles bundle to build/kanban.compiled.js
 ```

@@ -93,4 +93,11 @@ describe("clientScript", () => {
     expect(script).toContain("headerRight.scrollLeft +=");
     expect(script).toContain("tabs.scrollLeft +=");
   });
+
+  it("escapes note titles, tags, and dates in card details to prevent XSS", () => {
+    expect(script).toContain("function escapeHtml(");
+    expect(script).toContain("escapeHtml(card.noteName)");
+    expect(script).toContain("escapeHtml(t)");
+  });
 });
+

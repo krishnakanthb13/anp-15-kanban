@@ -1,6 +1,6 @@
 # YouTube Video Preparation (PREP.md)
 
-This document contains packaging metadata and a walkthrough script to assist in producing a video for the **Kanban Plugin** (v0.0.48) in Amplenote.
+This document contains packaging metadata, a Gemini 3.8 Flash TTS Director Prompt, and a synchronized fact-based walkthrough script for the **Kanban Plugin** (v0.0.48) in Amplenote.
 
 ---
 
@@ -11,9 +11,9 @@ This document contains packaging metadata and a walkthrough script to assist in 
 *   **Option B (Benefit-driven):** Visual Task & Project Management in Amplenote: Multi-Tab Kanban, Tag Boards & Note Workflows!
 
 ### Thumbnail Plan
-- **Background:** Use Amplenote's dark mode color (#1E1E1E) as the solid background color.
+- **Background:** Use Amplenote's dark mode color (`#1E1E1E`) as the solid background color.
 - **Text Formatting:**
-  - **"AMPLENOTE PLUGIN:"** must be uppercase, using a vibrant Amplenote blue (#007AFF) or bold accent color, aligned to the center.
+  - **"AMPLENOTE PLUGIN:"** must be uppercase, using a vibrant Amplenote blue (`#007AFF`) or bold accent color, aligned to the center.
   - The **KANBAN** plugin name should be placed immediately below it in stark white, extra-large, bold typography.
 - **Visual/Icon:** Place the official Amplenote logo/icon in the bottom right corner of the thumbnail.
 
@@ -21,9 +21,9 @@ This document contains packaging metadata and a walkthrough script to assist in 
 
 📋 COMPLETE GUIDE TO THE KANBAN PLUGIN FOR AMPLENOTE
 
-A straightforward, fact-based walkthrough of the Kanban plugin for Amplenote. In this video, we cover every single capability of this visual project and task management system—from multi-tab workflows, Single Note heading boards, and Tag boards with collapsible sections to Multi-Note pipelines, Tags boards with drag-and-drop retagging, visual sorting with note markdown persistence, and custom themes.
+A straightforward, fact-based walkthrough of the Kanban plugin for Amplenote. In this video, we cover every single capability of this visual project and task management system—from multi-tab workflows, Single Note heading boards, and Tag boards with collapsible sections to Multi-Note pipelines, Tags boards with drag-and-drop retagging, visual sorting with note markdown persistence, custom themes, and built-in security protections.
 
-Whether managing daily sprint backlogs, tracking cross-project tag hierarchies, or retagging notes via drag-and-drop, this plugin transforms your notes and tasks into an interactive Kanban workspace.
+Whether managing daily sprint backlogs, tracking cross-project tag hierarchies, or retagging notes via drag-and-drop, this plugin transforms your notes and tasks into an interactive, high-performance Kanban workspace.
 
 🔗 Github Repository: https://github.com/krishnakanthb13/anp-15-kanban
 
@@ -71,16 +71,169 @@ COLUMN & HEADING MANAGEMENT
 * Boundary Guardrails: Protects `Unsorted` (pinned at left) and `Completed` (pinned at right) from invalid moves.
 * WIP Limits: Click column count chips to enforce Work-In-Progress limits with visual alert highlights.
 
-VIEW CONTROLS, SORTING & THEMES
+VIEW CONTROLS, SORTING, THEMES & SECURITY
 * Dynamic Sorting: Non-destructive client-side sorting by Score, Date, Important, Urgent, Name, Created, or Updated, with a 1-click `💾 Save Sort` button to persist markdown order.
 * View Options: Search with 1-click `✕` clear, 3-tier Density (`Cozy`, `Compact`, `Spacious`), Empty columns toggle, Expand all info, and Quick `@ Date` scheduling.
 * 8 Curated Themes: Light and dark color palettes (Clean Daylight, Sepia Parchment, Matcha Latte, Nord Frost, Midnight Slate, Nord Arctic, Dracula Neo, Emerald Forest) switchable via `T` key.
+* Zero-Trust HTML Sanitization: Built-in `escapeHtml()` sanitizes all note names, tags, and timestamps inside card details popups to protect against stored XSS.
 
 #Amplenote #Kanban #TaskManagement #Productivity #ProjectManagement #PKM #VisualWorkflow #NoteTaking
 
 ---
 
-## 2. Walkthrough Script (Fact-Based)
+## 2. Gemini 3.8 Flash TTS Director Prompt
+
+Use this complete prompt block directly in **Google AI Studio** (Speech / Audio generation workspace) or via the **Gemini API** using `gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`:
+
+```text
+AUDIO PROFILE:
+Voice: Professional, warm, articulate tech educator.
+Accent: Crisp neutral American accent.
+Pacing: Steady, moderate educational tempo with clear articulation.
+
+SCENE:
+Setting: Quiet recording studio booth, close-mic screencast narration with clean room tone and zero echo.
+
+DIRECTOR'S NOTES:
+Maintain a conversational, factual delivery without hype. 
+Pause naturally between feature transitions. 
+Enunciate technical terms and acronyms (U-U-I-D, S-V-G, J-S-O-N, R-R-U-L-E, H-T-M-L, X-S-S) clearly as separate letters. 
+Pronounce UI icons and symbols naturally: left-arrow, right-arrow, up-arrow, down-arrow, plus, edit, delete, transfer, external-link.
+Do not read markdown syntax, backticks, or raw code brackets aloud.
+
+TRANSCRIPT:
+[warmly] Hello everyone! In this video, we're doing a complete, fact-based walkthrough of the Kanban Plugin for Amplenote. [slight pause] This plugin renders a multi-tab visual Kanban board inside Amplenote's persistent embed section. It supports four distinct board models: Single Note heading boards, Tag boards with collapsible sections, Multi-Note project boards, and Tags boards where dragging notes between columns re-tags them in real time. Let's look at installation, settings, and how every single feature works.
+
+[pause]
+
+To install the plugin, create a note named "Kanban Plugin" in Amplenote. Add the metadata table with name: Kanban, icon: view_kanban, and two settings: "Kanban Tabs" and "Kanban Settings". 
+
+Below the metadata table, create a JavaScript code block and paste the compiled plugin code. Then go to Account Settings, open Plugins, and activate it.
+
+To launch the board, click the "Open Kanban Board" button in your plugin launcher. This navigates to the plugin's dedicated addressable embed view inside Amplenote. If you have no tabs configured yet, the board starts with a pre-populated Demo Board so you can explore the interface right away.
+
+[pause]
+
+Moving on to tab management, at the top of the interface is the Tab Bar. Clicking the "New tab" button launches a clean two-step progressive disclosure wizard. 
+
+In step one, you choose your board paradigm: Existing Note Board, Create New Note Board—which creates a fresh note pre-formatted with default columns—Tag Board, Multi-Note Board, or Tags Board. 
+
+In step two, you enter the context-specific input—either selecting an existing note, entering a title for a new note, picking a tag, or choosing multiple tags.
+
+For tab navigation, click the left or right arrows on tab hover or drag-and-drop tabs directly across the bar. Clicking the close icon removes a tab from your board view, but never deletes your underlying Amplenote notes or tags. Hovering any tab also reveals an external-link icon to open the source note or tag in Amplenote immediately.
+
+[pause]
+
+Next, let's explore the Single Note Board. Here, a single note is the source of truth. Every markdown heading in the note—whether H-one, H-two, or H-three—is parsed into a column with color-coded heading level badges. 
+
+Any tasks existing at the very top of your note before the first heading appear in an implicit Unsorted column on the far left. Completed tasks are gathered into a dedicated Completed column on the far right. 
+
+Indented child tasks render with tree guidelines and depth badges like "Child Task", while parent tasks display a "Parent Task" badge. 
+
+Clicking the plus button on any column header creates a task directly under that specific heading at the top of that section. At the far right of the board, you also have dedicated helper cards to add a new task to Unsorted or append a new heading column.
+
+[pause]
+
+Let's look at task lifecycle management. The Kanban board maps Amplenote's native task states directly. Active tasks render under their respective heading columns in physical line sequence. 
+
+Completed tasks are aggregated into the pinned Completed column. Dragging any active task into Completed marks it complete. Dragging a completed task back into any heading column reopens it under that heading in your note. 
+
+Dismissed tasks render in the Completed column with strikethrough styling and a dismissed timestamp badge. Snoozed tasks with a future "hide until" timestamp stay under their heading with a "Hide Until" badge so you know exactly when they wake up. 
+
+Recurring tasks display a "Repeat" badge. Completing a recurring task records the completion while keeping the newly spawned recurring task active under its heading.
+
+[pause]
+
+The drag-and-drop mechanics provide tactile feedback. Hovering over a card displays a glowing horizontal insertion line above or below it based on mouse position. 
+
+Moving a card across columns physically moves the task markdown line under the target heading. Dragging a card within the same column reorders the markdown sequence within that heading in document order. 
+
+Rapid moves use a serial write lock called "with-note-lock", preventing markdown collision errors or race conditions. Operations display a green toast checkmark when the write confirms, and automatically roll back if an A-P-I error occurs.
+
+[pause]
+
+Now let's examine column management. Hovering over any column header reveals its management toolbar. You can click the left or right arrows or drag to reorder heading blocks in the underlying note markdown with zero screen flicker. 
+
+The edit button renames the heading text in the note. The delete button safely removes the heading and migrates all its existing tasks into the preceding heading, preventing tasks from spilling into Unsorted. 
+
+The transfer button moves the heading and all of its tasks to another Note Board tab. 
+
+You can also click the card count chip on any column to set a numeric Work-In-Progress limit. When exceeded, the badge turns red showing the current count versus the limit. 
+
+Boundary guardrails protect your layout: the Unsorted column is pinned to position one and cannot be moved, nor can headings be moved before it. Similarly, headings cannot be moved past the pinned Completed column.
+
+[pause]
+
+Our second board type is the Tag Board. It maps all notes under a specific tag, like "#projects", as columns. Each note column displays its internal headings as collapsible sections with H-one, H-two, and H-three level badges and card counts. 
+
+Each note column also contains its own top Unsorted section and bottom Completed section. 
+
+Each section header features its own plus button to add tasks under that heading, up and down arrows to reorder headings within that note, an edit button to rename, a transfer button to move headings to another note, and a delete button to delete headings safely. 
+
+Column header tools let you add tasks to the note, add new heading sections, rename the note, open it in Amplenote, or move it to Trash.
+
+[pause]
+
+The third board type is the Multi-Note Board. Notes with the selected tag appear as columns, and all active tasks across each note are displayed in a clean, flat list without heading subdivisions. 
+
+Dragging a task card from one column to another migrates the task directly between notes using Amplenote's native "update-task" A-P-I without altering formatting. This is ideal for high-level pipeline overviews where each note represents a distinct client, sprint, or project.
+
+[pause]
+
+The fourth board type is the Tags Board. It displays multiple Amplenote tags—such as "#todo", "#in-progress", and "#done"—as individual columns with color dots derived from your Amplenote account palette. 
+
+All notes tagged with that column's tag appear as cards. Clicking a card opens the note directly in Amplenote. 
+
+Dragging a note card from one tag column to another seamlessly executes the "swap-note-tag" function, removing the old tag and applying the new tag in real time, while preserving all other tags on the note. 
+
+Each tag column features tools to open that tag in Amplenote, create a note with that tag, or remove the column. You can also use the "Add Note" button at the bottom of each column or the "Add Tag" card on the far right to append new tag columns.
+
+[pause]
+
+Every card on the board provides deep interaction controls. Clicking a card opens the task details modal to edit task markdown, Eisenhower quadrants for Important and Urgent, target headings or notes, task scores, or status. 
+
+Clicking the info icon expands inline metadata showing Start Date, End Date, Deadline, Hide Until snooze date, Repeat schedule, and Score. All metadata fields, note titles, and tags are strictly entity-escaped using client-side "escape-H-T-M-L" sanitization, protecting your workspace against stored X-S-S vulnerabilities.
+
+Clicking the context menu icon reveals quick actions: mark as completed or reopen, dismiss or archive, add a label note chip, set start date or time, snooze, schedule a time block, or create a note from the card. 
+
+The board also supports rich markdown, clickable note links, embedded images with a full-resolution Lightbox zoom preview, and interactive Rich Footnotes with one-click toast alerts.
+
+[pause]
+
+Next is the dynamic sorting system. On task boards, you can cycle through Default order, Sort by Score, Sort by Date, Sort by Important, and Sort by Urgent. 
+
+On tags boards, the button dynamically switches to Sort Notes, cycling through Default, Sort by Name alphabetically, Sort by Created date with newest first, and Sort by Updated date with recently modified first. 
+
+Sorting is completely non-destructive by default. On Note Boards, clicking the "Save Sort" button prompts for confirmation and physically rearranges the task markdown lines inside each heading for that note. Clicking "Reset Sort" instantly restores the natural document order.
+
+[pause]
+
+The top header toolbar provides instant view customization. The two-tier search bar lets you type any keyword to filter cards across all visible columns in real time. Click the circular close button or press Escape to clear the search filter. Pressing Enter launches Amplenote's global account search modal. 
+
+The Density cycler lets you toggle between Cozy, Compact, and Spacious layouts. The Empty button toggles between hiding or showing empty columns. 
+
+The Info button acts as a master switch to expand or collapse inline metadata across all visible cards. 
+
+The Date button toggles quick "at" buttons on all cards for one-click date and time scheduling. You can also click the Date Format button to cycle your preferred timestamp presentation. 
+
+When working in split-screen or alongside the Peek Viewer, simply hover over the toolbar or tab bar and roll your mouse wheel to scroll horizontally without clipping.
+
+[pause]
+
+Finally, the plugin includes eight curated themes with complete light and dark mode parity. 
+
+Light themes include Clean Daylight, Sepia Parchment, Matcha Latte, and Nord Frost. Dark themes include Midnight Slate, Nord Arctic, Dracula Neo, and Emerald Forest. 
+
+You can press the "T" key anywhere on the canvas to cycle through themes with zero-millisecond client-side switching. You can also press slash to focus search, Escape to clear filters, and Shift plus mouse wheel to pan horizontally across columns.
+
+[pause]
+
+[warmly] That covers all the capabilities of the Kanban Plugin for Amplenote. It gives you flexible board models, full task lifecycle management, safe markdown synchronization, robust security protections, and deep customization. You can find the GitHub repository and installation guide in the description below. Thanks for watching!
+```
+
+---
+
+## 3. Walkthrough Script (Fact-Based)
 
 ### **Introduction**
 > **Speaker**: "Hello everyone! In this video, we're doing a complete, fact-based walkthrough of the Kanban Plugin for Amplenote. This plugin renders a multi-tab visual Kanban board inside Amplenote's persistent embed section. It supports four distinct board models: Single Note heading boards, Tag boards with collapsible sections, Multi-Note project boards, and Tags boards where dragging notes between columns re-tags them in real time. Let's look at installation, settings, and how every single feature works."
@@ -114,14 +267,14 @@ VIEW CONTROLS, SORTING & THEMES
 
 ---
 
-### **Section 3: Single Note Boards (`noteBoard.js`)**
+### **Section 3: Single Note Boards (`noteBoard.js`) & Heading Columns**
 > **Speaker**: "Let's explore the **Single Note Board**. Here, a single note is the source of truth:
 >
 > - **Columns**: Every markdown heading in the note (`# H1`, `## H2`, `### H3`) is parsed into a column with color-coded heading level badges.
 > - **Unsorted Column**: Any tasks existing at the very top of your note before the first heading appear in an implicit 'Unsorted' column on the far left.
 > - **Completed Column**: Completed tasks are gathered into a dedicated 'Completed' column on the far right.
 > - **Subtask Hierarchy**: Indented child tasks render with tree guidelines and depth badges like `↳ Child Task` or `↳↳ Child Task`, while parent tasks display `📋 Parent Task`.
-> - **Quick Add**: Clicking `+` on any column header creates a task directly under that specific heading at the top of that section. At the far right of the board, you also have dedicated cards to add a new task to Unsorted or append a new heading column."
+> - **Quick Add**: Clicking `+` on any column header creates a task directly under that specific heading at the top of that section. At the far right of the board, you also have dedicated helper cards to add a new task to Unsorted or append a new heading column."
 
 ---
 
@@ -184,7 +337,7 @@ VIEW CONTROLS, SORTING & THEMES
 > - **Tags as Columns**: Displays multiple Amplenote tags (like `#todo`, `#in-progress`, `#done`) as individual columns with color dots derived from your Amplenote account palette.
 > - **Notes as Cards**: All notes tagged with that column's tag appear as cards. Clicking a card opens the note directly in Amplenote.
 > - **Drag-and-Drop Retagging (`swapNoteTag`)**: Dragging a note card from one tag column to another seamlessly removes the old tag and applies the new tag in real time, while preserving all other tags on the note.
-> - **Tag Column Tools**: Click `↗` to open that tag in Amplenote, `+` to create a note with that tag, `✕` to remove the column, or use the `+ Add Tag` card on the far right to add new tag columns."
+> - **Tag Column Tools**: Click `↗` to open that tag in Amplenote, `+` to create a note with that tag, `✕` to remove the column, or use the `+ Add Note` button at the bottom of each column and `+ Add Tag` card on the far right to add new tag columns."
 
 ---
 
@@ -192,7 +345,7 @@ VIEW CONTROLS, SORTING & THEMES
 > **Speaker**: "Every card on the board provides deep interaction controls:
 >
 > - **Card Click**: Opens the task details modal to edit task markdown, Eisenhower quadrants (Important/Urgent), move target headings or notes, adjust task scores, or change status.
-> - **Inline Info (`ℹ`)**: Expands inline metadata showing Start Date, End Date, Deadline, Hide Until snooze date, Repeat schedule, and Score.
+> - **Inline Info (`ℹ`)**: Expands inline metadata showing Start Date, End Date, Deadline, Hide Until snooze date, Repeat schedule, and Score. All metadata fields, note titles, and tags are strictly entity-escaped using client-side `escapeHtml()` sanitization, protecting your workspace against stored XSS vulnerabilities.
 > - **Context Menu (`⋯`)**:
 >   - `Mark as completed` / `Reopen task`
 >   - `Dismiss / Archive task`
@@ -245,4 +398,4 @@ VIEW CONTROLS, SORTING & THEMES
 ---
 
 ### **Conclusion**
-> **Speaker**: "That covers all the capabilities of the Kanban Plugin for Amplenote. It gives you flexible board models, full task lifecycle management, safe markdown synchronization, and deep customization. You can find the GitHub repository and installation guide in the description below. Thanks for watching!"
+> **Speaker**: "That covers all the capabilities of the Kanban Plugin for Amplenote. It gives you flexible board models, full task lifecycle management, safe markdown synchronization, robust security protections, and deep customization. You can find the GitHub repository and installation guide in the description below. Thanks for watching!"

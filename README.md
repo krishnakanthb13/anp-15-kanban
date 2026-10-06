@@ -474,12 +474,12 @@ lib/
   ui/
     themes.js              # 8-theme registry + CSS variable palettes
     boardTemplate.js       # Full HTML document assembly (theme CSS + layout + right-end add card)
-    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, section tools, right-end add button
+    clientScript.js        # Embed-side JS: rendering, DnD, badges, sort, XSS sanitization (escapeHtml), right-end add button
   utils/
     html.js                # HTML escaping + script-safe JSON embedding
     prompt.js              # Prompt normalization helper
     formatTimestamp.js     # Timestamp formatting helper
-test/                      # Jest suites (run: node --experimental-vm-modules node_modules/jest/bin/jest.js anp-15-kanban) (20 suites, 256 tests)
+test/                      # Jest suites (run: npm test anp-15-kanban) (21 suites, 276 tests)
 build/
   kanban.compiled.js       # Build artifact to paste into the plugin note
 ```

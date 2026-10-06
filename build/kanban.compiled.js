@@ -395,6 +395,19 @@ function buildClientScript() {
 
   /* ---------------- rendering helpers ---------------- */
 
+  function escapeHtml(val) {
+    return String(val == null ? "" : val).replace(/[&<>'"]/g, function (ch) {
+      switch (ch) {
+        case "&": return "&amp;";
+        case "<": return "&lt;";
+        case ">": return "&gt;";
+        case "'": return "&#39;";
+        case '"': return "&quot;";
+        default: return ch;
+      }
+    });
+  }
+
   function el(tag, className, text) {
     var node = document.createElement(tag);
     if (className) node.className = className;
@@ -1555,13 +1568,13 @@ function buildClientScript() {
       var parts = [];
 
       var dates = [];
-      if (card.created) dates.push("<b>Created:</b> " + card.created);
-      if (card.updated) dates.push("<b>Modified:</b> " + card.updated);
+      if (card.created) dates.push("<b>Created:</b> " + escapeHtml(card.created));
+      if (card.updated) dates.push("<b>Modified:</b> " + escapeHtml(card.updated));
       if (dates.length) parts.push(dates.join("<br>"));
 
       if (card.tags && card.tags.length) {
         var tagChipsHtml = card.tags.map(function (t) {
-          return '<span class="kb-tag-chip">#' + t + '</span>';
+          return '<span class="kb-tag-chip">#' + escapeHtml(t) + '</span>';
         }).join(" ");
         parts.push("<b>Tags:</b> " + tagChipsHtml);
       }
@@ -1784,19 +1797,19 @@ function buildClientScript() {
       if (prio.length) parts.push(prio.join(" | "));
 
       var dates = [];
-      if (card.startAt) dates.push("<b>Start:</b> " + formatFullStamp(card.startAt));
-      if (card.endAt) dates.push("<b>End:</b> " + formatFullStamp(card.endAt));
-      if (card.deadline) dates.push("<b>Deadline:</b> " + formatFullStamp(card.deadline));
-      if (card.hideUntil) dates.push("<b>Hide until:</b> " + formatFullStamp(card.hideUntil));
+      if (card.startAt) dates.push("<b>Start:</b> " + escapeHtml(formatFullStamp(card.startAt)));
+      if (card.endAt) dates.push("<b>End:</b> " + escapeHtml(formatFullStamp(card.endAt)));
+      if (card.deadline) dates.push("<b>Deadline:</b> " + escapeHtml(formatFullStamp(card.deadline)));
+      if (card.hideUntil) dates.push("<b>Hide until:</b> " + escapeHtml(formatFullStamp(card.hideUntil)));
       if (dates.length) parts.push(dates.join("<br>"));
 
       if (card.repeat || card.isRepeating) {
-        parts.push("<b>Repeat:</b> " + formatTaskRepeat(card.repeat || "Recurring"));
+        parts.push("<b>Repeat:</b> " + escapeHtml(formatTaskRepeat(card.repeat || "Recurring")));
       }
 
       var status = [];
-      if (card.completedAt) status.push("<b>Completed:</b> " + formatFullStamp(card.completedAt));
-      if (card.dismissedAt) status.push("<b>Dismissed:</b> " + formatFullStamp(card.dismissedAt));
+      if (card.completedAt) status.push("<b>Completed:</b> " + escapeHtml(formatFullStamp(card.completedAt)));
+      if (card.dismissedAt) status.push("<b>Dismissed:</b> " + escapeHtml(formatFullStamp(card.dismissedAt)));
       if (status.length) parts.push(status.join("<br>"));
 
       if (card.isParent) {
@@ -1806,7 +1819,7 @@ function buildClientScript() {
         parts.push("<b>Hierarchy:</b> Child Task (Level " + depth + ")");
       }
 
-      if (card.noteName) parts.push("<b>Note:</b> " + card.noteName);
+      if (card.noteName) parts.push("<b>Note:</b> " + escapeHtml(card.noteName));
 
       details.innerHTML = parts.join("<hr>");
       cardEl.appendChild(details);
