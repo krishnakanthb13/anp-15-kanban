@@ -6,6 +6,8 @@ import {
   assignTasksToColumns,
   sectionContent,
   removeLine,
+  removeTaskBlock,
+  findTaskBlock,
   insertUnderHeading,
   resolveSpan,
 } from '../lib/api/markdownIndex.js';
@@ -138,6 +140,62 @@ describe("markdownIndex", () => {
 
       const nextWithTask = insertUnderHeading(["# A", "- [ ] existing", "# B"], { startLine: 0 }, "NEW");
       expect(nextWithTask).toEqual(["# A", "NEW", "- [ ] existing", "# B"]);
+    });
+
+    it("insertUnderHeading supports inserting an array of task lines (task block)", () => {
+      const next = insertUnderHeading(["# A", "- [ ] other", "# B"], { startLine: 0 }, [
+        "- [ ] Parent task",
+        "    - [ ] Indented subtask",
+        "    Multiline description",
+      ]);
+      expect(next).toEqual([
+        "# A",
+        "- [ ] Parent task",
+        "    - [ ] Indented subtask",
+        "    Multiline description",
+        "- [ ] other",
+        "# B",
+      ]);
+    });
+
+    it("findTaskBlock captures root task plus indented subtasks and multiline text", () => {
+      const sample = [
+        "# Section",
+        "- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->",
+        "    - [ ] Subtask 1.1",
+        "    Note description for task 1",
+        "- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->",
+        "# Next Section",
+      ];
+      const block1 = findTaskBlock(sample, 1);
+      expect(block1.startIndex).toBe(1);
+      expect(block1.endIndex).toBe(4);
+      expect(block1.lines).toEqual([
+        "- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->",
+        "    - [ ] Subtask 1.1",
+        "    Note description for task 1",
+      ]);
+
+      const block2 = findTaskBlock(sample, 4);
+      expect(block2.startIndex).toBe(4);
+      expect(block2.endIndex).toBe(5);
+      expect(block2.lines).toEqual([
+        "- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->",
+      ]);
+    });
+
+    it("removeTaskBlock cleanly strips entire task subtree", () => {
+      const sample = [
+        "# Section",
+        "- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->",
+        "    - [ ] Subtask 1.1",
+        "- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->",
+      ];
+      const next = removeTaskBlock(sample, 1);
+      expect(next).toEqual([
+        "# Section",
+        "- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->",
+      ]);
     });
   });
 

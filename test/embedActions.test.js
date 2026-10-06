@@ -40,6 +40,8 @@ import {
   handleRemoveTagColumn,
   handleCreateNoteInTagColumn,
   handleReorderTagColumns,
+  handleEditTaskDetails,
+  handleSaveSortToNote,
 } from '../lib/features/embedActions.js';
 import { SETTINGS_KEYS } from '../lib/core/constants.js';
 
@@ -347,12 +349,46 @@ describe("embedActions", () => {
       return app;
     }
 
-    it("moveCard moves the task to target note column", async () => {
+    it("moveCard moves the task to target note column and removes it from source note", async () => {
       const app = tagApp();
+      const n1Markdown = "# Source\n- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->\n    - [ ] subtask\n# Other";
+      const n2Markdown = "# Target\n";
+      let noteContents = { n1: n1Markdown, n2: n2Markdown };
+
+      app.getNoteContent = jest.fn(async ({ uuid }) => noteContents[uuid] || "");
+      app.replaceNoteContent = jest.fn(async ({ uuid }, content) => {
+        noteContents[uuid] = content;
+        return true;
+      });
+
       await handleMoveCard(app, { tabId: "tg", cardId: "u1", toColumnId: "note:n2" });
 
       expect(app.updateTask).toHaveBeenCalledWith("u1", { noteUUID: "n2" });
+      // Source note should have the task and its subtask removed
+      expect(noteContents.n1).toBe("# Source\n# Other");
+      // Target note should have the task inserted under unsorted/heading
+      expect(noteContents.n2).toContain("task 1");
       expect(app.context.renderEmbed).not.toHaveBeenCalled();
+    });
+
+    it("moveCard cross-note leaves source note content intact if updateTask throws", async () => {
+      const app = tagApp();
+      const n1Markdown = "# Source\n- [ ] task 1 <!-- {\"uuid\":\"u1\"} -->\n# Other";
+      let n1Content = n1Markdown;
+
+      app.getNoteContent = jest.fn(async ({ uuid }) => (uuid === "n1" ? n1Content : ""));
+      app.replaceNoteContent = jest.fn(async ({ uuid }, content) => {
+        if (uuid === "n1") n1Content = content;
+        return true;
+      });
+      app.updateTask.mockRejectedValueOnce(new Error("Network API timeout"));
+
+      await expect(
+        handleMoveCard(app, { tabId: "tg", cardId: "u1", toColumnId: "note:n2" })
+      ).rejects.toThrow("Network API timeout");
+
+      // Verify that source note content was NOT modified or deleted
+      expect(n1Content).toBe(n1Markdown);
     });
 
     it("moveCard is a no-op for same note column drops", async () => {
@@ -1211,6 +1247,117 @@ describe("embedActions", () => {
           SETTINGS_KEYS.tabs,
           expect.stringContaining('"tags":["done","doing","todo"]')
         );
+      });
+    });
+
+    describe("handleEditTaskDetails", () => {
+      it("updates task properties in same note", async () => {
+        const app = makeApp();
+        app.getTask = jest.fn().mockResolvedValue({
+          uuid: "u1",
+          noteUUID: "n1",
+          content: "Original content",
+          important: false,
+          urgent: false,
+          score: 10,
+        });
+
+        // Prompt inputs: content, important, urgent, targetNote, targetSection, scoreStr, statusChoice
+        app.prompt.mockResolvedValueOnce(["Updated content", true, false, null, null, "75", "started"]);
+
+        const res = await handleEditTaskDetails(app, { cardId: "u1" });
+        expect(res.ok).toBe(true);
+        expect(app.updateTask).toHaveBeenCalledWith(
+          "u1",
+          expect.objectContaining({
+            content: "Updated content",
+            important: true,
+            score: 75,
+            startAt: expect.any(Number),
+          })
+        );
+      });
+
+      it("migrates task to another note under target heading with safe deletion", async () => {
+        const n1Md = "# Alpha\n- [ ] Task to move <!-- {\"uuid\":\"u1\"} -->\n# Done";
+        const n2Md = "# Target Heading\n";
+        let noteStorage = { n1: n1Md, n2: n2Md };
+
+        const app = makeApp();
+        app.getTask = jest.fn().mockResolvedValue({
+          uuid: "u1",
+          noteUUID: "n1",
+          content: "Task to move",
+        });
+        app.getNoteContent = jest.fn(async ({ uuid }) => noteStorage[uuid] || "");
+        app.replaceNoteContent = jest.fn(async ({ uuid }, text) => {
+          noteStorage[uuid] = text;
+          return true;
+        });
+
+        // Select move to note n2 under "Target Heading"
+        app.prompt.mockResolvedValueOnce([
+          "Task to move",
+          false,
+          false,
+          { uuid: "n2" },
+          "Target Heading",
+          "",
+          "",
+        ]);
+
+        const res = await handleEditTaskDetails(app, { cardId: "u1" });
+        expect(res.ok).toBe(true);
+        expect(app.updateTask).toHaveBeenCalledWith(
+          "u1",
+          expect.objectContaining({ noteUUID: "n2" })
+        );
+        // Source note should not contain the task
+        expect(noteStorage.n1).toBe("# Alpha\n# Done");
+        // Target note should contain the relocated task
+        expect(noteStorage.n2).toContain("Task to move");
+      });
+    });
+
+    describe("handleSaveSortToNote", () => {
+      it("alerts if sortMode is invalid or none", async () => {
+        const app = makeApp();
+        app.alert = jest.fn().mockResolvedValue();
+
+        await handleSaveSortToNote(app, { tabId: "t1", sortMode: "none" });
+        expect(app.alert).toHaveBeenCalledWith(expect.stringContaining("Select a valid sort mode"));
+      });
+
+      it("prompts confirmation and sorts tasks in note when confirmed", async () => {
+        const markdown = "# Col\n- [ ] Task A <!-- {\"uuid\":\"ta\"} -->\n- [ ] Task B <!-- {\"uuid\":\"tb\"} -->";
+        const app = makeApp(markdown);
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "My Board", noteUUID: "n1" }],
+          activeTabId: "t1",
+        });
+        app.alert = jest.fn().mockResolvedValue();
+        app.getNoteTasks = jest.fn().mockResolvedValue([
+          { uuid: "ta", score: 10 },
+          { uuid: "tb", score: 90 },
+        ]);
+        app.prompt.mockResolvedValueOnce([true]);
+
+        const res = await handleSaveSortToNote(app, { tabId: "t1", sortMode: "score" });
+        expect(res.ok).toBe(true);
+        expect(app.replaceNoteContent).toHaveBeenCalled();
+        expect(app.alert).toHaveBeenCalledWith(expect.stringContaining("Task order sorted by"));
+      });
+
+      it("aborts without rewriting note if user rejects confirmation", async () => {
+        const app = makeApp();
+        app.settings[SETTINGS_KEYS.tabs] = JSON.stringify({
+          tabs: [{ id: "t1", kind: "note", name: "My Board", noteUUID: "n1" }],
+          activeTabId: "t1",
+        });
+        app.prompt.mockResolvedValueOnce([false]);
+
+        await handleSaveSortToNote(app, { tabId: "t1", sortMode: "score" });
+        expect(app.replaceNoteContent).not.toHaveBeenCalled();
       });
     });
   });

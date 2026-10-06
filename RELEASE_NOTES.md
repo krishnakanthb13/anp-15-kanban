@@ -1,3 +1,54 @@
+## v0.0.51 (2026-10-06)
+
+### 🚀 Data Integrity & Hardening
+- **Insert-Before-Delete Cross-Note Moves (`handleMoveCard`, `handleEditTaskDetails`)**:
+  - Eliminated data-loss vulnerabilities during cross-note card relocations and edit-dialog note migrations.
+  - Switched mutation sequence to update the task entity `noteUUID` and place the task block under the target column *before* removing from the source note markdown. If target insertion or network calls fail, the source note remains completely intact.
+- **Hierarchical Task Block & Subtask Preservation (`markdownIndex.js`, `taskOps.js`)**:
+  - Implemented `findTaskBlock` and `removeTaskBlock` to detect full task blocks: root checkbox, indented subtasks (`    - [ ]`), multiline descriptions, comments, and footnotes.
+  - Splicing and relocating cards now moves the complete task tree together, preventing orphaned subtasks or severed parent-child hierarchies.
+  - Rewrote `_sortTasksInNoteMarkdown` to sort only top-level task blocks, safely preserving child subtasks, descriptions, preambles, and interstitial paragraphs in-place.
+- **Deadlock-Free Coordinated Multi-Note Mutex (`withMultiNoteLock`)**:
+  - Added `withMultiNoteLock` with lexicographical sorting on note UUIDs to guarantee circular-wait deadlock immunity during multi-document mutations.
+  - Wrapped `createColumn` and `transferColumn` to plug race conditions under rapid concurrent actions.
+  - Added `{ skipLock: true }` parameter in `moveTaskToColumn` preventing non-reentrant mutex self-deadlocks during coordinated multi-note transfers.
+
+### ⚡ Improvements & UX Refinements
+- **Accurate UI Resynchronization**:
+  - Refined error toast and failure state handling to perform server-state resynchronization, guaranteeing the client view immediately reflects the backend note state without data ambiguity.
+- **Target Column Resolution**:
+  - Fixed column resolution in `_moveTaskToColumn` when targeting by column name, ensuring target cards are correctly positioned under designated headings rather than falling back to unsorted.
+
+### 📚 Documentation & Testing
+- **Expanded Test Suite**:
+  - Added 15 comprehensive unit tests across `markdownIndex.test.js`, `columnOps.test.js`, `taskOps.test.js`, and `embedActions.test.js`.
+  - Verified deadlock-free reverse-concurrent locks, subtask preservation across columns, multiline sorting across all sort modes (`score`, `startDate`, `important`, `urgent`), and cross-note failure resilience.
+  - Test suite expanded to **21 test suites and 291 tests** (100% passing).
+- **Documentation Realignment**:
+  - Re-aligned `CODE_DOCUMENTATION.md`, `DESIGN_PHILOSOPHY.md`, `checklist.md`, and `README.md` with accurate architectural descriptions, insert-before-delete patterns, and non-transactional safety guarantees.
+
+---
+
+## v0.0.50 (2026-10-06)
+
+### 🐛 Bug Fixes & Security Hardening
+- **Client-Side HTML Sanitization (`escapeHtml`)**:
+  - Implemented strict HTML entity escaping for note titles, tags, and timestamps inside sandboxed iframe popups (`details.innerHTML`).
+  - Closed potential stored and DOM-based XSS vectors originating from shared notes or untrusted collaborator input.
+- **Unit Test Verification**:
+  - Added tests in `clientScript.test.js` validating HTML escaping for special characters (`<`, `>`, `&`, `"`, `'`) in note cards and details dialogs.
+
+---
+
+## v0.0.49 (2026-08-31)
+
+### 📚 Documentation & Media Prep
+- **YouTube Video Preparation (`youtube/PREP.md`)**:
+  - Updated comprehensive video tutorial walkthrough script, timestamp breakdowns, feature checklists, and thumbnail design requirements for the Kanban Plugin.
+  - Refined step-by-step fact-based script covering installation, Quad-Modal board paradigms, native Eisenhower matrix badges, and responsive theming.
+
+---
+
 ## v0.0.48 (2026-08-29)
 
 ### 🚀 New Features

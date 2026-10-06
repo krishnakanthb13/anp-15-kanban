@@ -6,6 +6,7 @@ import {
   reorderColumns,
   transferColumn,
   withNoteLock,
+  withMultiNoteLock,
 } from '../lib/api/columnOps.js';
 
 const MD = [
@@ -208,6 +209,38 @@ describe("columnOps", () => {
       expect(r1).toBe(1);
       expect(r2).toBe(2);
       expect(results).toEqual(["op1", "op2"]);
+    });
+
+    it("serializes createColumn calls sequentially without collision", async () => {
+      const app = makeApp();
+      const op1 = createColumn(app, "n_col", "Col 1");
+      const op2 = createColumn(app, "n_col", "Col 2");
+      const [r1, r2] = await Promise.all([op1, op2]);
+      expect(r1).toBe(true);
+      expect(r2).toBe(true);
+      expect(app.insertNoteContent).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("withMultiNoteLock", () => {
+    it("coordinates multi-note locks and prevents deadlocks across reverse order requests", async () => {
+      const results = [];
+      // opA requests locks [n1, n2] while opB requests [n2, n1] concurrently
+      const opA = withMultiNoteLock(["n1", "n2"], async () => {
+        await new Promise(r => setTimeout(r, 15));
+        results.push("opA");
+        return "A";
+      });
+      const opB = withMultiNoteLock(["n2", "n1"], async () => {
+        results.push("opB");
+        return "B";
+      });
+
+      const [resA, resB] = await Promise.all([opA, opB]);
+      expect(resA).toBe("A");
+      expect(resB).toBe("B");
+      // Because sorted keys are acquired [n1, n2], opA finishes first then opB
+      expect(results).toEqual(["opA", "opB"]);
     });
   });
 });

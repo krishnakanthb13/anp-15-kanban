@@ -5037,16 +5037,61 @@ function assignTasksToColumns(columns, lines, tasks, options = {}) {
   });
   return { columnCards, unsorted, completed };
 }
+function findTaskBlock(lines, taskLineIndex) {
+  if (!Array.isArray(lines) || taskLineIndex < 0 || taskLineIndex >= lines.length) {
+    return { startIndex: -1, endIndex: -1, lines: [] };
+  }
+  const rootLine = String(lines[taskLineIndex] || "").replace(/\r/g, "");
+  const indentMatch = rootLine.match(/^(\s*)/);
+  const baseIndent = indentMatch ? indentMatch[1].replace(/\t/g, "    ").length : 0;
+  let endIndex = taskLineIndex + 1;
+  while (endIndex < lines.length) {
+    const curLine = String(lines[endIndex] || "").replace(/\r/g, "");
+    if (/^#{1,6}\s+/.test(curLine.trim())) break;
+    if (curLine.trim() === "") {
+      let nextNonEmpty = -1;
+      for (let k = endIndex + 1; k < lines.length; k++) {
+        const nextClean = String(lines[k] || "").replace(/\r/g, "");
+        if (nextClean.trim() !== "") {
+          nextNonEmpty = k;
+          break;
+        }
+      }
+      if (nextNonEmpty !== -1) {
+        const nextLine = String(lines[nextNonEmpty] || "").replace(/\r/g, "");
+        if (/^#{1,6}\s+/.test(nextLine.trim())) break;
+        const nextIndent = (nextLine.match(/^(\s*)/)?.[1] || "").replace(/\t/g, "    ").length;
+        if (nextIndent <= baseIndent) break;
+      } else {
+        break;
+      }
+      endIndex++;
+      continue;
+    }
+    const lineIndent = (curLine.match(/^(\s*)/)?.[1] || "").replace(/\t/g, "    ").length;
+    if (lineIndent > baseIndent) {
+      endIndex++;
+    } else {
+      break;
+    }
+  }
+  return {
+    startIndex: taskLineIndex,
+    endIndex,
+    lines: lines.slice(taskLineIndex, endIndex)
+  };
+}
 function removeLine(lines, taskLineIndex) {
   return [...lines.slice(0, taskLineIndex), ...lines.slice(taskLineIndex + 1)];
 }
-function insertUnderHeading(lines, span, taskLine) {
+function insertUnderHeading(lines, span, taskLineOrLines) {
+  const blockLines = Array.isArray(taskLineOrLines) ? taskLineOrLines : String(taskLineOrLines || "").split("\n");
   const insertIndex = span.startLine + 1;
   const nextLine = lines[insertIndex];
   if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
-    return [...lines.slice(0, insertIndex), taskLine, "", ...lines.slice(insertIndex)];
+    return [...lines.slice(0, insertIndex), ...blockLines, "", ...lines.slice(insertIndex)];
   }
-  return [...lines.slice(0, insertIndex), taskLine, ...lines.slice(insertIndex)];
+  return [...lines.slice(0, insertIndex), ...blockLines, ...lines.slice(insertIndex)];
 }
 function resolveSpan(spans, columnId, columnName) {
   if (!spans || !spans.length) return null;
@@ -5076,22 +5121,24 @@ function headingLevel(line) {
   return m ? m[1].length : null;
 }
 async function createColumn(app, noteUUID, name, level = null) {
-  const trimmed = String(name || "").trim();
-  if (!trimmed) return false;
-  let hLevel = level ? parseInt(String(level), 10) : null;
-  if (!hLevel || hLevel < 1 || hLevel > 6) {
-    const markdown = await app.getNoteContent({ uuid: noteUUID });
-    const { columns } = buildColumnSpans(markdown);
-    hLevel = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
-  }
-  await app.insertNoteContent(
-    { uuid: noteUUID },
-    `
+  return withNoteLock(noteUUID, async () => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) return false;
+    let hLevel = level ? parseInt(String(level), 10) : null;
+    if (!hLevel || hLevel < 1 || hLevel > 6) {
+      const markdown = await app.getNoteContent({ uuid: noteUUID });
+      const { columns } = buildColumnSpans(markdown);
+      hLevel = columns.length ? headingLevel(markdown.split("\n")[columns[0].startLine]) : 2;
+    }
+    await app.insertNoteContent(
+      { uuid: noteUUID },
+      `
 ${"#".repeat(hLevel)} ${trimmed}
 `,
-    { atEnd: true }
-  );
-  return true;
+      { atEnd: true }
+    );
+    return true;
+  });
 }
 async function renameColumn(app, noteUUID, columnId, newName) {
   return withNoteLock(noteUUID, async () => {
@@ -5134,6 +5181,16 @@ async function withNoteLock(noteUUID, fn) {
   noteLocks.set(key, tail);
   return next;
 }
+async function withMultiNoteLock(noteUUIDs, fn) {
+  const uniqueKeys = Array.from(
+    new Set((noteUUIDs || []).filter(Boolean).map((id) => String(id)))
+  ).sort();
+  const acquire = (idx) => {
+    if (idx >= uniqueKeys.length) return fn();
+    return withNoteLock(uniqueKeys[idx], () => acquire(idx + 1));
+  };
+  return acquire(0);
+}
 async function reorderColumns(app, noteUUID, orderedIds, orderedNames) {
   return withNoteLock(noteUUID, async () => {
     const lines = await readLines(app, noteUUID);
@@ -5155,8 +5212,8 @@ async function reorderColumns(app, noteUUID, orderedIds, orderedNames) {
   });
 }
 async function transferColumn(app, sourceUUID, columnId, targetUUID) {
-  return withNoteLock(sourceUUID, async () => {
-    if (sourceUUID === targetUUID) return "same-note";
+  if (sourceUUID === targetUUID) return "same-note";
+  return withMultiNoteLock([sourceUUID, targetUUID], async () => {
     const lines = await readLines(app, sourceUUID);
     const { columns } = buildColumnSpans(lines.join("\n"));
     if (!columns.length) return "no-columns";
@@ -5193,14 +5250,18 @@ async function _moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
     taskObj = null;
   }
   let [taskLineIndex] = findTaskLines(cleanLines, [{ uuid: taskUuid, content: taskObj?.content }]).values();
-  let taskLine = "";
+  let taskBlockLines = [];
   let next = cleanLines;
+  let countRemoved = 0;
   if (taskLineIndex !== void 0 && taskLineIndex >= 0) {
-    taskLine = cleanLines[taskLineIndex];
-    next = removeLine(cleanLines, taskLineIndex);
+    const block = findTaskBlock(cleanLines, taskLineIndex);
+    taskBlockLines = block.lines;
+    countRemoved = block.endIndex - block.startIndex;
+    next = [...cleanLines.slice(0, block.startIndex), ...cleanLines.slice(block.endIndex)];
   } else if (taskObj && (taskObj.uuid === taskUuid || taskObj.id === taskUuid) && taskObj.content) {
-    taskLine = `- [ ] ${taskObj.content}`;
+    taskBlockLines = [`- [ ] ${taskObj.content}`];
     taskLineIndex = -1;
+    countRemoved = 0;
   } else {
     return "no-task";
   }
@@ -5212,18 +5273,25 @@ async function _moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
     }
     const [targetLineIndex] = findTaskLines(cleanLines, [{ uuid: target.targetCardId, content: targetTaskObj?.content }]).values();
     if (targetLineIndex !== void 0 && targetLineIndex >= 0 && targetLineIndex !== taskLineIndex) {
-      const shiftedTargetIdx = taskLineIndex >= 0 && targetLineIndex > taskLineIndex ? targetLineIndex - 1 : targetLineIndex;
-      const insertAt = target.position === "after" ? shiftedTargetIdx + 1 : shiftedTargetIdx;
-      next.splice(insertAt, 0, taskLine);
+      let shiftedTargetIdx = targetLineIndex;
+      if (taskLineIndex >= 0 && targetLineIndex > taskLineIndex) {
+        shiftedTargetIdx = targetLineIndex - countRemoved;
+      }
+      let insertAt = shiftedTargetIdx;
+      if (target.position === "after") {
+        const targetBlock = findTaskBlock(next, shiftedTargetIdx);
+        insertAt = targetBlock.endIndex;
+      }
+      next.splice(insertAt, 0, ...taskBlockLines);
       await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
       return "moved";
     }
   }
   if (!columns.length) {
     if (target.position === "bottom") {
-      next.push(taskLine);
+      next.push(...taskBlockLines);
     } else {
-      next.unshift(taskLine);
+      next.unshift(...taskBlockLines);
     }
     await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
     return "moved";
@@ -5235,13 +5303,13 @@ async function _moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
     }
     return "moved";
   }
-  if (!target.columnId || target.columnId === "unsorted" || target.columnName === "Unsorted" || target.columnId === "main") {
+  if (!target.columnId && !target.columnName || target.columnId === "unsorted" || target.columnName === "Unsorted" || target.columnId === "main") {
     const insertAt = columns[0] ? Math.max(0, columns[0].startLine) : 0;
     const nextLine = next[insertAt];
     if (nextLine !== void 0 && nextLine.trim() !== "" && !/^\s*[-*+]\s*\[[ xX]\]/.test(nextLine) && !/^#{1,6}\s+/.test(nextLine)) {
-      next.splice(insertAt, 0, taskLine, "");
+      next.splice(insertAt, 0, ...taskBlockLines, "");
     } else {
-      next.splice(insertAt, 0, taskLine);
+      next.splice(insertAt, 0, ...taskBlockLines);
     }
     await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
     return "moved";
@@ -5254,13 +5322,16 @@ async function _moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
   }
   const shiftedDest = {
     ...destSpan,
-    startLine: taskLineIndex >= 0 && destSpan.startLine > taskLineIndex ? destSpan.startLine - 1 : destSpan.startLine
+    startLine: taskLineIndex >= 0 && destSpan.startLine > taskLineIndex ? destSpan.startLine - countRemoved : destSpan.startLine
   };
-  next = insertUnderHeading(next, shiftedDest, taskLine);
+  next = insertUnderHeading(next, shiftedDest, taskBlockLines);
   await app.replaceNoteContent({ uuid: noteUUID }, next.join("\n"));
   return "moved";
 }
-async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}) {
+async function moveTaskToColumn(app, noteUUID, taskUuid, target = {}, options = {}) {
+  if (options && options.skipLock) {
+    return _moveTaskToColumn(app, noteUUID, taskUuid, target);
+  }
   return withNoteLock(noteUUID, () => _moveTaskToColumn(app, noteUUID, taskUuid, target));
 }
 async function _createTaskInColumn(app, noteUUID, target, content) {
@@ -5368,7 +5439,7 @@ async function _sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
   const markdown = await app.getNoteContent({ uuid: noteUUID });
   const tasks = await app.getNoteTasks({ uuid: noteUUID });
   if (!markdown || !tasks || !tasks.length) return false;
-  const { columns } = buildColumnSpans(markdown);
+  const { columns, preambleEnd } = buildColumnSpans(markdown);
   const lines = markdown.split("\n");
   const taskLineMap = findTaskLines(lines, tasks);
   const taskByUuid = new Map(tasks.map((t) => [t.uuid, t]));
@@ -5389,22 +5460,46 @@ async function _sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
     }
     return 0;
   };
-  let nextLines = [...lines];
-  for (const span of columns) {
+  const preambleLimit = columns.length ? columns[0].startLine : lines.length;
+  const rebuilt = [...lines.slice(0, preambleLimit)];
+  for (let c = 0; c < columns.length; c++) {
+    const span = columns[c];
+    rebuilt.push(lines[span.startLine]);
     const spanTasks = [];
     for (const [uuid, lineIdx] of taskLineMap.entries()) {
       if (lineIdx >= span.contentStart && lineIdx < span.contentEnd) {
-        spanTasks.push({ uuid, lineIdx, line: lines[lineIdx] });
+        const block = findTaskBlock(lines, lineIdx);
+        spanTasks.push({ uuid, lineIdx, blockLines: block.lines, blockEnd: block.endIndex });
       }
     }
-    if (spanTasks.length <= 1) continue;
-    spanTasks.sort((x, y) => compareFn(x.uuid, y.uuid));
-    const originalIndices = spanTasks.map((t) => t.lineIdx).sort((a, b) => a - b);
-    for (let i = 0; i < spanTasks.length; i++) {
-      nextLines[originalIndices[i]] = spanTasks[i].line;
+    const topLevelTasks = spanTasks.filter((t) => !spanTasks.some((other) => other !== t && t.lineIdx > other.lineIdx && t.lineIdx < other.blockEnd)).sort((a, b) => a.lineIdx - b.lineIdx);
+    if (topLevelTasks.length <= 1) {
+      rebuilt.push(...lines.slice(span.contentStart, span.contentEnd));
+      continue;
     }
+    const sortedTasks = [...topLevelTasks].sort((x, y) => compareFn(x.uuid, y.uuid));
+    const spanNewLines = [];
+    let curLine = span.contentStart;
+    for (let i = 0; i < topLevelTasks.length; i++) {
+      const origTask = topLevelTasks[i];
+      while (curLine < origTask.lineIdx) {
+        spanNewLines.push(lines[curLine]);
+        curLine++;
+      }
+      spanNewLines.push(...sortedTasks[i].blockLines);
+      curLine = origTask.blockEnd;
+    }
+    while (curLine < span.contentEnd) {
+      spanNewLines.push(lines[curLine]);
+      curLine++;
+    }
+    rebuilt.push(...spanNewLines);
   }
-  await app.replaceNoteContent({ uuid: noteUUID }, nextLines.join("\n"));
+  const lastColEnd = columns.length ? columns[columns.length - 1].contentEnd : lines.length;
+  if (lastColEnd < lines.length) {
+    rebuilt.push(...lines.slice(lastColEnd));
+  }
+  await app.replaceNoteContent({ uuid: noteUUID }, rebuilt.join("\n"));
   return true;
 }
 async function sortTasksInNoteMarkdown(app, noteUUID, sortMode = "score") {
@@ -6176,42 +6271,52 @@ async function handleMoveCard(app, payload) {
     const task = await app.getTask(payload.cardId);
     if (!task) return { ok: false };
     if (task.noteUUID && task.noteUUID !== targetUUID) {
-      try {
-        await withNoteLock(task.noteUUID, async () => {
+      const isDoneSection = String(payload.toSectionId || "").toLowerCase() === "completed" || String(payload.toSectionName || "").trim().toLowerCase() === "completed" || String(payload.toColumnId || "").toLowerCase() === "completed" || String(payload.toColumnName || "").trim().toLowerCase() === "completed" || AUTO_COMPLETE_ON_DONE_HEADER && (/^(done|completed|finished|closed|archive)/i.test(String(payload.toSectionName || "").trim()) || /^(done|completed|finished|closed|archive)/i.test(String(payload.toColumnName || "").trim()));
+      await withMultiNoteLock([task.noteUUID, targetUUID], async () => {
+        let srcLines = [];
+        let srcBlock = null;
+        try {
           const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
           if (sourceMarkdown) {
-            const srcLines = sourceMarkdown.split("\n");
+            srcLines = sourceMarkdown.split("\n");
             const [srcIdx] = findTaskLines(srcLines, [{ uuid: payload.cardId, content: task.content }]).values();
             if (srcIdx !== void 0 && srcIdx >= 0) {
-              const nextSrc = removeLine(srcLines, srcIdx);
-              await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+              srcBlock = findTaskBlock(srcLines, srcIdx);
             }
           }
-        });
-      } catch (err) {
-        console.error("Failed to remove task from source note:", err);
-      }
-      try {
-        await app.updateTask(payload.cardId, { noteUUID: targetUUID });
-      } catch (err) {
-        console.error("Failed to update task noteUUID:", err);
-      }
-      const isDoneSection = String(payload.toSectionId || "").toLowerCase() === "completed" || String(payload.toSectionName || "").trim().toLowerCase() === "completed" || String(payload.toColumnId || "").toLowerCase() === "completed" || String(payload.toColumnName || "").trim().toLowerCase() === "completed" || AUTO_COMPLETE_ON_DONE_HEADER && (/^(done|completed|finished|closed|archive)/i.test(String(payload.toSectionName || "").trim()) || /^(done|completed|finished|closed|archive)/i.test(String(payload.toColumnName || "").trim()));
-      if (isDoneSection) {
-        await setTaskCompleted(app, payload.cardId, true);
-      } else {
-        try {
-          await moveTaskToColumn(app, targetUUID, payload.cardId, {
-            columnId: payload.toSectionId,
-            columnName: payload.toSectionName,
-            targetCardId: payload.targetCardId,
-            position: payload.position
-          });
         } catch (err) {
-          console.error("Failed to relocate task in target note:", err);
+          console.error("Failed to read task from source note:", err);
         }
-        await setTaskCompleted(app, payload.cardId, false);
-      }
+        try {
+          await app.updateTask(payload.cardId, { noteUUID: targetUUID });
+        } catch (err) {
+          console.error("Failed to update task noteUUID:", err);
+          throw err;
+        }
+        if (isDoneSection) {
+          await setTaskCompleted(app, payload.cardId, true);
+        } else {
+          try {
+            await moveTaskToColumn(app, targetUUID, payload.cardId, {
+              columnId: payload.toSectionId,
+              columnName: payload.toSectionName,
+              targetCardId: payload.targetCardId,
+              position: payload.position
+            }, { skipLock: true });
+          } catch (err) {
+            console.error("Failed to relocate task in target note:", err);
+          }
+          await setTaskCompleted(app, payload.cardId, false);
+        }
+        if (srcBlock && srcBlock.startIndex >= 0) {
+          try {
+            const nextSrc = [...srcLines.slice(0, srcBlock.startIndex), ...srcLines.slice(srcBlock.endIndex)];
+            await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+          } catch (err) {
+            console.error("Failed to remove task from source note:", err);
+          }
+        }
+      });
       if (payload.forceRerender) await rerender(app);
       return {
         ok: true,
@@ -6469,36 +6574,58 @@ async function handleEditTaskDetails(app, payload) {
   }
   const targetNoteUUID = targetNote?.uuid || task.noteUUID;
   if (targetNoteUUID && targetNoteUUID !== task.noteUUID) {
-    try {
-      const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
-      if (sourceMarkdown) {
-        const srcLines = sourceMarkdown.split("\n");
-        const [srcIdx] = findTaskLines(srcLines, [{ uuid: cardId, content: task.content }]).values();
-        if (srcIdx !== void 0 && srcIdx >= 0) {
-          const nextSrc = removeLine(srcLines, srcIdx);
-          await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+    await withMultiNoteLock([task.noteUUID, targetNoteUUID], async () => {
+      let srcLines = [];
+      let srcBlock = null;
+      try {
+        const sourceMarkdown = await app.getNoteContent({ uuid: task.noteUUID });
+        if (sourceMarkdown) {
+          srcLines = sourceMarkdown.split("\n");
+          const [srcIdx] = findTaskLines(srcLines, [{ uuid: cardId, content: task.content }]).values();
+          if (srcIdx !== void 0 && srcIdx >= 0) {
+            srcBlock = findTaskBlock(srcLines, srcIdx);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to read task from source note:", err);
+      }
+      updates.noteUUID = targetNoteUUID;
+      await app.updateTask(cardId, updates);
+      if (targetSection && targetSection !== "__top__") {
+        try {
+          await moveTaskToColumn(app, targetNoteUUID, cardId, { columnName: targetSection }, { skipLock: true });
+        } catch (err) {
+          console.error("Failed to relocate task to heading section:", err);
+        }
+      } else {
+        try {
+          await moveTaskToColumn(app, targetNoteUUID, cardId, { columnId: "unsorted" }, { skipLock: true });
+        } catch (err) {
+          console.error("Failed to insert task in target note:", err);
         }
       }
-    } catch (err) {
-      console.error("Failed to remove task from source note:", err);
-    }
-    updates.noteUUID = targetNoteUUID;
-  }
-  if (Object.keys(updates).length > 0) {
-    await app.updateTask(cardId, updates);
-  }
-  if (targetSection && targetSection !== "__top__") {
-    try {
-      await moveTaskToColumn(app, targetNoteUUID, cardId, { columnName: targetSection });
-    } catch (err) {
-      console.error("Failed to relocate task to heading section:", err);
-    }
-  } else if (targetNoteUUID && targetNoteUUID !== task.noteUUID) {
-    try {
-      await moveTaskToColumn(app, targetNoteUUID, cardId, { columnId: "unsorted" });
-    } catch (err) {
-      console.error("Failed to insert task in target note:", err);
-    }
+      if (srcBlock && srcBlock.startIndex >= 0) {
+        try {
+          const nextSrc = [...srcLines.slice(0, srcBlock.startIndex), ...srcLines.slice(srcBlock.endIndex)];
+          await app.replaceNoteContent({ uuid: task.noteUUID }, nextSrc.join("\n"));
+        } catch (err) {
+          console.error("Failed to remove task from source note:", err);
+        }
+      }
+    });
+  } else {
+    await withNoteLock(task.noteUUID, async () => {
+      if (Object.keys(updates).length > 0) {
+        await app.updateTask(cardId, updates);
+      }
+      if (targetSection && targetSection !== "__top__") {
+        try {
+          await moveTaskToColumn(app, task.noteUUID, cardId, { columnName: targetSection }, { skipLock: true });
+        } catch (err) {
+          console.error("Failed to relocate task to heading section:", err);
+        }
+      }
+    });
   }
   const tab = await resolveCurrentBoardTab(app, payload);
   const board = tab ? await buildSingleBoard(app, tab) : null;

@@ -42,21 +42,21 @@
 - **Enrichment**: Enriches cards with rich HTML, colored tag labels, and note names.
 - **Hierarchy Detection**: Detects parent and child subtask indentation hierarchy.
 
-### 6. `taskOps.test.js` (19 tests)
-- **Task Movement (`moveTaskToColumn`)**: Relocates task lines under target headings in note markdown via minimal line diff with relative placement support (`targetCardId` + `before`/`after`).
+### 6. `taskOps.test.js` (23 tests)
+- **Task Movement (`moveTaskToColumn`)**: Relocates task lines under target headings in note markdown via minimal line diff with relative placement support (`targetCardId` + `before`/`after`) and full task block preservation (parent + indented subtasks + multiline text).
 - **Heading-Free Note Support**: Positions cards accurately in notes without markdown headings.
 - **Task Creation (`createTaskInColumn`)**: Inserts tasks directly under the designated heading or unsorted top preamble.
 - **Lifecycle & Completion**: Native completion toggling (`completedAt`), markdown content updates, and note-link label attachment.
 - **Concurrency & Write Locks**: Serializes concurrent note operations and validates completion timestamping on Completed column drops.
-- **Markdown Task Sorting**: Persists visual sort orders into physical note markdown.
+- **Markdown Task Sorting (`sortTasksInNoteMarkdown`)**: Persists visual sort orders into physical note markdown across multiple columns while preserving subtask hierarchy, paragraphs, and preambles.
 
-### 7. `columnOps.test.js` (13 tests)
-- **Column Creation (`createColumn`)**: Appends matching-level headings (`#`, `##`, `###`) to note markdown.
+### 7. `columnOps.test.js` (15 tests)
+- **Column Creation (`createColumn`)**: Appends matching-level headings (`#`, `##`, `###`) to note markdown with sequential mutex locking.
 - **Column Renaming (`renameColumn`)**: Rewrites heading line preserving content markers.
-- **Column Deletion (`deleteColumn`)**: Confirms and deletes heading, moving tasks to adjacent headings safely.
+- **Column Deletion (`deleteColumn`)**: Safely removes strictly the heading line, merging content and tasks naturally into the preceding section in place.
 - **Column Reordering (`reorderColumns`)**: Whole-note heading+content block reordering preserving preambles.
-- **Cross-Note Transfer (`transferColumn`)**: Moves heading and its tasks safely to another note (insert-before-remove).
-- **Concurrency Locking (`withNoteLock`)**: Thread-safe serialization of concurrent column operations with tail-verified lock eviction.
+- **Cross-Note Transfer (`transferColumn`)**: Moves heading and its tasks safely to another note (insert-before-remove) under coordinated multi-note locks.
+- **Concurrency Locking (`withNoteLock`, `withMultiNoteLock`)**: Thread-safe serialization of concurrent column operations with tail-verified lock eviction and deadlock-free multi-note coordination.
 
 ### 8. `tabsConfig.test.js` (20 tests)
 - **Normalization & Persistence**: Robust JSON settings parsing, fallback defaults, corruption tolerance.
@@ -65,11 +65,11 @@
 - **Tags Tab Normalization**: Cleans and validates tags array on `tags` board tabs.
 - **WIP Limit Sanitization**: Validates and sanitizes per-column WIP limits.
 
-### 9. `embedActions.test.js` (51 tests)
+### 9. `embedActions.test.js` (58 tests)
 - **Dispatcher**: Strict validation and routing for all client iframe actions.
 - **Tags Board Operations**: Tab creation wizard, dragging note cards between tag columns (`swapNoteTag`), adding tag columns, removing tag columns, and creating notes in tag columns.
 - **In-Memory Flicker-Free Refresh (`handleRefreshTab`, `handleRefreshAll`)**: Re-queries and returns fresh board data snapshots in memory without iframe destruction.
-- **Atomic Cross-Note Card Move (`handleMoveCard`)**: Transfers task entities across notes without creating duplicate orphan tasks.
+- **Coordinated Cross-Note Card Move (`handleMoveCard`, `handleEditTaskDetails`)**: Moves task entities across notes with coordinated mutex locking (`withMultiNoteLock`), ensuring destination insertion succeeds before removing source markdown.
 - **Notes Tab & Heading-Free Reordering**: Relocates tasks next to target cards within and across notes in multi-note tabs.
 - **Semantic Completion Detection**: Accurate task completion routing on drag-and-drop into Completed/Done columns.
 - **Tab Wizard (`handleAddTab`)**: Progressive disclosure 5-option prompt wizard (Note, Create Note, Tag, Multi-Note, Tags).

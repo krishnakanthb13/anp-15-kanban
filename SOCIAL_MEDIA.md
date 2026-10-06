@@ -1,3 +1,106 @@
+# Released: Kanban Plugin v0.0.51 — Data Integrity Hardening, Subtask Block Preservation & Deadlock-Free Multi-Note Mutex
+
+## LinkedIn
+🚀 Kanban Plugin for Amplenote v0.0.51 is officially live!
+
+This release delivers comprehensive data integrity hardening, multi-note write resilience, and complex task block preservation across all board workflows.
+
+When building visual productivity dashboards on top of document-based Markdown notes, simple multi-step operations like moving cards across notes or reordering sections carry real data integrity risks if network interruptions or concurrent edits occur. In v0.0.51, we systematically addressed these failure modes:
+
+🛡️ Insert-Before-Delete Write Resilience: Cross-note card relocations and edit-dialog note migrations now update the task entity and place the task block in the destination document BEFORE removing it from the source note. If a network drop or API error occurs midway, the source document remains 100% untouched.
+
+🌳 Hierarchical Task Block & Subtask Preservation: Markdown tasks are no longer treated as naive single lines. The parser now detects full task blocks—including indented subtask checklists, multiline descriptions, comments, and footnotes. Moving or sorting cards moves the entire subtree together without leaving orphaned child items behind.
+
+🔒 Deadlock-Free Coordinated Multi-Note Mutex: Multi-document operations acquire sequential locks across all involved note UUIDs using lexicographical key ordering, eliminating race conditions and circular-wait deadlocks.
+
+🧪 Test Suite Expansion: Added 15 comprehensive unit tests verifying concurrency safety, subtask preservation, and cross-note failure isolation, expanding our test suite to 291 tests across 21 suites (100% passing).
+
+Explore the release and full source code on GitHub:
+https://github.com/krishnakanthb13/anp-15-kanban
+
+#OpenSource #Amplenote #Productivity #PKM #Kanban #WebDev #JavaScript #SoftwareArchitecture
+
+---
+
+## Twitter/X
+🚀 Kanban Plugin for Amplenote v0.0.51 is here!
+
+🛡️ Insert-before-delete cross-note moves (0% data loss risk)
+🌳 Complete task block & indented subtask preservation
+🔒 Deadlock-free multi-note mutex locks
+🧪 291 passing tests (100% green)
+
+https://github.com/krishnakanthb13/anp-15-kanban
+
+---
+
+## Bluesky
+🚀 Kanban Plugin for Amplenote v0.0.51 is live!
+
+Major write-integrity hardening update:
+🛡️ Insert-before-delete cross-note moves
+🌳 Hierarchical task block & subtask preservation
+🔒 Deadlock-free multi-note mutex coordination
+🧪 291 unit tests passing
+
+https://github.com/krishnakanthb13/anp-15-kanban
+#Amplenote #Productivity #Kanban
+
+---
+
+## Mastodon
+🚀 Released: Kanban Plugin for Amplenote v0.0.51!
+
+A major data-integrity and concurrency hardening release for our visual Markdown Kanban board:
+
+• Insert-Before-Delete Resiliency: Cross-note card moves insert into destination before removing from source, preventing data loss on network drops.
+• Hierarchical Task Blocks: Treats tasks as multi-line blocks, preserving indented subtasks and multiline notes during moves and sorting.
+• Coordinated Multi-Note Mutex: Deadlock-free lexicographical locks across notes.
+• 291 unit tests passing with 100% green coverage.
+
+Source & Docs: https://github.com/krishnakanthb13/anp-15-kanban
+
+#OpenSource #Amplenote #Kanban #Productivity #JavaScript #PKM
+
+---
+
+## Reddit
+**Suggested Subreddits**: `r/Amplenote`, `r/Productivity`, `r/PKM`, `r/javascript`, `r/webdev`  
+**Suggested Title**: Hardening a Markdown Kanban Board: Eliminating Data Loss in Non-Transactional Note APIs (v0.0.51 Release)
+
+Hey everyone!
+
+We just shipped **v0.0.51** of the open-source **Kanban Plugin for Amplenote**, focusing heavily on write-integrity hardening, multi-note concurrency safety, and nested subtask tree preservation.
+
+### The Challenge with Document-Backed Kanban
+Most Kanban boards store cards in a relational database with ACID transactions. But Amplenote plugins operate directly on live Markdown documents via REST-like plugin APIs. When dragging a card across notes or sorting columns, a mutation typically requires multiple asynchronous steps:
+1. Splicing text in note A
+2. Updating the backend task entity
+3. Appending markdown in note B
+
+If step 2 or 3 fails (due to a transient network timeout or rate limit), a naive "delete first, insert later" design permanently deletes the task from note A.
+
+### How We Solved It in v0.0.51
+
+1. **Insert-Before-Delete Two-Phase Relocation**:
+   Instead of deleting first, we update the task entity `noteUUID` and place the card into the destination note's markdown first. Only after the destination write is verified do we remove the task block from the source note. If any intermediate call rejects, the original document remains completely intact.
+
+2. **Hierarchical Task Block Extraction (`findTaskBlock`)**:
+   In Markdown, tasks aren't just single checkbox lines—they often have indented subtask checklists (`    - [ ]`), multiline descriptions, code blocks, or footnote definitions. Moving or sorting tasks previously risked severing child subtasks. Our parser now extracts the full contiguous task block, keeping parents and children attached under all drag, drop, and sort operations.
+
+3. **Deadlock-Free Coordinated Multi-Note Mutex (`withMultiNoteLock`)**:
+   Moving content across two notes requires locking both documents to prevent concurrent interleaving. If operation 1 moves Note A → Note B while operation 2 moves Note B → Note A, naive locking deadlocks. We implemented a lexicographically sorted mutex acquisition chain that guarantees deadlock-free serialization across any number of documents.
+
+4. **100% Test Coverage on Failure Modes**:
+   We added 15 new test cases verifying network failure rollbacks, reverse concurrent locks, and multi-column sorting across 4 sort modes (`score`, `startDate`, `important`, `urgent`), bringing our test suite to **291 passing tests across 21 suites**.
+
+Check out the full repository and install it in your Amplenote workspace:  
+GitHub: https://github.com/krishnakanthb13/anp-15-kanban
+
+Would love your feedback on the architecture and concurrency approach!
+
+---
+
 # Released: Kanban Plugin v0.0.48 — Tags Boards, Drag-and-Drop Retagging & Responsive Wheel Scrolling
 
 ## LinkedIn

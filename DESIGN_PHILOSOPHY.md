@@ -261,14 +261,15 @@ Amplenote full-page embeds are intercepted and rendered via Amplenote's Service 
 
 ---
 
-## 27. Atomic Task Relocation Across Note Boundaries
+## 27. Insert-Before-Delete Resiliency & Coordinated Multi-Note Relocation
 
 When moving tasks between notes (e.g. across note columns in Tag Boards or Multi-Note Boards):
-- **Single Entity Authority**: Task moves use Amplenote's native `app.updateTask(taskUuid, { noteUUID })` to transfer the existing task entity to the destination note.
-- **No Duplicate Entity Insertion**: The board avoids creating parallel `app.insertTask` calls when moving existing cards, preventing task duplication between the top of the note and the target heading.
-- **Resilient Markdown Relocation**: The task's physical markdown line is safely removed from the source note and spliced directly under the destination heading in the target note, ensuring 1-to-1 fidelity between note markdown and visual board columns.
+- **Single Entity Authority**: Task moves use Amplenote's native `app.updateTask(taskUuid, { noteUUID })` to transfer the existing task entity to the destination note without duplicate task IDs.
+- **Insert-Before-Delete Ordering**: Because Amplenote API mutations are non-transactional without distributed rollback, deleting the source task before writing the target risks permanent data loss on network drops. The board updates the task entity and inserts the task block under the destination column *before* removing it from the source note. If destination insertion or `updateTask` fails, the source note remains completely intact.
+- **Hierarchical Task Block Preservation**: Moving a task extracts the entire task block (`findTaskBlock`)—including all child subtasks, multiline descriptions, comments, and footnotes—ensuring nested task trees are never severed or corrupted.
+- **Coordinated Multi-Note Mutex Locks**: Multi-note operations acquire sequential locks across all involved note UUIDs via `withMultiNoteLock`, sorting keys lexicographically to guarantee deadlock-free execution.
 
-**Why:** Moving work across projects should preserve the task's identity, timestamps, subtasks, and score without generating duplicate orphan tasks at the top of the document.
+**Why:** Moving work across projects must guarantee data safety even under intermittent connectivity or transient API failures, preserving the task's identity, timestamps, subtasks, and score without risk of content loss.
 
 ---
 
@@ -336,3 +337,15 @@ Even when code runs inside a sandboxed iframe with no direct `app.*` access, une
 - **Strict Context-Aware Escaping**: All dynamic strings formatted into HTML fragments (note names, tags, formatted dates, timestamps, repeat rules) must pass through a strict client-side entity escaping layer (`escapeHtml`), while pure text nodes use `node.textContent`.
 
 **Why:** Defense-in-depth requires that sandboxed presentation layers never trust account data. Sanitizing all interpolated variables ensures that collaborative and shared notes remain completely safe against stored and DOM-based XSS.
+
+---
+
+## 34. Hierarchical Task Block Integrity Over Naive Line Slicing
+
+In Markdown, a task is rarely a standalone single line. Real-world tasks frequently include indented subtask checklists (`    - [ ] subtask`), nested bullet notes, multiline descriptions, and rich footnotes directly beneath the parent task checkbox:
+- **Block-Level Boundary Detection**: Rather than slicing a single line by index, the parser inspects following lines (`findTaskBlock`) to identify the complete extent of the task block until the next unindented item, heading, or thematic break.
+- **Atomic Subtree Relocation**: Moving a task to another column or reordering within a section moves the root line along with its entire indented child tree intact.
+- **Non-Destructive Sorting**: Persisting dashboard sorts (`sortTasksInNoteMarkdown`) rearranges only top-level task blocks, preserving all child subtasks, descriptions, preambles, and interstitial paragraphs in their respective sections.
+
+**Why:** Treating a task as a single line corrupts user documents by severing subtasks from their parents or attaching orphaned subtasks to arbitrary adjacent cards during reordering. Preserving hierarchical task blocks guarantees that complex nested task structures survive board operations flawlessly.
+

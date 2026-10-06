@@ -311,6 +311,62 @@ describe("taskOps", () => {
       expect(updates.completedAt).toBeLessThan(1e11);
       expect(updates.completedAt).toBeGreaterThan(1e9);
     });
+
+    it("moves parent task along with its indented subtasks to destination column", async () => {
+      const markdown = [
+        "# Alpha",
+        "- [ ] Parent 1 <!-- {\"uuid\":\"p1\"} -->",
+        "    - [ ] Subtask 1.1",
+        "    Multiline note line",
+        "- [ ] Parent 2 <!-- {\"uuid\":\"p2\"} -->",
+        "# Beta",
+      ].join("\n");
+
+      let current = markdown;
+      const app = {
+        getNoteContent: jest.fn(async () => current),
+        replaceNoteContent: jest.fn(async (_, next) => { current = next; return true; }),
+        getTask: jest.fn(async (id) => ({ uuid: id, content: id === "p1" ? "Parent 1" : "Parent 2" })),
+      };
+
+      await moveTaskToColumn(app, "n1", "p1", { columnName: "Beta" });
+
+      expect(current).toBe([
+        "# Alpha",
+        "- [ ] Parent 2 <!-- {\"uuid\":\"p2\"} -->",
+        "# Beta",
+        "- [ ] Parent 1 <!-- {\"uuid\":\"p1\"} -->",
+        "    - [ ] Subtask 1.1",
+        "    Multiline note line",
+      ].join("\n"));
+    });
+
+    it("moves task with subtasks relative to target card (after)", async () => {
+      const markdown = [
+        "# Alpha",
+        "- [ ] Target <!-- {\"uuid\":\"t1\"} -->",
+        "    - [ ] Target subtask",
+        "- [ ] Moving <!-- {\"uuid\":\"m1\"} -->",
+        "    - [ ] Moving subtask",
+      ].join("\n");
+
+      let current = markdown;
+      const app = {
+        getNoteContent: jest.fn(async () => current),
+        replaceNoteContent: jest.fn(async (_, next) => { current = next; return true; }),
+        getTask: jest.fn(async (id) => ({ uuid: id, content: id === "t1" ? "Target" : "Moving" })),
+      };
+
+      await moveTaskToColumn(app, "n1", "m1", { targetCardId: "t1", position: "after" });
+
+      expect(current).toBe([
+        "# Alpha",
+        "- [ ] Target <!-- {\"uuid\":\"t1\"} -->",
+        "    - [ ] Target subtask",
+        "- [ ] Moving <!-- {\"uuid\":\"m1\"} -->",
+        "    - [ ] Moving subtask",
+      ].join("\n"));
+    });
   });
 
   describe("sortTasksInNoteMarkdown", () => {
@@ -338,6 +394,93 @@ describe("taskOps", () => {
         "- [ ] High score <!-- {\"uuid\":\"t2\"} -->",
         "- [ ] Low score <!-- {\"uuid\":\"t1\"} -->",
       ].join("\n"));
+    });
+
+    it("preserves attached subtasks and non-task paragraphs when sorting tasks", async () => {
+      const markdown = [
+        "Intro preamble line",
+        "# Backlog",
+        "Column description paragraph.",
+        "- [ ] Task A (low) <!-- {\"uuid\":\"ta\"} -->",
+        "    - [ ] Subtask of A",
+        "    Multiline detail for A",
+        "",
+        "- [ ] Task B (high) <!-- {\"uuid\":\"tb\"} -->",
+        "Trailing column note.",
+        "# Done",
+        "- [ ] Task C (done) <!-- {\"uuid\":\"tc\"} -->",
+      ].join("\n");
+
+      const app = {
+        getNoteContent: jest.fn().mockResolvedValue(markdown),
+        getNoteTasks: jest.fn().mockResolvedValue([
+          { uuid: "ta", score: 5 },
+          { uuid: "tb", score: 95 },
+          { uuid: "tc", score: 20 },
+        ]),
+        replaceNoteContent: jest.fn().mockResolvedValue(true),
+      };
+
+      const result = await sortTasksInNoteMarkdown(app, "n1", "score");
+      expect(result).toBe(true);
+      const written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toBe([
+        "Intro preamble line",
+        "# Backlog",
+        "Column description paragraph.",
+        "- [ ] Task B (high) <!-- {\"uuid\":\"tb\"} -->",
+        "",
+        "- [ ] Task A (low) <!-- {\"uuid\":\"ta\"} -->",
+        "    - [ ] Subtask of A",
+        "    Multiline detail for A",
+        "Trailing column note.",
+        "# Done",
+        "- [ ] Task C (done) <!-- {\"uuid\":\"tc\"} -->",
+      ].join("\n"));
+    });
+
+    it("sorts across multiple columns and respects different sort modes (startDate, important, urgent)", async () => {
+      const markdown = [
+        "# Column 1",
+        "- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->",
+        "- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->",
+        "# Column 2",
+        "- [ ] Task 3 <!-- {\"uuid\":\"t3\"} -->",
+        "- [ ] Task 4 <!-- {\"uuid\":\"t4\"} -->",
+      ].join("\n");
+
+      const tasks = [
+        { uuid: "t1", startAt: 100, important: false, urgent: true },
+        { uuid: "t2", startAt: 500, important: true, urgent: false },
+        { uuid: "t3", startAt: 200, important: false, urgent: false },
+        { uuid: "t4", startAt: 900, important: true, urgent: true },
+      ];
+
+      const app = {
+        getNoteContent: jest.fn().mockResolvedValue(markdown),
+        getNoteTasks: jest.fn().mockResolvedValue(tasks),
+        replaceNoteContent: jest.fn().mockResolvedValue(true),
+      };
+
+      // Test startDate sort
+      await sortTasksInNoteMarkdown(app, "n1", "startDate");
+      let written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toContain("- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->\n- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->");
+      expect(written).toContain("- [ ] Task 4 <!-- {\"uuid\":\"t4\"} -->\n- [ ] Task 3 <!-- {\"uuid\":\"t3\"} -->");
+
+      // Test important sort
+      app.replaceNoteContent.mockClear();
+      await sortTasksInNoteMarkdown(app, "n1", "important");
+      written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toContain("- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->\n- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->");
+      expect(written).toContain("- [ ] Task 4 <!-- {\"uuid\":\"t4\"} -->\n- [ ] Task 3 <!-- {\"uuid\":\"t3\"} -->");
+
+      // Test urgent sort
+      app.replaceNoteContent.mockClear();
+      await sortTasksInNoteMarkdown(app, "n1", "urgent");
+      written = app.replaceNoteContent.mock.calls[0][1];
+      expect(written).toContain("- [ ] Task 1 <!-- {\"uuid\":\"t1\"} -->\n- [ ] Task 2 <!-- {\"uuid\":\"t2\"} -->");
+      expect(written).toContain("- [ ] Task 4 <!-- {\"uuid\":\"t4\"} -->\n- [ ] Task 3 <!-- {\"uuid\":\"t3\"} -->");
     });
   });
 });
